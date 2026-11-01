@@ -12,6 +12,35 @@ function getTile(prog, x, y, grid) {
   return prog[y * MAX_GRID + x];
 }
 
+// STARTから矢印をたどって到達できるタイルの位置（判定タイルは YES・NO 両方の出口をたどる）
+function reachableTiles(prog, grid) {
+  const seen = new Set(), stack = [[0, 0]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    const t = getTile(prog, x, y, grid);
+    if (!t) continue;
+    const i = y * MAX_GRID + x;
+    if (seen.has(i)) continue;
+    seen.add(i);
+    const dirs = TILE_DEFS[t.t].kind === 'cond' ? [t.d, t.n] : [t.d];
+    for (const d of dirs) stack.push([x + DX[d], y + DY[d]]);
+  }
+  return seen;
+}
+
+// 回路盤の中にあるのに、STARTから到達できない（決して実行されない）タイルの位置
+// 回路盤の外のタイルは、大きい頭部Aに付け替えたとき用に残すので含めない
+function orphanTiles(prog, grid) {
+  const reach = reachableTiles(prog, grid), out = [];
+  for (let y = 0; y < grid; y++) {
+    for (let x = 0; x < grid; x++) {
+      const i = y * MAX_GRID + x;
+      if (prog[i] && !reach.has(i)) out.push(i);
+    }
+  }
+  return out;
+}
+
 function angDiff(a, b) {
   let d = a - b;
   while (d > Math.PI) d -= Math.PI * 2;

@@ -29,6 +29,8 @@ const SKELETON_SVG = `
   </g>
 </svg>`;
 
+const UNDO_MAX = 100;   // 元に戻せる回数
+
 const SLOT_POS = {
   headCpu: [20, 8], headReg: [80, 8], torso: [50, 45], armL: [14, 62], armR: [86, 62], legs: [50, 88],
 };
@@ -57,6 +59,9 @@ const Garage = {
   t: 0,
   walk: 0,
   xray: false,
+  undoStack: [],   // 回路の編集履歴（元に戻す用。セーブには含めない）
+  curTab: 'assembly',
+  pendingTab: null, // 未接続タイルの確認ダイアログを閉じたあとに開くタブ
 
   init() {
     document.querySelectorAll('.tabs button').forEach(b => { b.onclick = () => this.tab(b.dataset.tab); });
@@ -64,23 +69,29 @@ const Garage = {
     this.buildPalette();
     document.getElementById('btn-sortie').onclick = () => Game.sortie();
     document.getElementById('btn-prog-default').onclick = () => {
-      if (!confirm('回路を初期プログラムに戻しますか？')) return;
-      Game.save.program = defaultProgram();
-      this.sel = null;
-      Game.persist();
-      this.renderCircuit();
-      this.renderInspector();
+      if (!confirm('回路を初期プログラムに戻しますか？（元に戻す で取り消せます）')) return;
+      this.editProgram(() => { Game.save.program = defaultProgram(); this.sel = null; });
     };
     document.getElementById('btn-prog-clear').onclick = () => {
-      if (!confirm('回路をすべて消去しますか？（STARTは残ります）')) return;
+      if (!confirm('回路をすべて消去しますか？（STARTは残ります。元に戻す で取り消せます）')) return;
       const p = new Array(MAX_GRID * MAX_GRID).fill(null);
       p[0] = { t: 'start', d: 2, n: 1, p: 0 };
-      Game.save.program = p;
-      this.sel = null;
-      Game.persist();
-      this.renderCircuit();
-      this.renderInspector();
+      this.editProgram(() => { Game.save.program = p; this.sel = null; });
     };
+    document.getElementById('btn-undo').onclick = () => this.undo();
+    document.getElementById('btn-orphans').onclick = () => this.clearOrphans();
+    document.getElementById('orphan-stay').onclick = () => this.answerOrphans('stay');
+    document.getElementById('orphan-keep').onclick = () => this.answerOrphans('keep');
+    document.getElementById('orphan-clear').onclick = () => this.answerOrphans('clear');
+    // Ctrl+Z（Mac は ⌘+Z）：回路タブを開いているときだけ有効
+    window.addEventListener('keydown', (e) => {
+      if (this.pendingTab && e.key === 'Escape') { this.answerOrphans('stay'); return; }
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return;
+      if (!document.getElementById('screen-garage').classList.contains('active')) return;
+      if (!document.getElementById('tab-circuit').classList.contains('active')) return;
+      e.preventDefault();
+      this.undo();
+    });
     const ec = document.getElementById('enemyCount');
     ec.oninput = () => {
       Game.save.enemyCount = +ec.value;
@@ -118,6 +129,12 @@ const Garage = {
   },
 
   tab(name) {
+    // 回路タブから抜けるとき、未接続のタイルがあれば消去するか確認する
+    if (this.curTab === 'circuit' && name !== 'circuit' && this.orphans().length) {
+      this.askOrphans(name);
+      return;
+    }
+    this.curTab = name;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
     this.renderAll();
@@ -280,6 +297,13 @@ const Garage = {
     el.innerHTML = html;
     el.querySelectorAll('.pbtn').forEach(b => {
       b.onclick = () => { this.brush = b.dataset.brush; this.updatePalette(); };
+      if (!TILE_DEFS[b.dataset.brush]) return;
+      // パレットから回路盤へドラッグして配置
+      b.draggable = true;
+      b.ondragstart = (e) => {
+        e.dataTransfer.setData('text/plain', 'tile:' + b.dataset.brush);
+        e.dataTransfer.effectAllowed = 'copy';
+      };
     });
     this.updatePalette();
   },
@@ -309,48 +333,164 @@ const Garage = {
     document.getElementById('circuit-info').innerHTML =
       `頭部A <b>${st.parts.headCpu.name}</b>：使用可能 ${grid}×${grid} マス / 処理速度 ${fmtNum(st.clock)} タイル毎秒 / センサー ${st.sensor}m`;
     const el = document.getElementById('circuit-grid');
+    const orphans = new Set(orphanTiles(prog, grid));
     let html = '';
     for (let y = 0; y < MAX_GRID; y++) {
       for (let x = 0; x < MAX_GRID; x++) {
-        const tile = prog[y * MAX_GRID + x];
+        const i = y * MAX_GRID + x;
+        const tile = prog[i];
         const off = x >= grid || y >= grid;
         const sel = this.sel && this.sel.x === x && this.sel.y === y;
-        html += `<div class="cell ${off ? 'off' : ''} ${sel ? 'sel' : ''}" data-x="${x}" data-y="${y}">${tile ? this.tileHTML(tile) : ''}</div>`;
+        const drag = tile && tile.t !== 'start' && !off;
+        html += `<div class="cell ${off ? 'off' : ''} ${sel ? 'sel' : ''} ${orphans.has(i) ? 'orphan' : ''}" data-x="${x}" data-y="${y}"` +
+          `${drag ? ' draggable="true"' : ''}${orphans.has(i) ? ' title="未接続：STARTからつながっていないため実行されません"' : ''}>${tile ? this.tileHTML(tile) : ''}</div>`;
       }
     }
     el.innerHTML = html;
+    const ub = document.getElementById('btn-undo');
+    ub.disabled = !this.undoStack.length;
+    ub.textContent = `↶ 元に戻す（${this.undoStack.length}）`;
+    const ob = document.getElementById('btn-orphans');
+    ob.disabled = !orphans.size;
+    ob.textContent = `未接続タイルを消去（${orphans.size}）`;
     el.querySelectorAll('.cell').forEach(c => {
       const x = +c.dataset.x, y = +c.dataset.y;
       c.onclick = () => this.cellClick(x, y);
       c.oncontextmenu = (e) => { e.preventDefault(); this.rotateTile(x, y, e.shiftKey); };
+      // ドラッグでタイルを移動（移動先にタイルがあれば入れ替え）
+      c.ondragstart = (e) => {
+        e.dataTransfer.setData('text/plain', 'cell:' + (y * MAX_GRID + x));
+        e.dataTransfer.effectAllowed = 'move';
+        c.classList.add('dragging');
+      };
+      c.ondragend = () => {
+        c.classList.remove('dragging');
+        el.querySelectorAll('.drop').forEach(d => d.classList.remove('drop'));
+      };
+      c.ondragover = (e) => {
+        if (!this.canDrop(x, y)) return;
+        e.preventDefault();
+        c.classList.add('drop');
+      };
+      c.ondragleave = () => c.classList.remove('drop');
+      c.ondrop = (e) => {
+        e.preventDefault();
+        c.classList.remove('drop');
+        this.dropOn(x, y, e.dataTransfer.getData('text/plain'));
+      };
     });
+  },
+
+  // ドロップできるのは回路盤の中で、START 以外のマス
+  canDrop(x, y) {
+    const grid = computeStats(Game.save.build, null, Game.save.upgrades).grid;
+    if (x >= grid || y >= grid) return false;
+    const t = Game.save.program[y * MAX_GRID + x];
+    return !(t && t.t === 'start');
+  },
+
+  dropOn(x, y, data) {
+    if (!data || !this.canDrop(x, y)) return;
+    const j = y * MAX_GRID + x;
+    const [kind, v] = data.split(':');
+    if (kind === 'tile' && TILE_DEFS[v]) {
+      this.editProgram(() => this.placeTile(x, y, v));
+    } else if (kind === 'cell') {
+      const i = +v;
+      if (i === j || !Game.save.program[i]) return;
+      this.editProgram(() => {
+        const prog = Game.save.program;
+        [prog[i], prog[j]] = [prog[j], prog[i]];
+        this.sel = { x, y };
+      });
+    }
+  },
+
+  // タイルを置く（置き換える場合は矢印の向きを引き継ぐ）
+  placeTile(x, y, key) {
+    const prog = Game.save.program;
+    const i = y * MAX_GRID + x;
+    const nt = makeTile(key);
+    if (prog[i]) { nt.d = prog[i].d; nt.n = prog[i].n; }
+    prog[i] = nt;
+    this.sel = { x, y };
+  },
+
+  // ------------------------------------------------------------ 未接続タイル
+  orphans() {
+    return orphanTiles(Game.save.program, computeStats(Game.save.build, null, Game.save.upgrades).grid);
+  },
+
+  clearOrphans() {
+    const list = this.orphans();
+    if (!list.length) return;
+    this.editProgram(() => {
+      for (const i of list) Game.save.program[i] = null;
+      if (this.sel && list.includes(this.sel.y * MAX_GRID + this.sel.x)) this.sel = null;
+    });
+  },
+
+  askOrphans(next) {
+    this.pendingTab = next;
+    const n = this.orphans().length;
+    document.getElementById('orphan-body').innerHTML =
+      `<p>STARTからつながっていないタイルが <b>${n}個</b> あります（回路盤で薄く表示されているタイル）。<br>これらは戦闘中に一度も実行されません。</p>
+       <p class="muted">消去しても「元に戻す」で取り消せます。</p>`;
+    document.getElementById('orphan-dialog').classList.add('show');
+  },
+
+  answerOrphans(ans) {
+    const next = this.pendingTab;
+    this.pendingTab = null;
+    document.getElementById('orphan-dialog').classList.remove('show');
+    if (ans === 'stay' || !next) return;
+    if (ans === 'clear') this.clearOrphans();
+    this.curTab = null;   // 確認を繰り返さないよう、回路タブから抜けた扱いにする
+    this.tab(next);
   },
 
   cellClick(x, y) {
     const grid = computeStats(Game.save.build, null, Game.save.upgrades).grid;
     if (x >= grid || y >= grid) return;
-    const prog = Game.save.program;
-    const i = y * MAX_GRID + x;
-    const tile = prog[i];
-    if (tile && tile.t === 'start') this.sel = { x, y };
-    else if (this.brush === 'erase') { prog[i] = null; this.sel = null; }
-    else if (this.brush !== 'select') {
-      const nt = makeTile(this.brush);
-      if (tile) { nt.d = tile.d; nt.n = tile.n; }
-      prog[i] = nt;
-      this.sel = { x, y };
-    } else this.sel = tile ? { x, y } : null;
-    Game.persist();
-    this.renderCircuit();
-    this.renderInspector();
+    this.editProgram(() => {
+      const prog = Game.save.program;
+      const i = y * MAX_GRID + x;
+      const tile = prog[i];
+      if (tile && tile.t === 'start') this.sel = { x, y };
+      else if (this.brush === 'erase') { prog[i] = null; this.sel = null; }
+      else if (this.brush !== 'select') this.placeTile(x, y, this.brush);
+      else this.sel = tile ? { x, y } : null;
+    });
   },
 
   rotateTile(x, y, no) {
     const tile = Game.save.program[y * MAX_GRID + x];
     if (!tile) return;
-    if (no && TILE_DEFS[tile.t].kind === 'cond') tile.n = (tile.n + 1) % 4;
-    else tile.d = (tile.d + 1) % 4;
-    this.sel = { x, y };
+    this.editProgram(() => {
+      if (no && TILE_DEFS[tile.t].kind === 'cond') tile.n = (tile.n + 1) % 4;
+      else tile.d = (tile.d + 1) % 4;
+      this.sel = { x, y };
+    });
+  },
+
+  // 回路を書き換える処理はすべてここを通す。変更があったときだけ、変更前の状態を履歴に積む
+  editProgram(fn) {
+    const before = JSON.stringify(Game.save.program), sel = this.sel;
+    fn();
+    if (JSON.stringify(Game.save.program) !== before) {
+      this.undoStack.push({ prog: before, sel });
+      if (this.undoStack.length > UNDO_MAX) this.undoStack.shift();
+      Game.persist();
+    }
+    this.renderCircuit();
+    this.renderInspector();
+  },
+
+  undo() {
+    const h = this.undoStack.pop();
+    if (!h) return;
+    Game.save.program = JSON.parse(h.prog);
+    this.sel = h.sel;
     Game.persist();
     this.renderCircuit();
     this.renderInspector();
@@ -368,6 +508,9 @@ const Garage = {
         <li><b class="c-cond">判定</b>タイルは条件を満たすと<b class="yes">緑▲</b>へ、満たさないと<b class="no">赤▲</b>へ進みます。</li>
         <li>空きマス・回路盤の外へ進むとSTARTに戻ります。</li>
         <li>右クリック：矢印を回転 / Shift+右クリック：NO側の矢印を回転</li>
+        <li>ドラッグ：タイルを移動（移動先のタイルとは入れ替え）/ パレットからドラッグして配置</li>
+        <li>薄く表示されたタイルはSTARTからつながっておらず実行されません。「未接続タイルを消去」でまとめて消せます。</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> または「元に戻す」：直前の編集を取り消す</li>
         </ul>`;
       return;
     }
@@ -389,18 +532,15 @@ const Garage = {
     if (tile.t !== 'start') html += `<button id="insp-del" class="danger">このタイルを削除</button>`;
     el.innerHTML = html;
     const sel = document.getElementById('insp-p');
-    if (sel) sel.onchange = () => { tile.p = +sel.value; Game.persist(); this.renderCircuit(); };
+    if (sel) sel.onchange = () => this.editProgram(() => { tile.p = +sel.value; });
     el.querySelectorAll('.dbtn').forEach(b => {
-      b.onclick = () => { tile[b.dataset.k] = +b.dataset.d; Game.persist(); this.renderCircuit(); this.renderInspector(); };
+      b.onclick = () => this.editProgram(() => { tile[b.dataset.k] = +b.dataset.d; });
     });
     const del = document.getElementById('insp-del');
-    if (del) del.onclick = () => {
+    if (del) del.onclick = () => this.editProgram(() => {
       Game.save.program[this.sel.y * MAX_GRID + this.sel.x] = null;
       this.sel = null;
-      Game.persist();
-      this.renderCircuit();
-      this.renderInspector();
-    };
+    });
   },
 
   // ------------------------------------------------------------ 出力配分

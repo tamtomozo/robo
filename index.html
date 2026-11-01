@@ -52,6 +52,8 @@
       <div id="brush-info"></div>
       <div id="circuit-grid"></div>
       <div class="circuit-btns">
+        <button id="btn-undo" title="直前の編集を取り消す（Ctrl+Z）">↶ 元に戻す</button>
+        <button id="btn-orphans" title="STARTからつながっていないタイルをすべて消去">未接続タイルを消去</button>
         <button id="btn-prog-default">初期プログラムに戻す</button>
         <button id="btn-prog-clear" class="danger">全消去</button>
       </div>
@@ -97,6 +99,18 @@
         <h4>戦闘中の操作</h4>
         <p>ロボットは<b>回路プログラム</b>に従って自律戦闘します。<kbd>Space</kbd> 一時停止 / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 速度 ×1・×2・×4 / <kbd>Q</kbd><kbd>E</kbd> 出力配分 / ホイール ズーム / <kbd>Esc</kbd> 撤退</p>
         <p><kbd>M</kbd> で手動操作に切替：<kbd>WASD</kbd> 移動・マウス照準・左クリック 左腕・右クリック 右腕</p>
+      </div>
+    </div>
+  </div>
+  <!-- 回路タブを抜けるときの確認 -->
+  <div id="orphan-dialog" class="dialog">
+    <div class="dialog-box">
+      <h2>未接続のタイルがあります</h2>
+      <div id="orphan-body"></div>
+      <div class="dialog-btns">
+        <button id="orphan-stay">回路に戻る（Esc）</button>
+        <button id="orphan-keep">残して移動</button>
+        <button id="orphan-clear" class="primary">消去して移動</button>
       </div>
     </div>
   </div>
