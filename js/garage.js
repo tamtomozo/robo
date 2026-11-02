@@ -458,9 +458,13 @@ const Garage = {
       const tile = prog[i];
       if (tile && tile.t === 'start') this.sel = { x, y };
       else if (this.brush === 'erase') { prog[i] = null; this.sel = null; }
-      else if (this.brush !== 'select') this.placeTile(x, y, this.brush);
+      else if (this.brush !== 'select') {
+        this.placeTile(x, y, this.brush);
+        this.brush = 'select';   // 1枚置いたら選択・編集モードに戻る
+      }
       else this.sel = tile ? { x, y } : null;
     });
+    this.updatePalette();
   },
 
   rotateTile(x, y, no) {
