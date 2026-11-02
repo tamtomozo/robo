@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>サウンド＆BGM テスター</title>
+<style>
+  body {
+    background: #111418;
+    color: #e0e6ed;
+    font-family: 'Segoe UI', Meiryo, sans-serif;
+    padding: 20px;
+    margin: 0;
+  }
+  h1 { color: #5bc0be; font-size: 1.5rem; margin-bottom: 8px; }
+  p { color: #8a99ad; font-size: 0.9rem; margin-top: 0; }
+  .section {
+    background: #1c222b;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid #2a3442;
+  }
+  .section h2 {
+    color: #ffd166;
+    font-size: 1.1rem;
+    margin-top: 0;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #2a3442;
+    padding-bottom: 6px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+  }
+  button {
+    background: #2b3648;
+    color: #ffffff;
+    border: 1px solid #41516b;
+    border-radius: 6px;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  button:hover {
+    background: #3a4961;
+    border-color: #5bc0be;
+    color: #5bc0be;
+    transform: translateY(-1px);
+  }
+  button:active {
+    transform: translateY(1px);
+    background: #1e2633;
+  }
+  .bgm-btn.active {
+    background: #06d6a0;
+    color: #0b2920;
+    font-weight: bold;
+    border-color: #06d6a0;
+  }
+  .desc {
+    font-size: 0.75rem;
+    color: #9cb0c9;
+    display: block;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<h1>🔊 サウンド＆BGM テスター</h1>
+<p>低音重視でリファインしたBGM・SEの試聴用コンソールです。</p>
+
+<div class="section">
+  <h2>🎵 BGM プレビュー</h2>
+  <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+    <button class="bgm-btn" onclick="playBgm('garage', this)">
+      <strong>ガレージ BGM</strong>
+      <span class="desc">規律的・軍隊的マーチ (Dm, 重低音大太鼓+スネアロール)</span>
+    </button>
+    <button class="bgm-btn" onclick="playBgm('battle', this)">
+      <strong>戦闘 BGM</strong>
+      <span class="desc">鼓動音 Lub-Dub + ホラーテイスト (Cフリジアン)</span>
+    </button>
+    <button class="bgm-btn" onclick="playBgm('boss', this)">
+      <strong>ボス BGM</strong>
+      <span class="desc">パニック鼓動 + 凶悪アシッドサブベース</span>
+    </button>
+    <button onclick="stopBgm()" style="background: #e63946; border-color: #e63946;">
+      <strong>⏹ BGM 停止</strong>
+    </button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>💥 武装 SE（重厚・低音重視）</h2>
+  <div class="grid">
+    <button onclick="Sound.play('gun')"><strong>gun</strong><span class="desc">重機関銃</span></button>
+    <button onclick="Sound.play('shell')"><strong>shell</strong><span class="desc">大口径滑腔砲</span></button>
+    <button onclick="Sound.play('missile')"><strong>missile</strong><span class="desc">ロケット噴射</span></button>
+    <button onclick="Sound.play('flame')"><strong>flame</strong><span class="desc">火炎放射</span></button>
+    <button onclick="Sound.play('melee')"><strong>melee</strong><span class="desc">近接スイング</span></button>
+    <button onclick="Sound.play('meleeHit')"><strong>meleeHit</strong><span class="desc">装甲両断</span></button>
+    <button onclick="Sound.play('step')"><strong>step</strong><span class="desc">重量ロボ歩行</span></button>
+    <button onclick="Sound.play('reload')"><strong>reload</strong><span class="desc">排莢</span></button>
+    <button onclick="Sound.play('reloaded')"><strong>reloaded</strong><span class="desc">重装填</span></button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>💣 爆発・着弾・撃破</h2>
+  <div class="grid">
+    <button onclick="Sound.play('hit')"><strong>hit</strong><span class="desc">装甲被弾</span></button>
+    <button onclick="Sound.play('boom', {size: 3})"><strong>boom</strong><span class="desc">通常爆発</span></button>
+    <button onclick="Sound.play('boom', {size: 6})"><strong>boom (大)</strong><span class="desc">巨大爆発</span></button>
+    <button onclick="Sound.play('kill')"><strong>kill</strong><span class="desc">敵機粉砕</span></button>
+    <button onclick="Sound.play('killBig')"><strong>killBig</strong><span class="desc">大型敵崩壊</span></button>
+    <button onclick="Sound.play('hurt')"><strong>hurt</strong><span class="desc">被ダメージ</span></button>
+    <button onclick="Sound.play('die')"><strong>die</strong><span class="desc">自機大破</span></button>
+    <button onclick="Sound.play('ore', {kind: 'iron'})"><strong>ore</strong><span class="desc">鉱石回収</span></button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>👹 ボス＆エネミー SE</h2>
+  <div class="grid">
+    <button onclick="Sound.play('roar')"><strong>roar</strong><span class="desc">地響き咆哮</span></button>
+    <button onclick="Sound.play('quake')"><strong>quake</strong><span class="desc">地震ランブル</span></button>
+    <button onclick="Sound.play('slam')"><strong>slam</strong><span class="desc">重低音激突</span></button>
+    <button onclick="Sound.play('charge')"><strong>charge</strong><span class="desc">突進チャージ</span></button>
+    <button onclick="Sound.play('siren')"><strong>siren</strong><span class="desc">警報サイレン</span></button>
+    <button onclick="Sound.play('bossDie')"><strong>bossDie</strong><span class="desc">ボス消滅</span></button>
+    <button onclick="Sound.play('acid')"><strong>acid</strong><span class="desc">酸弾</span></button>
+    <button onclick="Sound.play('bite')"><strong>bite</strong><span class="desc">噛み砕き</span></button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>🛠 ガレージ＆UI SE</h2>
+  <div class="grid">
+    <button onclick="Sound.play('ui')"><strong>ui</strong><span class="desc">軍用クリック</span></button>
+    <button onclick="Sound.play('tick')"><strong>tick</strong><span class="desc">ダイヤル刻み</span></button>
+    <button onclick="Sound.play('equip')"><strong>equip</strong><span class="desc">油圧ロック</span></button>
+    <button onclick="Sound.play('place')"><strong>place</strong><span class="desc">回路配置</span></button>
+    <button onclick="Sound.play('erase')"><strong>erase</strong><span class="desc">パージ</span></button>
+    <button onclick="Sound.play('rotate')"><strong>rotate</strong><span class="desc">サーボ回転</span></button>
+    <button onclick="Sound.play('upgrade')"><strong>upgrade</strong><span class="desc">強化チャージ</span></button>
+    <button onclick="Sound.play('sortie')"><strong>sortie</strong><span class="desc">出撃ハッチ</span></button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>🎺 ジングル</h2>
+  <div class="grid">
+    <button onclick="Sound.play('clear')"><strong>clear</strong><span class="desc">軍楽ファンファーレ</span></button>
+    <button onclick="Sound.play('win')"><strong>win</strong><span class="desc">凱旋行進ジングル</span></button>
+    <button onclick="Sound.play('lose')"><strong>lose</strong><span class="desc">ホラー敗北</span></button>
+    <button onclick="Sound.play('retreat')"><strong>retreat</strong><span class="desc">撤退</span></button>
+  </div>
+</div>
+
+<script src="js/audio.js"></script>
+<script>
+  let activeBtn = null;
+  function playBgm(name, btn) {
+    Sound.unlock();
+    Sound.playBgm(name);
+    document.querySelectorAll('.bgm-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+  function stopBgm() {
+    Sound.stopBgm();
+    document.querySelectorAll('.bgm-btn').forEach(b => b.classList.remove('active'));
+  }
+</script>
+
+</body>
+</html>
+

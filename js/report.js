@@ -6,6 +6,7 @@
 const Report = {
   show(w) {
     Game.show('report');
+    Sound.playBgm('garage');
     const s = w.stats, P = w.player;
     const title = {
       win: '任務完了 — 全地区制圧・ボス撃破', lose: '機体大破 — 任務失敗', retreat: '撤退 — 任務中断',

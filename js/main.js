@@ -8,6 +8,7 @@ const Game = {
 
   init() {
     this.save = this.load();
+    Sound.init();
     Garage.init();
     this.toGarage();
   },
@@ -42,12 +43,14 @@ const Game = {
 
   toGarage() {
     this.show('garage');
+    Sound.playBgm('garage');
     Garage.onShow();
   },
 
   sortie() {
     Garage.onHide();
     this.show('battle');
+    Sound.play('sortie');
     Battle.start(this.save);
   },
 };

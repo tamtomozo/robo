@@ -36,6 +36,7 @@ function setPlayerRatio(w, P, v) {
   const reg = P.st.parts.headReg;
   const r = clampRatio(reg, Math.round(v * 100) / 100);
   if (Math.abs(r - P.st.ratio) < 0.001) return;
+  Sound.play('ratio', { up: r > P.st.ratio });
   P.st = computeStats(P.build, r, P.upgrades);
   P.arms.L.perf = P.st.armL;
   P.arms.R.perf = P.st.armR;
@@ -111,6 +112,7 @@ function startDistrict(w) {
   while (w.queue.length && w.enemies.length < MAX_ACTIVE_ENEMIES) spawnEnemy(w, w.queue.pop(), null);
   w.phase = 'fight';
   w.banner = { title: `${D.name}「${D.sub}」`, sub: `敵性生体反応 ${w.perDistrict}体`, t: 3 };
+  Sound.play('radio');
   addLog(w, `${D.name}「${D.sub}」：敵性生体反応 ${w.perDistrict}体 を確認。`, '#ffd24a');
 }
 
@@ -127,6 +129,8 @@ function advanceDistrict(w) {
     w.phase = 'warn';
     w.phaseT = 3;
     addLog(w, '全地区 掃討完了。大型の生体反応が地中を接近中！', '#ffd24a');
+    Sound.stopBgm(1.5);
+    Sound.play('siren');
   }
 }
 
@@ -180,6 +184,9 @@ function spawnBoss(w) {
   w.stats.bossAt = w.time;
   w.shake = 1;
   addLog(w, `ボス出現：${ENEMY_DEFS.boss.name}`, '#ff6a4a');
+  Sound.play('quake');
+  Sound.play('roar');
+  Sound.playBgm('boss');
 }
 
 // ---------------------------------------------------------------------
@@ -219,6 +226,7 @@ function updatePhase(w, dt) {
     w.pshots = [];
     w.eshots = [];
     addLog(w, `${D.name}「${D.sub}」 掃討完了。`, '#9fe0b0');
+    Sound.play('clear');
     collectAllOres(w);
   } else if (w.phase === 'warn') {
     w.phaseT -= dt;
@@ -234,6 +242,8 @@ function endBattle(w, result) {
   if (result === 'lose') addLog(w, '機体大破。通信途絶……', '#ff6a4a');
   if (result === 'retreat') addLog(w, '撤退信号を受信。戦域を離脱する。', '#ffd24a');
   if (result === 'return') addLog(w, `${w.stats.cleared}地区を掃討。基地への帰還を開始する。`, '#9fe0b0');
+  Sound.stopBgm(result === 'lose' ? 0.3 : 1);
+  Sound.play({ win: 'win', lose: 'lose', retreat: 'retreat', return: 'retreat' }[result]);
 }
 
 function collideRocks(w, o) {
@@ -306,6 +316,9 @@ function updatePlayer(w, P, dt, inp) {
   const sp = Math.hypot(P.vx, P.vy);
   P.walk += sp * dt;
   w.stats.distance += sp * dt;
+  // 歩幅ごとに足音
+  const stride = Math.floor(P.walk / 2.6);
+  if (stride !== P.stride) { P.stride = stride; Sound.play('step', { x: P.x, y: P.y, vol: 0.7 }); }
   collideRocks(w, P);
   clampField(w, P);
   P.hit = Math.max(0, P.hit - dt);
@@ -327,7 +340,7 @@ function updateArm(w, P, arm, dt) {
   arm.cd -= dt;
   if (arm.reloading > 0) {
     arm.reloading -= dt;
-    if (arm.reloading <= 0) { arm.reloading = 0; arm.ammo = arm.def.mag; }
+    if (arm.reloading <= 0) { arm.reloading = 0; arm.ammo = arm.def.mag; Sound.play('reloaded', { x: P.x, y: P.y }); }
   }
   if (arm.trigger > 0) {
     arm.trigger -= dt;
@@ -338,6 +351,7 @@ function updateArm(w, P, arm, dt) {
         arm.ammo--;
         if (arm.ammo <= 0) {
           arm.reloading = arm.perf.reload;
+          Sound.play('reload', { x: P.x, y: P.y });
           addLog(w, `${arm.side === 'L' ? '左' : '右'}腕 弾切れ → リロード ${arm.perf.reload.toFixed(1)}秒`, '#9cd6d6');
         }
       }
@@ -397,6 +411,7 @@ function fireArm(w, P, arm) {
   arm.recoil = 1;
   arm.flash = 0.06;
   const dmg = arm.perf.dmg;
+  Sound.play({ gun: 'gun', shell: 'shell', missile: 'missile', flame: 'flame', melee: 'melee' }[d.type], { x: mx, y: my });
   if (d.type === 'melee') { meleeSwing(w, P, arm, dmg); return; }
 
   const ang = (d.type === 'missile' ? P.a : aimAngle(w, P, mx, my, d.range)) + rand(-d.spread, d.spread);
@@ -440,7 +455,7 @@ function meleeSwing(w, P, arm, dmg) {
       w.fx.push({ type: 'spark', x: e.x - dx / len * e.r, y: e.y - dy / len * e.r, vx: rand(-8, 8), vy: rand(-8, 8), life: 0.25, max: 0.25, size: 0.15 });
     }
   }
-  if (hit) w.stats.hits[arm.side]++;
+  if (hit) { w.stats.hits[arm.side]++; Sound.play('meleeHit', { x: P.x, y: P.y }); }
   w.fx.push({ type: 'slash', x: P.x, y: P.y, a: P.a, range: d.range + 1.2, arc: d.arc, life: 0.18, max: 0.18 });
 }
 
@@ -449,6 +464,7 @@ function damageEnemy(w, e, dmg, side) {
   const real = Math.min(dmg, e.hp);
   e.hp -= dmg;
   e.flash = 0.08;
+  Sound.play('hit', { x: e.x, y: e.y });
   w.stats.dmgDealt += real;
   w.stats.dmgBy[side] += real;
   if (e.hp <= 0) killEnemy(w, e);
@@ -465,6 +481,7 @@ function killEnemy(w, e) {
   }
   addScorch(w, e.x, e.y, e.r * 1.2, art.scorchColor);
   dropOre(w, e);
+  Sound.play(e.type === 'boss' ? 'bossDie' : e.type === 'troll' ? 'killBig' : 'kill', { x: e.x, y: e.y });
   if (e.type === 'boss') {
     for (let i = 0; i < 8; i++) {
       w.fx.push({ type: 'boom', x: e.x + rand(-4, 4), y: e.y + rand(-4, 4), life: rand(0.5, 1.2), max: 1.2, size: rand(3, 6) });
@@ -493,6 +510,7 @@ function explode(w, x, y, rad, dmg, side, direct) {
     if (d < rad) damageEnemy(w, e, dmg * (1 - 0.5 * Math.max(0, d) / rad), side);
   }
   w.fx.push({ type: 'boom', x, y, life: 0.45, max: 0.45, size: rad });
+  Sound.play('boom', { x, y, size: rad });
   w.fx.push({ type: 'ring', x, y, life: 0.35, max: 0.35, size: rad * 1.4 });
   addScorch(w, x, y, rad * 0.7, 'rgba(30,22,15,0.35)');
 }
@@ -563,6 +581,7 @@ function hurtPlayer(w, dmg) {
   const real = dmg * 100 / (100 + P.st.def * 4);
   P.hp -= real;
   P.hit = 0.12;
+  Sound.play('hurt');
   w.stats.dmgTaken += Math.min(real, P.hp + real);
   w.shake = Math.max(w.shake, Math.min(0.6, real / 40));
   const pct = P.hp / P.maxHp * 100;
@@ -570,6 +589,7 @@ function hurtPlayer(w, dmg) {
     if (P.hpWarn > th && pct <= th) {
       P.hpWarn = th;
       addLog(w, `警告：機体損傷 HP ${th}% 以下`, '#ff7a5a');
+      Sound.play('alarm');
     }
   }
   if (P.hp <= 0) {
@@ -579,6 +599,7 @@ function hurtPlayer(w, dmg) {
       w.fx.push({ type: 'boom', x: P.x + rand(-2, 2), y: P.y + rand(-2, 2), life: rand(0.5, 1.3), max: 1.3, size: rand(1.5, 3.5) });
     }
     w.shake = 1.5;
+    Sound.play('die');
     endBattle(w, 'lose');
   }
 }
@@ -612,6 +633,7 @@ function updateEnemies(w, dt) {
       if (e.cd <= 0 && d < e.def.range) {
         e.cd = e.def.cd * rand(0.8, 1.2);
         e.lunge = 1;
+        Sound.play('acid', { x: e.x, y: e.y });
         w.eshots.push({ kind: 'acid', x: e.x + ux * e.r, y: e.y + uy * e.r, vx: ux * 16, vy: uy * 16, r: 0.4, dmg: e.def.dmg, life: 2.2 });
       }
     } else {
@@ -621,6 +643,7 @@ function updateEnemies(w, dt) {
       if (d < reach + 0.2 && e.cd <= 0) {
         e.cd = e.def.cd;
         e.lunge = 1;
+        Sound.play('bite', { x: e.x, y: e.y });
         hurtPlayer(w, e.def.dmg);
         if (e.type === 'troll') w.shake = Math.max(w.shake, 0.4);
       }
@@ -725,6 +748,7 @@ function updateBoss(w, e, dt) {
     e.phase2 = true;
     w.shake = 0.8;
     addLog(w, 'ボス 形態変化：甲殻が赤熱している！', '#ff6a4a');
+    Sound.play('roar');
   }
   const p2 = e.phase2;
   const spd = e.def.speed * (p2 ? 1.35 : 1);
@@ -763,7 +787,7 @@ function updateBoss(w, e, dt) {
       }
       if (Math.random() < 0.7) w.fx.push({ type: 'dust', x: e.x + rand(-3, 3), y: e.y + rand(-3, 3), vx: 0, vy: 0, life: 0.8, max: 0.8, size: rand(1, 2) });
       const wall = e.x <= e.r + 0.5 || e.y <= e.r + 0.5 || e.x >= w.W - e.r - 0.5 || e.y >= w.H - e.r - 0.5;
-      if (e.st <= 0 || wall) { e.state = 'recover'; e.st = 1.2; if (wall) w.shake = 0.6; }
+      if (e.st <= 0 || wall) { e.state = 'recover'; e.st = 1.2; if (wall) { w.shake = 0.6; Sound.play('slam', { vol: 0.6 }); } }
       break;
     }
     case 'recover':
@@ -779,6 +803,7 @@ function updateBoss(w, e, dt) {
           w.eshots.push({ kind: 'rock', x: e.x + Math.cos(a) * e.r, y: e.y + Math.sin(a) * e.r, vx: Math.cos(a) * 13, vy: Math.sin(a) * 13, r: 0.5, dmg: 12, life: 4 });
         }
         w.shake = Math.max(w.shake, 0.3);
+        Sound.play('volley', { x: e.x, y: e.y });
         e.waves--;
         e.st = 0.45;
         if (e.waves <= 0) { e.state = 'chase'; e.st = 2; }
@@ -795,6 +820,7 @@ function updateBoss(w, e, dt) {
             w.fx.push({ type: 'dust', x: m.x, y: m.y, vx: 0, vy: 0, life: 0.8, max: 0.8, size: 1.2 });
           }
           addLog(w, `ボスが眷属を呼び出した（+${n}体）`, '#ffb070');
+          Sound.play('summon', { x: e.x, y: e.y });
         }
         e.state = 'chase';
         e.st = 2;
@@ -806,6 +832,7 @@ function updateBoss(w, e, dt) {
         w.fx.push({ type: 'ring', x: e.x, y: e.y, life: 0.5, max: 0.5, size: 11 });
         addScorch(w, e.x, e.y, 6, 'rgba(40,25,15,0.3)');
         w.shake = 0.9;
+        Sound.play('slam');
         e.state = 'recover';
         e.st = 0.8;
       }
@@ -829,7 +856,7 @@ function bossPick(w, e, d) {
   const p2 = e.phase2;
   if (d < 10) { e.state = 'slam_wind'; e.st = p2 ? 0.7 : 1.0; return; }
   const r = Math.random();
-  if (r < 0.4) { e.state = 'charge_wind'; e.st = p2 ? 0.6 : 0.9; }
+  if (r < 0.4) { e.state = 'charge_wind'; e.st = p2 ? 0.6 : 0.9; Sound.play('charge'); }
   else if (r < 0.75) { e.state = 'ring'; e.st = 0.5; e.waves = p2 ? 3 : 2; }
   else { e.state = 'summon'; e.st = 0.8; }
 }
@@ -911,6 +938,7 @@ function collectOre(w, o) {
   o.got = true;
   w.ore[o.kind]++;
   w.orePulse[o.kind] = 0.35;
+  Sound.play('ore', { kind: o.kind });
   const col = ORES.find(k => k.id === o.kind).color;
   w.fx.push({ type: 'gib', x: w.player.x, y: w.player.y, vx: rand(-3, 3), vy: rand(-3, 3), life: 0.25, max: 0.25, size: 0.18, color: col });
 }
@@ -1640,11 +1668,13 @@ const Battle = {
     document.getElementById('confirm-yes').onclick = () => this.answerConfirm(true);
     document.getElementById('confirm-no').onclick = () => this.answerConfirm(false);
     this.running = true;
+    Sound.playBgm('battle');
     requestAnimationFrame(this.loop);
   },
 
   stop() {
     this.running = false;
+    Sound.duck(false);
     this.unbind();
     this.hideConfirm();
   },
@@ -1749,11 +1779,12 @@ const Battle = {
       return;
     }
     switch (e.code) {
-      case 'Space': this.paused = !this.paused; e.preventDefault(); break;
-      case 'Digit1': this.speed = 1; break;
-      case 'Digit2': this.speed = 2; break;
-      case 'Digit3': this.speed = 4; break;
+      case 'Space': this.paused = !this.paused; Sound.play('pause', { on: this.paused }); e.preventDefault(); break;
+      case 'Digit1': this.speed = 1; Sound.play('ui'); break;
+      case 'Digit2': this.speed = 2; Sound.play('ui'); break;
+      case 'Digit3': this.speed = 4; Sound.play('ui'); break;
       case 'KeyM':
+        Sound.play('ui');
         this.manual = !this.manual;
         addLog(w, this.manual ? '制御切替：手動操作' : '制御切替：回路プログラム', '#ffd24a');
         break;
@@ -1812,6 +1843,9 @@ const Battle = {
     const f = Math.min(1, dt * 5);
     this.cam.x += (P.x + this.camLead.x - this.cam.x) * f;
     this.cam.y += (P.y + this.camLead.y - this.cam.y) * f;
+
+    Sound.listen(this.cam.x, this.cam.y, this.VW / 2 / z);
+    Sound.duck(this.paused || this.confirmOpen);
 
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);

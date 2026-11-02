@@ -182,6 +182,7 @@ const Garage = {
     el.querySelectorAll('.part').forEach(d => {
       d.onclick = () => {
         b[s.key] = d.dataset.id;
+        Sound.play('equip');
         if (s.key === 'headReg') b.armRatio = clampRatio(partById('headReg', b.headReg), b.armRatio);
         Game.persist();
         this.renderAll();
@@ -274,6 +275,7 @@ const Garage = {
         if (!ORES.every(k => (ore[k.id] || 0) >= (cost[k.id] || 0))) return;
         for (const k of ORES) ore[k.id] -= cost[k.id] || 0;
         save.upgrades[id] = lv + 1;
+        Sound.play('upgrade');
         Game.persist();
         this.renderAll();
       };
@@ -394,10 +396,12 @@ const Garage = {
     const j = y * MAX_GRID + x;
     const [kind, v] = data.split(':');
     if (kind === 'tile' && TILE_DEFS[v]) {
+      Sound.play('place');
       this.editProgram(() => this.placeTile(x, y, v));
     } else if (kind === 'cell') {
       const i = +v;
       if (i === j || !Game.save.program[i]) return;
+      Sound.play('place');
       this.editProgram(() => {
         const prog = Game.save.program;
         [prog[i], prog[j]] = [prog[j], prog[i]];
@@ -456,13 +460,14 @@ const Garage = {
       const prog = Game.save.program;
       const i = y * MAX_GRID + x;
       const tile = prog[i];
-      if (tile && tile.t === 'start') this.sel = { x, y };
-      else if (this.brush === 'erase') { prog[i] = null; this.sel = null; }
+      if (tile && tile.t === 'start') { this.sel = { x, y }; Sound.play('tick'); }
+      else if (this.brush === 'erase') { if (tile) Sound.play('erase'); prog[i] = null; this.sel = null; }
       else if (this.brush !== 'select') {
+        Sound.play('place');
         this.placeTile(x, y, this.brush);
         this.brush = 'select';   // 1枚置いたら選択・編集モードに戻る
       }
-      else this.sel = tile ? { x, y } : null;
+      else { this.sel = tile ? { x, y } : null; if (tile) Sound.play('tick'); }
     });
     this.updatePalette();
   },
@@ -470,6 +475,7 @@ const Garage = {
   rotateTile(x, y, no) {
     const tile = Game.save.program[y * MAX_GRID + x];
     if (!tile) return;
+    Sound.play('rotate');
     this.editProgram(() => {
       if (no && TILE_DEFS[tile.t].kind === 'cond') tile.n = (tile.n + 1) % 4;
       else tile.d = (tile.d + 1) % 4;
@@ -493,6 +499,7 @@ const Garage = {
   undo() {
     const h = this.undoStack.pop();
     if (!h) return;
+    Sound.play('undo');
     Game.save.program = JSON.parse(h.prog);
     this.sel = h.sel;
     Game.persist();
