@@ -1628,6 +1628,8 @@ const Battle = {
     this.xray = false;
     this.zoom = 24;  // 1m あたりのピクセル数（ホイールで変更可）
     this.cam = { x: this.world.player.x, y: this.world.player.y };
+    this.camLead = { x: 0, y: 0 };  // 自機の前方へずらすカメラのオフセット（m）
+    this.atkHold = 0;               // 攻撃後もしばらく前方を広く見せる残り時間
     this.keys = {};
     this.mouse = { x: 0, y: 0, l: false, r: false, inside: false };
     this.acc = 0;
@@ -1793,9 +1795,23 @@ const Battle = {
     }
     if (w.phase === 'confirm' && !this.confirmOpen && !w.result) this.showConfirm();
     const P = w.player;
+    // 攻撃中は機体の向いている方向へカメラを先行させ、前方の視界を広げる
+    const attacking = ['L', 'R'].some(s => {
+      const a = P.arms[s];
+      return a.def.type !== 'none' && (a.trigger > 0 || a.flash > 0);
+    });
+    if (attacking) this.atkHold = 1.2;
+    else this.atkHold = Math.max(0, this.atkHold - dt);
+    const lead = this.atkHold > 0 ? 0.38 : 0.1;  // 画面半分に対する前方オフセット比
+    const z = this.zoom;
+    const tx = Math.cos(P.a) * this.VW / 2 / z * lead;
+    const ty = Math.sin(P.a) * this.VH / 2 / z * lead;
+    const fl = Math.min(1, dt * 2.5);
+    this.camLead.x += (tx - this.camLead.x) * fl;
+    this.camLead.y += (ty - this.camLead.y) * fl;
     const f = Math.min(1, dt * 5);
-    this.cam.x += (P.x - this.cam.x) * f;
-    this.cam.y += (P.y - this.cam.y) * f;
+    this.cam.x += (P.x + this.camLead.x - this.cam.x) * f;
+    this.cam.y += (P.y + this.camLead.y - this.cam.y) * f;
 
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
