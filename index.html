@@ -86,7 +86,8 @@
   <!-- 出撃 -->
   <div id="tab-sortie" class="tab">
     <div class="sortie">
-      <h2>出撃準備 — 荒野 第7区画（全3地区）</h2>
+      <h2 id="sortie-title"></h2>
+      <div id="field-select" class="field-select"></div>
       <div class="cnt-row">
         <label for="enemyCount">1地区あたりのエネミー数</label>
         <input type="range" id="enemyCount" min="1" max="100" step="1">
@@ -138,11 +139,13 @@
 
 <script src="js/data.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/field.js"></script>
 <script src="js/robot.js"></script>
 <script src="js/parts-art.js"></script>
 <script src="js/enemy-art.js"></script>
 <script src="js/circuit.js"></script>
 <script src="js/battle.js"></script>
+<script src="js/boss-spider.js"></script>
 <script src="js/garage.js"></script>
 <script src="js/report.js"></script>
 <script src="js/main.js"></script>

@@ -287,6 +287,51 @@ const SFX = {
     for (let i = 0; i < 5; i++) S.noise(out, t + 0.35 + i * 0.07, { dur: 0.06, vol: 0.18, filt: 'bandpass', f: 1600 + i * 200, q: 3 });
     return 1.05;
   } },
+  inhale: { gap: 0.5, play(S, t, out) {   // 弾を放つ前に砂礫を吸い込む
+    S.noise(out, t, { dur: 0.95, vol: 0.32, a: 0.8, filt: 'bandpass', f: 250, f2: 1600, q: 2 });
+    S.tone(out, t, { type: 'sawtooth', f: 60, f2: 110, dur: 0.95, vol: 0.14, a: 0.7, filt: 'lowpass', ff: 500, vib: [12, 4] });
+    return 1;
+  } },
+  burrow: { gap: 0.5, play(S, t, out) {   // 地中へ潜る
+    S.noise(out, t, { dur: 1.4, vol: 0.45, a: 0.1, filt: 'lowpass', f: 700, f2: 90 });
+    S.tone(out, t, { type: 'sine', f: 55, f2: 30, dur: 1.2, vol: 0.35 });
+    return 1.5;
+  } },
+  rumble: { gap: 0.5, play(S, t, out) {   // 真下から噴き出す直前の地鳴り
+    S.noise(out, t, { dur: 0.9, vol: 0.5, a: 0.6, filt: 'lowpass', f: 120, f2: 500 });
+    S.tone(out, t, { type: 'sine', f: 35, f2: 60, dur: 0.9, vol: 0.4, a: 0.5 });
+    return 0.95;
+  } },
+  // ---- 蒼晶蜘蛛（洞窟のボス） ----
+  screech: { gap: 0.8, play(S, t, out) {   // 甲高い金切り声
+    S.tone(out, t, { type: 'sawtooth', f: 900, f2: 1500, dur: 0.9, vol: 0.12, a: 0.08, filt: 'bandpass', ff: 1800, vib: [23, 6] });
+    S.tone(out, t, { type: 'square', f: 1350, f2: 980, dur: 0.8, vol: 0.06, a: 0.1, filt: 'bandpass', ff: 2400, vib: [17, 5] });
+    S.noise(out, t, { dur: 0.9, vol: 0.18, a: 0.1, filt: 'bandpass', f: 3000, f2: 1800, q: 3 });
+    return 1;
+  } },
+  leap: { gap: 0.3, play(S, t, out) {      // 跳躍の風切り音
+    S.noise(out, t, { dur: 0.5, vol: 0.35, a: 0.05, filt: 'bandpass', f: 400, f2: 1800, q: 1.5 });
+    S.tone(out, t, { type: 'sine', f: 90, f2: 50, dur: 0.15, vol: 0.3 });
+    return 0.55;
+  } },
+  web: { gap: 0.3, play(S, t, out) {       // 糸玉を吐く粘つく音
+    for (let i = 0; i < 3; i++) {
+      S.noise(out, t + i * 0.07, { dur: 0.12, vol: 0.2, filt: 'lowpass', f: 900, f2: 300 });
+      S.tone(out, t + i * 0.07, { type: 'sine', f: 380, f2: 150, dur: 0.1, vol: 0.12 });
+    }
+    return 0.3;
+  } },
+  shard: { gap: 0.15, play(S, t, out) {    // 晶弾の発射（澄んだ高音）
+    [88, 92, 95].forEach((m, i) => S.tone(out, t + i * 0.025, { type: 'triangle', f: midiHz(m), dur: 0.25, vol: 0.07 }));
+    S.noise(out, t, { dur: 0.08, vol: 0.18, filt: 'highpass', f: 5000 });
+    return 0.32;
+  } },
+  shatter: { gap: 0.06, play(S, t, out) {  // 結晶が砕ける
+    S.noise(out, t, { dur: 0.3, vol: 0.35, filt: 'highpass', f: 3500 });
+    for (let i = 0; i < 4; i++) S.tone(out, t + i * 0.03, { type: 'triangle', f: 2200 + Math.random() * 2400, dur: 0.12, vol: 0.05 });
+    S.tone(out, t, { type: 'sine', f: 140, f2: 60, dur: 0.18, vol: 0.25 });
+    return 0.32;
+  } },
   bossDie: { gap: 2, play(S, t, out) {
     for (let i = 0; i < 8; i++) {
       S.tone(out, t + i * 0.16, { type: 'sine', f: 65, f2: 18, dur: 0.85, vol: 0.65 });

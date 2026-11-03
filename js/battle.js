@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  戦闘：荒野フィールド（見下ろし）・プレイヤー1機 vs エネミー多数 → ボス
+//  戦闘：フィールド（見下ろし）・プレイヤー1機 vs エネミー多数 → ボス。フィールドの形は field.js
 // =====================================================================
 
 const STEP = 1 / 60;
@@ -48,11 +48,13 @@ function insideRock(w, x, y, r) {
 }
 
 function createWorld(save) {
-  // W = 現在開放されている範囲の幅（掃討済み地区＋現在の地区）、FW = 全地区の幅
-  const H = DISTRICT_H, FW = DISTRICT_W * DISTRICTS.length;
+  // field = 出撃するフィールド、geo = その形の処理（field.js）。FW × H = フィールド全体の大きさ
+  const F = fieldById(save.field), geo = FIELD_SHAPES[F.shape];
+  const { FW, H } = geo.size(F);
   const w = {
-    W: DISTRICT_W, H, FW, district: 0, perDistrict: save.enemyCount,
+    field: F, geo, FW, H, district: 0, open: 1, full: false, perDistrict: save.enemyCount,
     time: 0, enemies: [], pshots: [], eshots: [], fx: [], scorch: [], rocks: [], decor: [],
+    webs: [], hazards: [],   // 蜘蛛の巣（機体が減速する）/ 落下予告の出ている攻撃（boss-spider.js）
     phase: 'fight', phaseT: 0, boss: null, log: [], result: null, endT: 0, shake: 0, banner: null,
     program: save.program,
     ores: [], ore: emptyOre(), orePulse: {}, oreResult: null,   // 落ちている鉱石 / 回収した鉱石
@@ -62,19 +64,21 @@ function createWorld(save) {
       distance: 0, total: save.enemyCount, bossAt: null, cleared: 0,
     },
   };
+  w.start = geo.start(F);
+  geo.init(w);
   w.player = createPlayer(save);
-  w.player.x = DISTRICT_W / 2;
-  w.player.y = H / 2;
+  w.player.x = w.start.x;
+  w.player.y = w.start.y;
+  w.player.a = w.start.a;
 
-  for (let i = 0; i < 10 * DISTRICTS.length; i++) {
+  const nd = F.districts.length;
+  for (let i = 0; i < F.rocksPer * nd; i++) {
     // 岩同士・外周との間に大型エネミーが通れる隙間（4.5m以上）を確保する
     let x, y, tries = 0, ok = false;
-    const r = rand(2, 6);
+    const r = rand(F.rockR[0], F.rockR[1]);
     while (!ok && tries++ < 60) {
-      x = rand(r + 5, FW - r - 5);
-      y = rand(r + 5, H - r - 5);
-      ok = Math.hypot(x - DISTRICT_W / 2, y - H / 2) >= 24 &&
-           Math.abs(((x + DISTRICT_W / 2) % DISTRICT_W) - DISTRICT_W / 2) >= 9 &&
+      ({ x, y } = geo.randomPoint(w, i % nd, r + 5));
+      ok = geo.rockOk(w, x, y, r) &&
            w.rocks.every(k => Math.hypot(k.x - x, k.y - y) >= k.r * 1.12 + r * 1.12 + 4.5);
     }
     if (!ok) continue;
@@ -85,23 +89,21 @@ function createWorld(save) {
       const rr = r * rand(0.8, 1.12);
       pts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
     }
-    w.rocks.push({ x, y, r, pts });
+    w.rocks.push({ x, y, r, pts, cave: !!F.dark });
   }
-  for (let i = 0; i < 900; i++) {
-    w.decor.push({
-      x: rand(0, FW), y: rand(0, H), s: rand(0.5, 1.5), rot: rand(0, 6.283),
-      type: pick(['pebble', 'pebble', 'pebble', 'bush', 'bush', 'crack', 'bone']),
-    });
+  for (let i = 0; i < F.decorN; i++) {
+    const { x, y } = geo.randomPoint(w, i % nd, 0.5);
+    w.decor.push({ x, y, s: rand(0.5, 1.5), rot: rand(0, 6.283), type: pick(F.decor) });
   }
-  addLog(w, '戦闘モード起動。荒野 第7区画へ降下完了。', '#9fe0b0');
+  addLog(w, `戦闘モード起動。${F.name}へ降下完了。`, '#9fe0b0');
   startDistrict(w);
   return w;
 }
 
 // 現在の地区の敵を配置（同時出現上限を超える分は増援キューへ）
 function startDistrict(w) {
-  const D = DISTRICTS[w.district];
-  const comp = enemyComposition(w.perDistrict, w.district);
+  const D = w.field.districts[w.district];
+  const comp = enemyComposition(w.perDistrict, D);
   for (let i = comp.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
     [comp[i], comp[j]] = [comp[j], comp[i]];
@@ -118,17 +120,19 @@ function startDistrict(w) {
 
 // 確認ダイアログで「進む」を選んだとき
 function advanceDistrict(w) {
-  if (w.district < DISTRICTS.length - 1) {
+  const DS = w.field.districts;
+  if (w.district < DS.length - 1) {
     w.district++;
-    w.W = DISTRICT_W * (w.district + 1);
+    w.open = w.district + 1;
     w.stats.total += w.perDistrict;
-    addLog(w, `封鎖線を解除。${DISTRICTS[w.district].name}へ進攻する。`, '#9fe0b0');
+    addLog(w, `封鎖線を解除。${DS[w.district].name}へ進攻する。`, '#9fe0b0');
     startDistrict(w);
   } else {
-    w.W = w.FW;
+    w.open = DS.length;
+    w.full = true;
     w.phase = 'warn';
     w.phaseT = 3;
-    addLog(w, '全地区 掃討完了。大型の生体反応が地中を接近中！', '#ffd24a');
+    addLog(w, `全地区 掃討完了。${w.field.bossWarn}`, '#ffd24a');
     Sound.stopBgm(1.5);
     Sound.play('siren');
   }
@@ -145,13 +149,17 @@ function spawnEnemy(w, type, at) {
   let x, y;
   if (at) { x = at.x; y = at.y; }
   else {
-    // 現在の地区の中で、機体から離れた位置に出現
-    const x0 = w.district * DISTRICT_W;
-    let tries = 0;
-    do {
-      x = rand(x0 + 5, x0 + DISTRICT_W - 5);
-      y = rand(5, w.H - 5);
-    } while ((Math.hypot(x - w.player.x, y - w.player.y) < 40 || insideRock(w, x, y, def.r)) && tries++ < 40);
+    // 現在の地区の中で、機体から 40m 以上離れた位置に出現。狭くて見つからなければ候補のうち一番遠い位置
+    let best = null, bd = -1;
+    for (let tries = 0; tries < 40; tries++) {
+      const pt = w.geo.randomPoint(w, w.district, 5);
+      if (insideRock(w, pt.x, pt.y, def.r)) continue;
+      const d = Math.hypot(pt.x - w.player.x, pt.y - w.player.y);
+      if (d > bd) { bd = d; best = pt; }
+      if (d >= 40) break;
+    }
+    if (!best) best = w.geo.randomPoint(w, w.district, 5);
+    ({ x, y } = best);
   }
   const e = {
     type, def, x, y, vx: 0, vy: 0, a: 0, r: def.r, hp: def.hp, maxHp: def.hp,
@@ -164,28 +172,28 @@ function spawnEnemy(w, type, at) {
 
 function spawnBoss(w) {
   const P = w.player;
+  // 機体から離れた、フィールドの内側の位置に出現（見つからなければ近づける）
   let x, y, t = 0;
   do {
-    const a = rand(0, Math.PI * 2);
-    x = P.x + Math.cos(a) * 32;
-    y = P.y + Math.sin(a) * 32;
-  } while ((x < 12 || y < 12 || x > w.W - 12 || y > w.H - 12 || insideRock(w, x, y, 5)) && t++ < 60);
-  x = clamp(x, 12, w.W - 12);
-  y = clamp(y, 12, w.H - 12);
-  const e = spawnEnemy(w, 'boss', { x, y });
-  e.hp = e.maxHp = ENEMY_DEFS.boss.hp + 25 * w.perDistrict;
-  e.state = 'emerge';
-  e.st = 2.2;
+    const a = rand(0, Math.PI * 2), dist = t < 40 ? 32 : 20;
+    x = P.x + Math.cos(a) * dist;
+    y = P.y + Math.sin(a) * dist;
+  } while ((!w.geo.inside(w, x, y, 7) || insideRock(w, x, y, 5)) && t++ < 80);
+  // ボスの種類はフィールドごとに決まる（BOSS_KINDS）
+  const K = BOSS_KINDS[w.field.boss];
+  const e = spawnEnemy(w, w.field.boss, { x, y });
+  w.geo.clamp(w, e);
+  e.hp = e.maxHp = e.def.hp + 25 * w.perDistrict;
+  bossSet(e, 'emerge', K.emergeT);
   e.invuln = true;
   e.phase2 = false;
-  e.segs = [];
-  for (let i = 0; i < 6; i++) e.segs.push({ x, y });
+  K.init(w, e);
   w.boss = e;
   w.stats.bossAt = w.time;
   w.shake = 1;
-  addLog(w, `ボス出現：${ENEMY_DEFS.boss.name}`, '#ff6a4a');
+  addLog(w, `ボス出現：${e.def.name}`, '#ff6a4a');
   Sound.play('quake');
-  Sound.play('roar');
+  Sound.play(K.cry);
   Sound.playBgm('boss');
 }
 
@@ -203,6 +211,7 @@ function simulate(w, dt, inp) {
   updateEnemies(w, dt);
   updateEnemyShots(w, dt);
   updateOres(w, dt);
+  updateHazards(w, dt);
   updateFx(w, dt);
   updatePhase(w, dt);
   if (w.result) w.endT += dt;
@@ -220,7 +229,7 @@ function updatePhase(w, dt) {
   }
   if (w.phase === 'fight' && w.enemies.length === 0 && w.queue.length === 0) {
     // 地区掃討 → 確認ダイアログ待ち（Battle 側がダイアログを出す）
-    const D = DISTRICTS[w.district];
+    const D = w.field.districts[w.district];
     w.stats.cleared = w.district + 1;
     w.phase = 'confirm';
     w.pshots = [];
@@ -258,8 +267,7 @@ function collideRocks(w, o) {
 }
 
 function clampField(w, o) {
-  o.x = clamp(o.x, o.r, w.W - o.r);
-  o.y = clamp(o.y, o.r, w.H - o.r);
+  w.geo.clamp(w, o);
 }
 
 function updatePlayer(w, P, dt, inp) {
@@ -308,6 +316,7 @@ function updatePlayer(w, P, dt, inp) {
     dvx = (fx * thrust + rx * strafe * st.strafe) * st.speed;
     dvy = (fy * thrust + ry * strafe * st.strafe) * st.speed;
   }
+  if (w.webs.length && inWeb(w, P)) { dvx *= WEB_SLOW; dvy *= WEB_SLOW; }   // 蜘蛛の巣に脚を取られる
   const k = Math.min(1, st.accel * dt);
   P.vx += (dvx - P.vx) * k;
   P.vy += (dvy - P.vy) * k;
@@ -448,7 +457,7 @@ function meleeSwing(w, P, arm, dmg) {
     if (Math.abs(angDiff(Math.atan2(dy, dx), P.a)) > d.arc / 2 && dist > 0.5) continue;
     damageEnemy(w, e, dmg, arm.side);
     hit = true;
-    const kb = e.type === 'boss' ? 0 : e.type === 'troll' ? 4 : 12;
+    const kb = e.def.boss ? 0 : e.type === 'troll' ? 4 : 12;
     e.vx += dx / len * kb;
     e.vy += dy / len * kb;
     for (let i = 0; i < 4; i++) {
@@ -471,18 +480,19 @@ function damageEnemy(w, e, dmg, side) {
 }
 
 function killEnemy(w, e) {
-  w.stats.kills[e.type]++;
+  w.stats.kills[e.def.boss ? 'boss' : e.type]++;
   const art = enemyArtOf(e.type);
   const col = art.gibColor;
-  const n = e.type === 'boss' ? 60 : e.type === 'troll' ? 16 : 7;
+  const n = e.def.boss ? 60 : e.type === 'troll' ? 16 : 7;
   for (let i = 0; i < n; i++) {
-    const a = rand(0, Math.PI * 2), s = rand(2, 9) * (e.type === 'boss' ? 2 : 1);
-    w.fx.push({ type: 'gib', x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.4, 0.9), max: 0.9, size: rand(0.15, 0.35) * (e.type === 'boss' ? 2 : 1), color: col });
+    const a = rand(0, Math.PI * 2), s = rand(2, 9) * (e.def.boss ? 2 : 1);
+    w.fx.push({ type: 'gib', x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.4, 0.9), max: 0.9, size: rand(0.15, 0.35) * (e.def.boss ? 2 : 1), color: col });
   }
   addScorch(w, e.x, e.y, e.r * 1.2, art.scorchColor);
   dropOre(w, e);
-  Sound.play(e.type === 'boss' ? 'bossDie' : e.type === 'troll' ? 'killBig' : 'kill', { x: e.x, y: e.y });
-  if (e.type === 'boss') {
+  Sound.play(e.def.boss ? 'bossDie' : e.type === 'troll' ? 'killBig' : 'kill', { x: e.x, y: e.y });
+  if (e.def.boss) {
+    w.hazards = [];
     for (let i = 0; i < 8; i++) {
       w.fx.push({ type: 'boom', x: e.x + rand(-4, 4), y: e.y + rand(-4, 4), life: rand(0.5, 1.2), max: 1.2, size: rand(3, 6) });
     }
@@ -490,7 +500,7 @@ function killEnemy(w, e) {
     endBattle(w, 'win');
     return;
   }
-  const remain = w.enemies.filter(o => o.hp > 0 && o.type !== 'boss').length + w.queue.length;
+  const remain = w.enemies.filter(o => o.hp > 0 && !o.def.boss).length + w.queue.length;
   const killed = w.stats.kills.scarab + w.stats.kills.spitter + w.stats.kills.troll;
   if (w.phase === 'fight') {
     if (remain > 0 && (remain <= 3 || killed % 10 === 0)) addLog(w, `撃破 ${killed} / 残敵 ${remain}体`);
@@ -518,7 +528,7 @@ function explode(w, x, y, rad, dmg, side, direct) {
 function updatePlayerShots(w, dt) {
   for (const s of w.pshots) {
     if (s.kind === 'missile') {
-      if (!s.target || s.target.hp <= 0) s.target = nearestTo(w, s.x, s.y, 30);
+      if (!s.target || s.target.hp <= 0 || s.target.invuln) s.target = nearestTo(w, s.x, s.y, 30);
       if (s.target) {
         const want = Math.atan2(s.target.y - s.y, s.target.x - s.x);
         const m = s.turn * dt;
@@ -532,6 +542,7 @@ function updatePlayerShots(w, dt) {
         w.fx.push({ type: 'smoke', x: s.x, y: s.y, vx: 0, vy: 0, life: 0.6, max: 0.6, size: 0.3 });
       }
     } else if (s.kind === 'flame') {
+      for (const wb of w.webs) if (Math.hypot(wb.x - s.x, wb.y - s.y) < wb.r) wb.t = Math.min(wb.t, 0.4);   // 巣を焼き払う
       s.vx *= (1 - 1.2 * dt);
       s.vy *= (1 - 1.2 * dt);
       s.r += dt * 2.2;
@@ -572,7 +583,7 @@ function updatePlayerShots(w, dt) {
     }
     if (!s.done && s.life <= 0 && s.splash && s.kind !== 'flame') explode(w, s.x, s.y, s.splash, s.dmg, s.arm, null);
   }
-  w.pshots = w.pshots.filter(s => s.life > 0 && s.x > -5 && s.y > -5 && s.x < w.W + 5 && s.y < w.H + 5);
+  w.pshots = w.pshots.filter(s => s.life > 0 && w.geo.inside(w, s.x, s.y, -0.5));   // 岩壁・封鎖線で消える
 }
 
 function hurtPlayer(w, dmg) {
@@ -613,32 +624,33 @@ function updateEnemies(w, dt) {
     e.cd -= dt;
     e.lunge = Math.max(0, e.lunge - dt * 4);
     if (frozen) { e.vx *= 0.9; e.vy *= 0.9; continue; }
-    if (e.type === 'boss') { updateBoss(w, e, dt); continue; }
+    if (e.def.boss) { BOSS_KINDS[e.type].update(w, e, dt); continue; }
 
     const dx = P.x - e.x, dy = P.y - e.y;
     const d = Math.hypot(dx, dy) || 0.001;
-    const ux = dx / d, uy = dy / d;
+    const ux = dx / d, uy = dy / d;              // 機体への直線の向き（射撃用）
+    const [mx, my] = w.geo.dirTo(w, e, P.x, P.y);  // 機体へ向かう移動の向き
     const sp = e.def.speed;
     let dvx = 0, dvy = 0;
-    e.a = Math.atan2(dy, dx);
+    e.a = Math.atan2(my, mx);
 
     if (e.type === 'spitter') {
-      if (d > 22) { dvx = ux * sp; dvy = uy * sp; }
+      if (d > 22) { dvx = mx * sp; dvy = my * sp; }
       else if (d < 14) { dvx = -ux * sp; dvy = -uy * sp; }
       else {
         dvx = -uy * sp * 0.6 * e.strafeDir;
         dvy = ux * sp * 0.6 * e.strafeDir;
         if (Math.random() < dt * 0.3) e.strafeDir *= -1;
       }
-      if (e.cd <= 0 && d < e.def.range) {
+      if (e.cd <= 0 && d < e.def.range && w.geo.los(w, e.x, e.y, P.x, P.y)) {
         e.cd = e.def.cd * rand(0.8, 1.2);
         e.lunge = 1;
         Sound.play('acid', { x: e.x, y: e.y });
         w.eshots.push({ kind: 'acid', x: e.x + ux * e.r, y: e.y + uy * e.r, vx: ux * 16, vy: uy * 16, r: 0.4, dmg: e.def.dmg, life: 2.2 });
       }
     } else {
-      dvx = ux * sp;
-      dvy = uy * sp;
+      dvx = mx * sp;
+      dvy = my * sp;
       const reach = e.r + P.r + e.def.reach;
       if (d < reach + 0.2 && e.cd <= 0) {
         e.cd = e.def.cd;
@@ -683,6 +695,7 @@ function updateEnemies(w, dt) {
     const a = es[i];
     for (let j = i + 1; j < es.length; j++) {
       const b = es[j];
+      if (a.buried || b.buried || a.airborne || b.airborne) continue;   // 地中・空中のボスとは押し合わない
       const dx = b.x - a.x, dy = b.y - a.y, rr = a.r + b.r;
       const d2 = dx * dx + dy * dy;
       if (d2 >= rr * rr || d2 === 0) continue;
@@ -697,13 +710,13 @@ function updateEnemies(w, dt) {
   for (const e of es) {
     const dx = e.x - P.x, dy = e.y - P.y, rr = e.r + P.r;
     const d = Math.hypot(dx, dy);
-    if (d < rr && d > 0.0001) {
+    if (d < rr && d > 0.0001 && !e.buried && !e.airborne) {
       const ov = rr - d, ux = dx / d, uy = dy / d;
-      const tp = e.type === 'boss' ? 1 : e.type === 'troll' ? 0.4 : 0.12;
+      const tp = e.def.boss ? 1 : e.type === 'troll' ? 0.4 : 0.12;
       e.x += ux * ov * (1 - tp); e.y += uy * ov * (1 - tp);
       P.x -= ux * ov * tp; P.y -= uy * ov * tp;
     }
-    collideRocks(w, e);
+    if (!e.buried && !e.airborne) collideRocks(w, e);   // 跳躍中は岩を飛び越える
     clampField(w, e);
   }
   collideRocks(w, P);
@@ -739,16 +752,50 @@ function turnToward(a, target, m) {
   return a + clamp(angDiff(target, a), -m, m);
 }
 
+// ボスの行動を切り替える。st0（行動の長さ）は予備モーションの進み具合の計算に使う
+function bossSet(e, state, st) {
+  e.state = state;
+  e.st = e.st0 = st;
+}
+
+// 現在の行動の進み具合 0→1（予備モーションの大きさ）
+function bossWind(e) {
+  return e.st0 ? clamp(1 - e.st / e.st0, 0, 1) : 1;
+}
+
+// 弾を放つ前の予備動作：周囲の砂礫を吸い込む
+function bossInhale(w, e) {
+  const p = bossWind(e);
+  if (Math.random() < 0.9) {
+    const a = rand(0, Math.PI * 2), r = e.r + 4.5;
+    w.fx.push({ type: 'gib', x: e.x + Math.cos(a) * r, y: e.y + Math.sin(a) * r, vx: -Math.cos(a) * 18, vy: -Math.sin(a) * 18, life: 0.35, max: 0.35, size: 0.22, color: '#d9a066' });
+  }
+  w.shake = Math.max(w.shake, 0.15 * p);
+}
+
+// 全方位へ岩弾を放つ
+function bossRing(w, e, n, off, speed, dmg) {
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2 + off;
+    w.eshots.push({ kind: 'rock', x: e.x + Math.cos(a) * e.r, y: e.y + Math.sin(a) * e.r, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 0.5, dmg, life: 4 });
+  }
+}
+
 function updateBoss(w, e, dt) {
   const P = w.player;
   const dx = P.x - e.x, dy = P.y - e.y;
   const d = Math.hypot(dx, dy) || 0.001;
   const toP = Math.atan2(dy, dx);
-  if (!e.phase2 && e.hp < e.maxHp * 0.5) {
+  // HP が半分を切ったら赤熱形態へ。行動を中断して激昂し、以後は別の行動パターンになる
+  if (!e.phase2 && e.hp < e.maxHp * 0.5 && !e.invuln) {
     e.phase2 = true;
+    e.chain = 0;
+    bossSet(e, 'rage', 2);
     w.shake = 0.8;
-    addLog(w, 'ボス 形態変化：甲殻が赤熱している！', '#ff6a4a');
+    w.banner = { title: `${e.def.name} 激昂`, sub: '甲殻が赤熱 ― 行動パターンが変化した！', t: 3 };
+    addLog(w, 'ボス 形態変化：甲殻が赤熱している！ 行動パターン変化', '#ff6a4a');
     Sound.play('roar');
+    Sound.play('quake');
   }
   const p2 = e.phase2;
   const spd = e.def.speed * (p2 ? 1.35 : 1);
@@ -762,19 +809,46 @@ function updateBoss(w, e, dt) {
         const a = rand(0, Math.PI * 2);
         w.fx.push({ type: 'dust', x: e.x + Math.cos(a) * 5, y: e.y + Math.sin(a) * 5, vx: Math.cos(a) * 3, vy: Math.sin(a) * 3, life: 1, max: 1, size: rand(1, 2) });
       }
-      if (e.st <= 0) { e.invuln = false; e.state = 'chase'; e.st = 2; }
+      if (e.st <= 0) { e.invuln = false; bossSet(e, 'chase', 2); }
       break;
-    case 'chase':
-      e.a = turnToward(e.a, toP, 2 * dt);
+    case 'chase': {
+      const [cx, cy] = w.geo.dirTo(w, e, P.x, P.y);
+      e.a = turnToward(e.a, Math.atan2(cy, cx), 2 * dt);
       dvx = Math.cos(e.a) * spd;
       dvy = Math.sin(e.a) * spd;
       if (d < e.r + P.r + 0.4 && e.cd <= 0) { e.cd = 1; hurtPlayer(w, e.def.dmg); }
       if (e.st <= 0) bossPick(w, e, d);
       break;
-    case 'charge_wind':
-      e.a = turnToward(e.a, toP, 3 * dt);
-      if (e.st <= 0) { e.state = 'charge'; e.st = 1.1; e.cdir = e.a; e.hitDone = false; }
+    }
+    case 'rage': {
+      // 形態変化：その場で身を震わせて熱を溜め、最後に衝撃波で機体を押し返す
+      const p = bossWind(e);
+      e.a = turnToward(e.a, toP, 1.5 * dt);
+      w.shake = Math.max(w.shake, 0.3 * p);
+      if (Math.random() < 0.6) {
+        w.fx.push({ type: 'gib', x: e.x + rand(-4, 4), y: e.y + rand(-4, 4), vx: rand(-2, 2), vy: rand(-2, 2), life: 0.5, max: 0.5, size: 0.25, color: '#ff6a20' });
+      }
+      if (e.st <= 0) {
+        w.fx.push({ type: 'ring', x: e.x, y: e.y, life: 0.6, max: 0.6, size: 16 });
+        if (d < 14) { P.vx += dx / d * 24; P.vy += dy / d * 24; }
+        w.shake = 1;
+        Sound.play('slam');
+        bossSet(e, 'chase', 1.2);
+      }
       break;
+    }
+    case 'charge_wind': {
+      // 予備動作：頭を引いて後ずさりしながら狙いを定め、足元の砂を掻く
+      e.a = turnToward(e.a, toP, (e.chainN ? 4 : 3) * dt);
+      const back = 2.5 * (1 - bossWind(e));
+      dvx = -Math.cos(e.a) * back;
+      dvy = -Math.sin(e.a) * back;
+      if (Math.random() < 0.5) {
+        w.fx.push({ type: 'dust', x: e.x - Math.cos(e.a) * 3 + rand(-2, 2), y: e.y - Math.sin(e.a) * 3 + rand(-2, 2), vx: -Math.cos(e.a) * 4, vy: -Math.sin(e.a) * 4, life: 0.6, max: 0.6, size: rand(0.6, 1.2) });
+      }
+      if (e.st <= 0) { bossSet(e, 'charge', e.chainN ? 0.9 : 1.1); e.cdir = e.a; e.hitDone = false; }
+      break;
+    }
     case 'charge': {
       const cs = p2 ? 34 : 28;
       dvx = Math.cos(e.cdir) * cs;
@@ -786,27 +860,109 @@ function updateBoss(w, e, dt) {
         P.vy += Math.sin(e.cdir) * 18;
       }
       if (Math.random() < 0.7) w.fx.push({ type: 'dust', x: e.x + rand(-3, 3), y: e.y + rand(-3, 3), vx: 0, vy: 0, life: 0.8, max: 0.8, size: rand(1, 2) });
-      const wall = e.x <= e.r + 0.5 || e.y <= e.r + 0.5 || e.x >= w.W - e.r - 0.5 || e.y >= w.H - e.r - 0.5;
-      if (e.st <= 0 || wall) { e.state = 'recover'; e.st = 1.2; if (wall) { w.shake = 0.6; Sound.play('slam', { vol: 0.6 }); } }
+      // 進行方向の先が外周・岩壁なら止まる（壁際から離れる向きの突進は止めない）
+      const wall = !w.geo.inside(w, e.x + Math.cos(e.cdir) * 1.2, e.y + Math.sin(e.cdir) * 1.2, e.r + 0.3);
+      if (e.st <= 0 || wall) {
+        if (wall) { w.shake = 0.6; Sound.play('slam', { vol: 0.6 }); }
+        if (e.chain > 0) {
+          // 赤熱形態：短い予備動作を挟んで連続突進
+          e.chain--;
+          e.chainN++;
+          bossSet(e, 'charge_wind', 0.5);
+          Sound.play('charge');
+        } else {
+          bossSet(e, 'recover', p2 ? 0.9 : 1.2);
+        }
+      }
       break;
     }
     case 'recover':
-      if (e.st <= 0) { e.state = 'chase'; e.st = rand(1.5, 2.5); }
+      if (e.st <= 0) bossSet(e, 'chase', p2 ? rand(1, 1.8) : rand(1.5, 2.5));
+      break;
+    case 'ring_wind':
+      // 予備動作：甲殻を膨らませて砂礫を吸い込む
+      e.a = turnToward(e.a, toP, 1 * dt);
+      bossInhale(w, e);
+      if (e.st <= 0) { bossSet(e, 'ring', 0); e.waves = 2; }
       break;
     case 'ring':
       e.a = turnToward(e.a, toP, 1 * dt);
       if (e.st <= 0) {
-        const n = p2 ? 36 : 24;
-        const off = e.waves * 0.13;
-        for (let i = 0; i < n; i++) {
-          const a = i / n * Math.PI * 2 + off;
-          w.eshots.push({ kind: 'rock', x: e.x + Math.cos(a) * e.r, y: e.y + Math.sin(a) * e.r, vx: Math.cos(a) * 13, vy: Math.sin(a) * 13, r: 0.5, dmg: 12, life: 4 });
-        }
+        bossRing(w, e, 24, e.waves * 0.13, 13, 12);
         w.shake = Math.max(w.shake, 0.3);
         Sound.play('volley', { x: e.x, y: e.y });
         e.waves--;
-        e.st = 0.45;
-        if (e.waves <= 0) { e.state = 'chase'; e.st = 2; }
+        if (e.waves <= 0) bossSet(e, 'chase', 2);
+        else bossSet(e, 'ring', 0.45);
+      }
+      break;
+    case 'spiral_wind':
+      e.a = turnToward(e.a, toP, 1 * dt);
+      bossInhale(w, e);
+      if (e.st <= 0) {
+        bossSet(e, 'spiral', 2.4);
+        e.spinA = toP;
+        e.spinDir = Math.random() < 0.5 ? -1 : 1;
+        e.emitT = 0;
+      }
+      break;
+    case 'spiral':
+      // 赤熱形態：3本の腕が回転しながら岩弾を撒き散らす
+      e.spinA += e.spinDir * 2.2 * dt;
+      e.emitT -= dt;
+      if (e.emitT <= 0) {
+        e.emitT = 0.08;
+        bossRing(w, e, 3, e.spinA, 12, 10);
+        Sound.play('volley', { x: e.x, y: e.y, vol: 0.5 });
+      }
+      w.shake = Math.max(w.shake, 0.12);
+      if (e.st <= 0) bossSet(e, 'recover', 0.8);
+      break;
+    case 'dive':
+      // 赤熱形態：地中へ潜る（潜行中は無敵）
+      if (Math.random() < 0.8) {
+        const a = rand(0, Math.PI * 2);
+        w.fx.push({ type: 'dust', x: e.x + Math.cos(a) * 4, y: e.y + Math.sin(a) * 4, vx: Math.cos(a) * 4, vy: Math.sin(a) * 4, life: 0.8, max: 0.8, size: rand(1, 2) });
+      }
+      if (e.st <= 0) { e.buried = true; bossSet(e, 'under', 2); }
+      break;
+    case 'under':
+      // 地中を進んで機体の真下へ回り込む。地表には土煙が走る
+      if (d > 1) {
+        const [ux2, uy2] = w.geo.dirTo(w, e, P.x, P.y);
+        dvx = ux2 * 14; dvy = uy2 * 14;
+      }
+      if (Math.random() < 0.5) w.fx.push({ type: 'dust', x: e.x + rand(-1.5, 1.5), y: e.y + rand(-1.5, 1.5), vx: 0, vy: 0, life: 0.7, max: 0.7, size: rand(0.6, 1.2) });
+      if (e.st <= 0) {
+        // 噴出地点を機体の現在位置に固定する
+        e.x = P.x; e.y = P.y;
+        e.vx = e.vy = 0;
+        bossSet(e, 'erupt_wind', 0.9);
+        Sound.play('rumble', { x: e.x, y: e.y });
+      }
+      break;
+    case 'erupt_wind':
+      if (Math.random() < 0.3 + 0.6 * bossWind(e)) {
+        const a = rand(0, Math.PI * 2), r = rand(0, 6);
+        w.fx.push({ type: 'dust', x: e.x + Math.cos(a) * r, y: e.y + Math.sin(a) * r, vx: 0, vy: 0, life: 0.5, max: 0.5, size: rand(0.5, 1) });
+      }
+      w.shake = Math.max(w.shake, 0.2 * bossWind(e));
+      if (e.st <= 0) {
+        e.buried = false;
+        e.invuln = false;
+        for (const s of e.segs) { s.x = e.x; s.y = e.y; }
+        if (d < 7 + P.r) {
+          hurtPlayer(w, 40);
+          P.vx += dx / d * 20;
+          P.vy += dy / d * 20;
+        }
+        bossRing(w, e, 16, rand(0, 1), 11, 10);
+        w.fx.push({ type: 'ring', x: e.x, y: e.y, life: 0.5, max: 0.5, size: 9 });
+        addScorch(w, e.x, e.y, 6, 'rgba(40,25,15,0.35)');
+        w.shake = 1;
+        Sound.play('slam');
+        Sound.play('volley', { x: e.x, y: e.y });
+        bossSet(e, 'recover', 1.2);
       }
       break;
     case 'summon':
@@ -815,26 +971,27 @@ function updateBoss(w, e, dt) {
         if (w.enemies.length < 120) {
           for (let i = 0; i < n; i++) {
             const a = i / n * Math.PI * 2;
-            const m = spawnEnemy(w, 'scarab', { x: clamp(e.x + Math.cos(a) * (e.r + 2), 2, w.W - 2), y: clamp(e.y + Math.sin(a) * (e.r + 2), 2, w.H - 2) });
+            const m = spawnEnemy(w, 'scarab', { x: e.x + Math.cos(a) * (e.r + 2), y: e.y + Math.sin(a) * (e.r + 2) });
+            clampField(w, m);
             m.cd = 1;
             w.fx.push({ type: 'dust', x: m.x, y: m.y, vx: 0, vy: 0, life: 0.8, max: 0.8, size: 1.2 });
           }
           addLog(w, `ボスが眷属を呼び出した（+${n}体）`, '#ffb070');
           Sound.play('summon', { x: e.x, y: e.y });
         }
-        e.state = 'chase';
-        e.st = 2;
+        bossSet(e, 'chase', 2);
       }
       break;
     case 'slam_wind':
+      // 予備動作：頭部を高く持ち上げる（描画側）
       if (e.st <= 0) {
         if (d < 10 + P.r) hurtPlayer(w, 45);
         w.fx.push({ type: 'ring', x: e.x, y: e.y, life: 0.5, max: 0.5, size: 11 });
         addScorch(w, e.x, e.y, 6, 'rgba(40,25,15,0.3)');
+        if (p2) bossRing(w, e, 16, rand(0, 1), 10, 10);   // 赤熱形態は叩きつけと同時に岩弾も飛ぶ
         w.shake = 0.9;
         Sound.play('slam');
-        e.state = 'recover';
-        e.st = 0.8;
+        bossSet(e, 'recover', 0.8);
       }
       break;
   }
@@ -852,14 +1009,70 @@ function updateBoss(w, e, dt) {
   }
 }
 
+// 形態ごとの行動の組み合わせと選ばれる確率
+const BOSS_MOVES = {
+  normal: [['charge', 0.4], ['ring', 0.35], ['summon', 0.25]],
+  rage: [['charge', 0.35], ['spiral', 0.3], ['burrow', 0.25], ['summon', 0.1]],
+};
+
+// 確率表 [[行動, 確率], ...] から次の行動を選ぶ。同じ行動はなるべく続けない
+function chooseMove(e, table) {
+  let move;
+  for (let i = 0; i < 2; i++) {
+    let r = Math.random();
+    move = table[table.length - 1][0];
+    for (const [m, prob] of table) { r -= prob; if (r < 0) { move = m; break; } }
+    if (move !== e.lastMove) break;
+  }
+  e.lastMove = move;
+  return move;
+}
+
+// 次の行動を選ぶ。近くに寄られたら叩きつける
 function bossPick(w, e, d) {
   const p2 = e.phase2;
-  if (d < 10) { e.state = 'slam_wind'; e.st = p2 ? 0.7 : 1.0; return; }
-  const r = Math.random();
-  if (r < 0.4) { e.state = 'charge_wind'; e.st = p2 ? 0.6 : 0.9; Sound.play('charge'); }
-  else if (r < 0.75) { e.state = 'ring'; e.st = 0.5; e.waves = p2 ? 3 : 2; }
-  else { e.state = 'summon'; e.st = 0.8; }
+  if (d < 10) { bossSet(e, 'slam_wind', p2 ? 0.8 : 1.0); return; }
+  switch (chooseMove(e, BOSS_MOVES[p2 ? 'rage' : 'normal'])) {
+    case 'charge':
+      e.chain = p2 ? 2 : 0;   // 赤熱形態は3連続突進
+      e.chainN = 0;
+      bossSet(e, 'charge_wind', p2 ? 0.8 : 1.0);
+      Sound.play('charge');
+      break;
+    case 'ring':
+      bossSet(e, 'ring_wind', 1.0);
+      Sound.play('inhale', { x: e.x, y: e.y });
+      break;
+    case 'spiral':
+      bossSet(e, 'spiral_wind', 1.0);
+      Sound.play('inhale', { x: e.x, y: e.y });
+      break;
+    case 'burrow':
+      e.invuln = true;
+      bossSet(e, 'dive', 0.8);
+      addLog(w, 'ボスが地中に潜った！', '#ffb070');
+      Sound.play('burrow', { x: e.x, y: e.y });
+      break;
+    case 'summon':
+      bossSet(e, 'summon', 0.8);
+      break;
+  }
 }
+
+// ボスの種類ごとの処理。キーは ENEMY_DEFS の種類名（boss: true のもの）
+//   emergeT 出現演出の長さ / cry 出現時の鳴き声 / init 出現時の準備 / update 行動 / telegraph 地面の攻撃予告
+const BOSS_KINDS = {
+  boss: {
+    emergeT: 2.2,
+    cry: 'roar',
+    init(w, e) {
+      e.segs = [];
+      for (let i = 0; i < 6; i++) e.segs.push({ x: e.x, y: e.y });
+    },
+    update: updateBoss,
+    telegraph: drawBossTelegraph,
+  },
+};
 
 function updateEnemyShots(w, dt) {
   const P = w.player;
@@ -870,11 +1083,13 @@ function updateEnemyShots(w, dt) {
     if (!P.dead && Math.hypot(P.x - s.x, P.y - s.y) < P.r + s.r) {
       hurtPlayer(w, s.dmg);
       s.life = 0;
+      if (s.web) { addWeb(w, P.x, P.y); s.web = false; }
       const col = enemyShotArtOf(s.kind).hitColor;
       for (let i = 0; i < 5; i++) w.fx.push({ type: 'gib', x: s.x, y: s.y, vx: rand(-5, 5), vy: rand(-5, 5), life: 0.3, max: 0.3, size: 0.15, color: col });
     }
   }
-  w.eshots = w.eshots.filter(s => s.life > 0 && s.x > -5 && s.y > -5 && s.x < w.W + 5 && s.y < w.H + 5);
+  for (const s of w.eshots) if (s.web && s.life <= 0) addWeb(w, s.x, s.y);
+  w.eshots = w.eshots.filter(s => s.life > 0 && w.geo.inside(w, s.x, s.y, -0.5));
 }
 
 function updateFx(w, dt) {
@@ -897,7 +1112,7 @@ function updateFx(w, dt) {
 function dropOre(w, e) {
   const drop = ORE_DROPS[e.type];
   if (!drop) return;
-  const big = e.type === 'boss' ? 2.5 : 1;
+  const big = e.def.boss ? 2.5 : 1;
   for (const [kind, n] of Object.entries(drop)) {
     for (let i = 0; i < n; i++) {
       const a = rand(0, Math.PI * 2), sp = rand(1.5, 5) * big;
@@ -927,8 +1142,9 @@ function updateOres(w, dt) {
       o.vx *= 1 - Math.min(1, 4 * dt);
       o.vy *= 1 - Math.min(1, 4 * dt);
     }
-    o.x = clamp(o.x + o.vx * dt, 0.5, w.W - 0.5);
-    o.y = clamp(o.y + o.vy * dt, 0.5, w.H - 0.5);
+    o.x += o.vx * dt;
+    o.y += o.vy * dt;
+    if (!o.pull) { o.r = 0.5; clampField(w, o); }   // 吸い寄せ中は岩壁を越えて機体へ飛んでいく
   }
   if (w.ores.some(o => o.got)) w.ores = w.ores.filter(o => !o.got);
   for (const k in w.orePulse) w.orePulse[k] = Math.max(0, w.orePulse[k] - dt);
@@ -998,14 +1214,110 @@ function makeGroundPattern(ctx) {
   return pat;
 }
 
+// ボスの攻撃予告（地面に描く）。予備モーションが進むほど強く表示する
+function drawBossTelegraph(ctx, w, b) {
+  const p = bossWind(b);
+  const blink = 0.5 + 0.5 * Math.sin(w.time * 30);
+  ctx.save();
+  switch (b.state) {
+    case 'charge_wind': {
+      // 突進の進路：予備動作が進むほど伸びる帯と矢印
+      const len = 8 + 34 * p;
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.a);
+      ctx.fillStyle = `rgba(255,60,30,${0.1 + 0.15 * p + 0.08 * blink})`;
+      ctx.fillRect(0, -b.r, len, b.r * 2);
+      ctx.strokeStyle = `rgba(255,120,60,${0.4 + 0.4 * p})`;
+      ctx.lineWidth = 0.35;
+      for (let x = 6; x < len - 1; x += 5) {
+        ctx.beginPath();
+        ctx.moveTo(x, -b.r * 0.6); ctx.lineTo(x + 2, 0); ctx.lineTo(x, b.r * 0.6);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'slam_wind':
+      // 叩きつけの範囲：外周の輪の内側が埋まっていく
+      ctx.fillStyle = `rgba(255,60,30,${0.08 + 0.08 * blink})`;
+      circle(ctx, b.x, b.y, 10);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,60,30,0.22)';
+      circle(ctx, b.x, b.y, 10 * p);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,80,40,0.7)';
+      ctx.lineWidth = 0.2;
+      circle(ctx, b.x, b.y, 10);
+      ctx.stroke();
+      break;
+    case 'ring_wind':
+    case 'spiral_wind':
+      // 弾の放出：外から収束していく輪
+      ctx.strokeStyle = `rgba(255,${b.state === 'spiral_wind' ? 90 : 170},40,${0.3 + 0.5 * p})`;
+      ctx.lineWidth = 0.3 + 0.3 * p;
+      for (const k of [0, 0.5]) {
+        const q = (p * 2 + k) % 1;
+        circle(ctx, b.x, b.y, b.r + 10 * (1 - q));
+        ctx.stroke();
+      }
+      break;
+    case 'under':
+      // 地中を進む盛り上がり
+      ctx.fillStyle = 'rgba(90,60,35,0.55)';
+      ctx.beginPath();
+      ctx.ellipse(b.x, b.y, 2.6, 2.2, b.anim * 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(50,30,15,0.7)';
+      ctx.lineWidth = 0.15;
+      for (let i = 0; i < 5; i++) {
+        const a = i * 1.26 + b.anim * 2;
+        ctx.beginPath();
+        ctx.moveTo(b.x + Math.cos(a) * 0.8, b.y + Math.sin(a) * 0.8);
+        ctx.lineTo(b.x + Math.cos(a + 0.3) * 2.4, b.y + Math.sin(a + 0.3) * 2.4);
+        ctx.stroke();
+      }
+      break;
+    case 'erupt_wind':
+      // 噴出地点：ひび割れた地面と範囲予告
+      ctx.fillStyle = `rgba(255,60,30,${0.1 + 0.1 * blink})`;
+      circle(ctx, b.x, b.y, 7);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,60,30,0.25)';
+      circle(ctx, b.x, b.y, 7 * p);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,80,40,0.8)';
+      ctx.lineWidth = 0.25;
+      circle(ctx, b.x, b.y, 7);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(40,20,10,0.8)';
+      ctx.lineWidth = 0.2;
+      for (let i = 0; i < 8; i++) {
+        const a = i * 0.785 + 0.3;
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x + Math.cos(a) * 6 * p, b.y + Math.sin(a) * 6 * p);
+        ctx.stroke();
+      }
+      break;
+    case 'rage': {
+      // 形態変化：赤熱した熱気が広がる
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 14);
+      g.addColorStop(0, `rgba(255,90,20,${0.35 * p})`);
+      g.addColorStop(1, 'rgba(255,60,20,0)');
+      ctx.fillStyle = g;
+      circle(ctx, b.x, b.y, 14);
+      ctx.fill();
+      break;
+    }
+  }
+  ctx.restore();
+}
+
 function drawWorld(ctx, w, B, VW, VH) {
   const z = B.zoom;
   const P = w.player;
   const sx = w.shake > 0 ? rand(-1, 1) * w.shake * 6 : 0;
   const sy = w.shake > 0 ? rand(-1, 1) * w.shake * 6 : 0;
-  if (!groundPattern) groundPattern = makeGroundPattern(ctx);
-
-  ctx.fillStyle = '#3b2a1c';
+  ctx.fillStyle = w.field.dark ? '#141216' : '#3b2a1c';
   ctx.fillRect(0, 0, VW, VH);
   ctx.save();
   ctx.translate(VW / 2 + sx, VH / 2 + sy);
@@ -1016,24 +1328,7 @@ function drawWorld(ctx, w, B, VW, VH) {
   const vx1 = B.cam.x + VW / 2 / z + 4, vy1 = B.cam.y + VH / 2 / z + 4;
   const inView = (x, y, m = 0) => x > vx0 - m && x < vx1 + m && y > vy0 - m && y < vy1 + m;
 
-  ctx.fillStyle = groundPattern;
-  ctx.fillRect(Math.max(0, vx0), Math.max(0, vy0), Math.min(w.FW, vx1) - Math.max(0, vx0), Math.min(w.H, vy1) - Math.max(0, vy0));
-  DISTRICTS.forEach((D, i) => {
-    ctx.fillStyle = D.tint;
-    ctx.fillRect(i * DISTRICT_W, 0, DISTRICT_W, w.H);
-  });
-  ctx.strokeStyle = '#5a3d22';
-  ctx.lineWidth = 1.2;
-  ctx.strokeRect(0, 0, w.FW, w.H);
-  // 開放済みの地区境界
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,230,180,0.25)';
-  ctx.lineWidth = 0.3;
-  ctx.setLineDash([2, 2]);
-  for (let i = 1; i * DISTRICT_W < w.W; i++) {
-    ctx.beginPath(); ctx.moveTo(i * DISTRICT_W, 0); ctx.lineTo(i * DISTRICT_W, w.H); ctx.stroke();
-  }
-  ctx.restore();
+  w.geo.drawGround(ctx, w, { x0: vx0, y0: vy0, x1: vx1, y1: vy1 });
 
   // 地面の装飾
   for (const d of w.decor) {
@@ -1047,6 +1342,7 @@ function drawWorld(ctx, w, B, VW, VH) {
     ctx.ellipse(s.x, s.y, s.r, s.r * 0.8, s.rot, 0, Math.PI * 2);
     ctx.fill();
   }
+  if (w.webs.length) drawWebs(ctx, w);
 
   // センサー範囲
   if (!w.result) {
@@ -1061,23 +1357,8 @@ function drawWorld(ctx, w, B, VW, VH) {
 
   // ボスの予兆
   const boss = w.boss;
-  if (boss && boss.hp > 0 && !w.result) {
-    if (boss.state === 'charge_wind') {
-      ctx.save();
-      ctx.translate(boss.x, boss.y);
-      ctx.rotate(boss.a);
-      ctx.fillStyle = `rgba(255,60,30,${0.15 + 0.15 * Math.sin(w.time * 30)})`;
-      ctx.fillRect(0, -boss.r, 40, boss.r * 2);
-      ctx.restore();
-    } else if (boss.state === 'slam_wind') {
-      ctx.fillStyle = `rgba(255,60,30,${0.12 + 0.12 * Math.sin(w.time * 30)})`;
-      circle(ctx, boss.x, boss.y, 10);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,80,40,0.7)';
-      ctx.lineWidth = 0.2;
-      ctx.stroke();
-    }
-  }
+  if (boss && boss.hp > 0 && !w.result) BOSS_KINDS[boss.type].telegraph(ctx, w, boss);
+  if (w.hazards.length) drawHazards(ctx, w);
 
   // 岩
   for (const k of w.rocks) {
@@ -1094,7 +1375,7 @@ function drawWorld(ctx, w, B, VW, VH) {
 
   // 敵
   for (const e of w.enemies) {
-    if (!inView(e.x, e.y, e.type === 'boss' ? 20 : 3)) continue;
+    if (!inView(e.x, e.y, e.def.boss ? 20 : 3)) continue;
     drawEnemy(ctx, e);
   }
 
@@ -1118,8 +1399,18 @@ function drawWorld(ctx, w, B, VW, VH) {
   }
   for (const f of w.fx) if (f.type !== 'dust' && inView(f.x, f.y, 12)) drawFx(ctx, f);
 
-  drawSealedArea(ctx, w);
+  w.geo.drawSealed(ctx, w);
   ctx.restore();
+
+  // 洞窟：機体のまわり以外を暗くする
+  if (w.field.dark) {
+    const px = VW / 2 + (P.x - B.cam.x) * z, py = VH / 2 + (P.y - B.cam.y) * z;
+    const g = ctx.createRadialGradient(px, py, Math.min(VW, VH) * 0.3, px, py, Math.max(VW, VH) * 0.75);
+    g.addColorStop(0, 'rgba(0,0,6,0)');
+    g.addColorStop(1, 'rgba(0,0,6,0.62)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, VW, VH);
+  }
 }
 
 // 落ちている鉱石（種類ごとに形を変える。きらめきで地面と見分けやすくする）
@@ -1146,43 +1437,6 @@ function drawOre(ctx, o, time) {
   ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.fillStyle = `rgba(255,255,255,${0.35 + 0.5 * glint})`;
   circle(ctx, -0.05, -0.06, 0.06); ctx.fill();
-  ctx.restore();
-}
-
-// 未開放の地区：暗幕と封鎖線
-function drawSealedArea(ctx, w) {
-  if (w.W >= w.FW) return;
-  ctx.save();
-  ctx.fillStyle = 'rgba(12,9,6,0.62)';
-  ctx.fillRect(w.W, 0, w.FW - w.W, w.H);
-  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-  ctx.lineWidth = 0.6;
-  ctx.beginPath();
-  for (let x = w.W - w.H; x < w.FW; x += 6) {
-    ctx.moveTo(Math.max(w.W, x), Math.max(0, w.W - x));
-    ctx.lineTo(Math.min(w.FW, x + w.H), Math.min(w.H, w.FW - x));
-  }
-  ctx.stroke();
-  const pulse = 0.55 + 0.45 * Math.sin(w.time * 4);
-  ctx.strokeStyle = `rgba(255,140,40,${0.5 + 0.4 * pulse})`;
-  ctx.shadowColor = '#ff8a2a';
-  ctx.shadowBlur = 10;
-  ctx.lineWidth = 0.5;
-  ctx.setLineDash([1.5, 1]);
-  ctx.beginPath(); ctx.moveTo(w.W, 0); ctx.lineTo(w.W, w.H); ctx.stroke();
-  ctx.shadowBlur = 0;
-  ctx.setLineDash([]);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  for (let i = Math.round(w.W / DISTRICT_W); i < DISTRICTS.length; i++) {
-    const cx = (i + 0.5) * DISTRICT_W;
-    ctx.fillStyle = 'rgba(255,200,140,0.55)';
-    ctx.font = 'bold 4.5px sans-serif';
-    ctx.fillText(`${DISTRICTS[i].name}「${DISTRICTS[i].sub}」`, cx, w.H / 2 - 3);
-    ctx.font = 'bold 3px sans-serif';
-    ctx.fillStyle = 'rgba(255,150,80,0.55)';
-    ctx.fillText('封鎖中', cx, w.H / 2 + 3);
-  }
   ctx.restore();
 }
 
@@ -1220,6 +1474,27 @@ function drawDecor(ctx, d) {
       ctx.lineTo(0.5 * d.s, -0.9 * d.s);
       ctx.stroke();
       break;
+    case 'crystal':   // 洞窟：青く光る結晶の群れ
+      ctx.fillStyle = 'rgba(90,170,255,0.18)';
+      circle(ctx, 0, 0, 0.9 * d.s); ctx.fill();
+      ctx.fillStyle = 'rgba(140,210,255,0.85)';
+      for (const [a, l] of [[0, 0.7], [2.1, 0.5], [4.0, 0.6]]) {
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a + 0.25) * 0.12 * d.s, Math.sin(a + 0.25) * 0.12 * d.s);
+        ctx.lineTo(Math.cos(a) * l * d.s, Math.sin(a) * l * d.s);
+        ctx.lineTo(Math.cos(a - 0.25) * 0.12 * d.s, Math.sin(a - 0.25) * 0.12 * d.s);
+        ctx.closePath();
+        ctx.fill();
+      }
+      break;
+    case 'stalag':    // 洞窟：小さな石筍
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      circle(ctx, 0.12 * d.s, 0.15 * d.s, 0.42 * d.s); ctx.fill();
+      ctx.fillStyle = '#56525e';
+      circle(ctx, 0, 0, 0.38 * d.s); ctx.fill();
+      ctx.fillStyle = '#8a8496';
+      circle(ctx, -0.08 * d.s, -0.08 * d.s, 0.16 * d.s); ctx.fill();
+      break;
     case 'bone':
       ctx.strokeStyle = 'rgba(225,215,190,0.75)';
       ctx.lineWidth = 0.12;
@@ -1241,13 +1516,14 @@ function drawRock(ctx, k) {
     k.pts.forEach(([x, y], i) => { if (i === 0) ctx.moveTo(x * s + ox, y * s + oy); else ctx.lineTo(x * s + ox, y * s + oy); });
     ctx.closePath();
   };
+  const pal = k.cave ? ['#45414c', '#5b5664', '#75707f'] : ['#6b5440', '#86694f', '#9c7d5e'];   // 洞窟は石筍の色
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   path(1, 0.7, 0.9); ctx.fill();
-  ctx.fillStyle = '#6b5440';
+  ctx.fillStyle = pal[0];
   path(1, 0, 0); ctx.fill();
-  ctx.fillStyle = '#86694f';
+  ctx.fillStyle = pal[1];
   path(0.72, -0.25, -0.3); ctx.fill();
-  ctx.fillStyle = '#9c7d5e';
+  ctx.fillStyle = pal[2];
   path(0.38, -0.45, -0.5); ctx.fill();
   ctx.restore();
 }
@@ -1482,12 +1758,12 @@ function drawHUD(ctx, w, B, VW, VH) {
 
   // --- 敵数 / ボス ---
   ctx.textAlign = 'center';
-  const remain = w.enemies.filter(e => e.type !== 'boss').length + (w.phase === 'fight' ? w.queue.length : 0);
+  const remain = w.enemies.filter(e => !e.def.boss).length + (w.phase === 'fight' ? w.queue.length : 0);
   const bossPhase = w.phase === 'warn' || w.phase === 'boss';
-  const D = DISTRICTS[w.district];
+  const DS = w.field.districts, D = DS[w.district];
   ctx.font = 'bold 14px sans-serif';
   ctx.fillStyle = '#f0c890';
-  if (!bossPhase) ctx.fillText(`${D.name}「${D.sub}」  ${w.district + 1} / ${DISTRICTS.length}`, VW / 2, 12);
+  if (!bossPhase) ctx.fillText(`${D.name}「${D.sub}」  ${w.district + 1} / ${DS.length}`, VW / 2, 12);
   ctx.font = 'bold 18px sans-serif';
   ctx.fillStyle = '#f2e6c8';
   if (w.phase === 'fight') ctx.fillText(`残敵 ${remain} / ${w.perDistrict}`, VW / 2, 32);
@@ -1516,8 +1792,9 @@ function drawHUD(ctx, w, B, VW, VH) {
     const bx = VW / 2 - bw / 2;
     ctx.font = 'bold 14px sans-serif';
     ctx.fillStyle = '#ffb090';
-    ctx.fillText(ENEMY_DEFS.boss.name + (w.boss.phase2 ? '（赤熱形態）' : ''), VW / 2, 14);
-    hudBar(ctx, bx, 34, bw, 14, w.boss.hp / w.boss.maxHp, w.boss.phase2 ? '#ff4a2a' : '#e08a3a', 'rgba(0,0,0,0.5)');
+    const bd = w.boss.def;
+    ctx.fillText(bd.name + (w.boss.phase2 ? `（${bd.phase2Name}）` : ''), VW / 2, 14);
+    hudBar(ctx, bx, 34, bw, 14, w.boss.hp / w.boss.maxHp, bd.barColors[w.boss.phase2 ? 1 : 0], 'rgba(0,0,0,0.5)');
     ctx.strokeStyle = '#ffb090';
     ctx.strokeRect(bx + 0.5, 34.5, bw - 1, 13);
   }
@@ -1535,27 +1812,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   }
 
   // --- ミニマップ ---
-  const mmw = 270, k = mmw / w.FW, mmh = w.H * k, mx = VW - mmw - 12, my = 12;
-  hudPanel(ctx, mx, my, mmw, mmh);
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(mx + w.W * k, my, (w.FW - w.W) * k, mmh);
-  ctx.textAlign = 'center';
-  ctx.font = '10px sans-serif';
-  DISTRICTS.forEach((Dd, i) => {
-    if (i > 0) {
-      ctx.strokeStyle = 'rgba(255,220,170,0.25)';
-      ctx.beginPath(); ctx.moveTo(mx + i * DISTRICT_W * k + 0.5, my); ctx.lineTo(mx + i * DISTRICT_W * k + 0.5, my + mmh); ctx.stroke();
-    }
-    const sealed = i * DISTRICT_W >= w.W;
-    const done = i < w.stats.cleared;
-    ctx.fillStyle = sealed ? 'rgba(255,150,80,0.6)' : done ? 'rgba(140,255,170,0.6)' : 'rgba(255,230,180,0.6)';
-    ctx.fillText(`${Dd.name}${sealed ? '（封鎖）' : done ? '（掃討済）' : ''}`, mx + (i + 0.5) * DISTRICT_W * k, my + mmh + 3);
-  });
-  ctx.textAlign = 'left';
-  if (w.W < w.FW) {
-    ctx.strokeStyle = 'rgba(255,140,40,0.9)';
-    ctx.beginPath(); ctx.moveTo(mx + w.W * k + 0.5, my); ctx.lineTo(mx + w.W * k + 0.5, my + mmh); ctx.stroke();
-  }
+  const { mx, my, k } = w.geo.minimap(ctx, w, VW - 12, 12);
   ctx.fillStyle = 'rgba(120,90,60,0.6)';
   for (const rk of w.rocks) { circle(ctx, mx + rk.x * k, my + rk.y * k, Math.max(1.5, rk.r * k)); ctx.fill(); }
   for (const o of w.ores) {
@@ -1682,8 +1939,9 @@ const Battle = {
   // 地区掃討後の「次に進みますか？」ダイアログ
   showConfirm() {
     const w = this.world, P = w.player;
-    const last = w.district >= DISTRICTS.length - 1;
-    const D = DISTRICTS[w.district];
+    const DS = w.field.districts;
+    const last = w.district >= DS.length - 1;
+    const D = DS[w.district];
     const hpPct = Math.round(P.hp / P.maxHp * 100);
     const ammo = ['L', 'R'].map(s => {
       const a = P.arms[s];
@@ -1692,9 +1950,9 @@ const Battle = {
     }).filter(Boolean).join(' / ');
     let next;
     if (last) {
-      next = `<p class="next boss">次：<b>ボス戦 — ${ENEMY_DEFS.boss.name}</b><br>全地区（第1〜第${DISTRICTS.length}地区）が戦闘フィールドになります。</p>`;
+      next = `<p class="next boss">次：<b>ボス戦 — ${ENEMY_DEFS[w.field.boss].name}</b><br>全地区（第1〜第${DS.length}地区）が戦闘フィールドになります。</p>`;
     } else {
-      const N = DISTRICTS[w.district + 1];
+      const N = DS[w.district + 1];
       next = `<p class="next">次：<b>${N.name}「${N.sub}」</b> 敵 ${w.perDistrict}体<br>第1〜第${w.district + 2}地区が戦闘フィールドになります。</p>`;
     }
     document.getElementById('confirm-title').textContent = `${D.name}「${D.sub}」 掃討完了`;

@@ -587,10 +587,22 @@ const Garage = {
   // ------------------------------------------------------------ 出撃
   renderSortie() {
     const n = Game.save.enemyCount;
+    const F = fieldById(Game.save.field), DS = F.districts;
+    document.getElementById('sortie-title').textContent = `出撃準備 — ${F.name}（全${DS.length}地区）`;
+    const fs = document.getElementById('field-select');
+    fs.innerHTML = FIELDS.map(f => `
+      <button class="field-card ${f.id === F.id ? 'sel' : ''}" data-id="${f.id}">
+        <canvas width="96" height="72"></canvas>
+        <span><b>${f.name}</b><small>全${f.districts.length}地区</small><em>${f.desc}</em></span>
+      </button>`).join('');
+    fs.querySelectorAll('.field-card').forEach((b, i) => {
+      drawFieldThumb(b.querySelector('canvas'), FIELDS[i]);
+      b.onclick = () => { Game.save.field = b.dataset.id; Game.persist(); this.renderSortie(); };
+    });
     document.getElementById('enemyCount').value = n;
     document.getElementById('enemyCountVal').textContent = n + ' 体';
-    const rows = DISTRICTS.map((D, i) => {
-      const comp = enemyComposition(n, i);
+    const rows = DS.map((D, i) => {
+      const comp = enemyComposition(n, D);
       const cnt = t => comp.filter(x => x === t).length;
       return `<tr><td><b>${D.name}</b>「${D.sub}」</td><td>${cnt('scarab')}</td><td>${cnt('spitter')}</td><td>${cnt('troll')}</td><td>第1〜${i + 1}地区</td></tr>`;
     }).join('');
@@ -598,7 +610,7 @@ const Garage = {
       <table class="district-tbl">
         <thead><tr><th>地区</th><th>${ENEMY_DEFS.scarab.name}</th><th>${ENEMY_DEFS.spitter.name}</th><th>${ENEMY_DEFS.troll.name}</th><th>戦闘フィールド</th></tr></thead>
         <tbody>${rows}
-          <tr class="boss"><td><b>BOSS</b> ${ENEMY_DEFS.boss.name}</td><td colspan="3">全地区掃討後に出現 / HP ${ENEMY_DEFS.boss.hp + 25 * n}</td><td>全地区</td></tr>
+          <tr class="boss"><td><b>BOSS</b> ${ENEMY_DEFS[F.boss].name}</td><td colspan="3">全地区掃討後に出現 / HP ${ENEMY_DEFS[F.boss].hp + 25 * n}</td><td>全地区</td></tr>
         </tbody>
       </table>
       <p class="muted">各地区を掃討するたびに「次に進みますか？」と確認されます。帰還すればそこまでの戦果で任務終了。HP・弾薬は地区をまたいで持ち越します。<br>

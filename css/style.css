@@ -299,3 +299,15 @@ table.rep tr.sum th, table.rep tr.sum td { color: #ffb050; font-weight: bold; }
 #sound-ctl button { padding: 1px 8px; font-size: 12px; }
 #sound-ctl button.off { opacity: 0.45; text-decoration: line-through; }
 #sound-ctl input[type=range] { width: 70px; accent-color: #e08a3a; }
+
+/* ===================== フィールド選択 ===================== */
+.field-select { display: flex; gap: 10px; margin: 0 0 14px; }
+.field-card {
+  flex: 1; display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 8px;
+}
+.field-card canvas { flex: none; border-radius: 3px; }
+.field-card span { display: flex; flex-direction: column; gap: 3px; }
+.field-card b { font-size: 14px; color: #f0c890; }
+.field-card small { color: #a89a80; font-size: 11px; }
+.field-card em { font-style: normal; font-size: 11px; color: #cbbd9c; line-height: 1.5; }
+.field-card.sel { border-color: #e08a3a; background: #4a3420; box-shadow: 0 0 0 1px #e08a3a inset; }

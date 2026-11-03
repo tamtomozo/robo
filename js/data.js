@@ -84,7 +84,11 @@ const ENEMY_DEFS = {
   scarab:  { name: 'サンドスカラベ',   r: 0.6, hp: 22,  speed: 7.5, dmg: 3,  cd: 1.0, reach: 0.4 },
   spitter: { name: 'アシッドスピッター', r: 0.9, hp: 40,  speed: 4.2, dmg: 7,  cd: 2.8, range: 28 },
   troll:   { name: 'ロックトロール',   r: 1.8, hp: 200, speed: 3.2, dmg: 22, cd: 2.2, reach: 0.8 },
-  boss:    { name: '砂礫王グラヴォルム', r: 4.5, hp: 2500, speed: 4.5, dmg: 15, cd: 1.0 },
+  // boss: true のものはボス（行動は battle.js / boss-spider.js の BOSS_KINDS）。phase2Name = HP半分以下の形態名
+  boss:    { name: '砂礫王グラヴォルム', r: 4.5, hp: 2500, speed: 4.5, dmg: 15, cd: 1.0,
+             boss: true, phase2Name: '赤熱形態', barColors: ['#e08a3a', '#ff4a2a'] },
+  spider:  { name: '蒼晶蜘蛛ノクタラクネ', r: 4, hp: 2300, speed: 6, dmg: 16, cd: 1.0,
+             boss: true, phase2Name: '晶化暴走', barColors: ['#6aa8d8', '#4ae0ff'] },
 };
 
 // ---------------------------------------------------------------------
@@ -100,6 +104,7 @@ const ORE_DROPS = {
   spitter: { iron: 1, crystal: 1 },
   troll:   { iron: 3, core: 1 },
   boss:    { iron: 30, crystal: 15, core: 12 },
+  spider:  { iron: 24, crystal: 26, core: 8 },
 };
 const ORE_MAGNET_R = 7;   // この距離まで近づくと鉱石が機体に吸い寄せられる(m)
 
@@ -161,9 +166,37 @@ const DISTRICTS = [
   { name: '第3地区', sub: '灼砂の窪地', tint: 'rgba(160,60,20,0.16)',   troll: 5, spitter: 3 },
 ];
 
+// 出撃できるフィールド。shape で形が決まる（field.js）
+//   strip … 横に並ぶ長方形の地区（dw × h）
+//   disc  … 円形。中心の円が第1地区で、外側の輪へ広がる（radii = 各地区の外周の半径）
+const FIELDS = [
+  {
+    id: 'wasteland', name: '荒野 第7区画', shape: 'strip', dw: DISTRICT_W, h: DISTRICT_H,
+    desc: '見通しの良い荒野。横に並ぶ地区を順に制圧していく。ボス戦は全地区が戦場になる。',
+    districts: DISTRICTS,
+    boss: 'boss', bossWarn: '大型の生体反応が地中を接近中！',
+    rocksPer: 10, rockR: [2, 6], decorN: 900, decor: ['pebble', 'pebble', 'pebble', 'bush', 'bush', 'crack', 'bone'],
+  },
+  {
+    id: 'cave', name: '円形洞窟「奈落の大空洞」', shape: 'disc', radii: [40, 64, 87, 110], dark: true,
+    boss: 'spider', bossWarn: '天井の暗闇から巨大な生体反応が降りてくる！',
+    desc: '巨大な円形の地下空洞。中心に降下し、地区を掃討するたびに外側の輪へ戦場が広がる。全地区を掃討すると空洞全体でボス戦になる。',
+    districts: [
+      { name: '第1地区', sub: '崩落の底',     tint: 'rgba(0,0,0,0)',          troll: 8, spitter: 4 },
+      { name: '第2地区', sub: '蒼晶の坑道',   tint: 'rgba(40,110,170,0.12)', troll: 7, spitter: 3 },
+      { name: '第3地区', sub: '地底湖畔',     tint: 'rgba(30,90,110,0.16)',  troll: 6, spitter: 3 },
+      { name: '第4地区', sub: '骨喰いの外縁', tint: 'rgba(120,40,30,0.14)',  troll: 5, spitter: 3 },
+    ],
+    rocksPer: 6, rockR: [2, 4.5], decorN: 500, decor: ['pebble', 'pebble', 'crack', 'bone', 'crystal', 'crystal', 'stalag', 'stalag'],
+  },
+];
+
+function fieldById(id) {
+  return FIELDS.find(f => f.id === id) || FIELDS[0];
+}
+
 // 敵の構成（数と地区から決定的に決める。奥の地区ほど大型・射撃型が増える）
-function enemyComposition(n, di = 0) {
-  const D = DISTRICTS[di];
+function enemyComposition(n, D) {
   const list = [];
   for (let i = 0; i < n; i++) {
     if (i % D.troll === D.troll - 1) list.push('troll');
@@ -252,6 +285,7 @@ function defaultSave() {
     build: { headCpu: 'cpu_m', headReg: 'reg_b', torso: 't_std', armL: 'gatling', armR: 'cannon', legs: 'biped', armRatio: 0.5 },
     program: defaultProgram(),
     enemyCount: 20,
+    field: 'wasteland',   // 出撃するフィールド（FIELDS の id）
     ore: emptyOre(),   // 所持している鉱石
     upgrades: {},      // パーツ id → 強化レベル
   };

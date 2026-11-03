@@ -8,7 +8,9 @@
 //  rotate が false でなければ、+X がエネミーの向き（突進の踏み込み e.lunge*0.3 も適用済み）
 //  draw(ctx, e) の e：エネミーの状態
 //    e.r 半径 / e.anim 経過秒 / e.lunge 攻撃の踏み込み(1→0) / e.flash 被弾の白飛び時間
-//    ボスのみ：e.a 向き / e.state 行動 / e.st 行動の残り時間 / e.phase2 赤熱形態 / e.segs 尾の体節（ワールド座標）
+//    ボスのみ：e.a 向き / e.state 行動 / e.st 行動の残り時間（e.st0 行動の長さ） / e.phase2 HP半分以下の形態 /
+//              砂礫王：e.buried 地中に潜行中 / e.segs 尾の体節（ワールド座標）
+//              蒼晶蜘蛛：e.airborne 跳躍中 / e.walk 歩いた距離（脚の動き）
 //
 //  その他の見た目の設定：
 //    hpBar       … 損傷時に頭上へHPバーを出すか
@@ -487,8 +489,10 @@ const ENEMY_ART = {
     scorchColor: 'rgba(70,40,20,0.5)',
     mapColor: '#ff2814', mapSize: 6,
     draw(ctx, e) {
+      if (e.buried) return;   // 地中にいる間は地表の盛り上がりだけを描く（battle.js）
       const t = e.anim;
-      const emerge = e.state === 'emerge' ? 1 - Math.max(0, e.st) / 2.2 : 1;
+      const p = bossWind(e);  // 現在の行動の進み具合（予備モーションの大きさ）
+      const emerge = e.state === 'emerge' ? p : e.state === 'dive' ? 1 - p : 1;
       ctx.save();
       ctx.globalAlpha = Math.max(0.15, emerge);
 
@@ -562,6 +566,14 @@ const ENEMY_ART = {
       // 頭部へ移行（ボスの向き e.a で回転）
       ctx.rotate(e.a);
 
+      // 予備モーション：突進前は頭を引いて震え、弾の放出前は甲殻を膨らませ、叩きつけ前は伸び上がる
+      const jit = Math.sin(t * 70) * 0.12;
+      const inhale = e.state === 'ring_wind' || e.state === 'spiral_wind';
+      if (e.state === 'charge_wind') ctx.translate(-1.4 * p, jit * p);
+      else if (inhale) { ctx.translate(jit * p * 0.5, 0); ctx.scale(1 + 0.14 * p, 1 + 0.14 * p); }
+      else if (e.state === 'slam_wind') ctx.scale(1 + 0.22 * p, 1 + 0.22 * p);
+      else if (e.state === 'rage') ctx.translate(jit, jit * 0.7);
+
       // 頭部直下の接地影
       groundShadow(ctx, 0, 0.3, 4.2, 3.4, 0.4);
 
@@ -605,7 +617,8 @@ const ENEMY_ART = {
       }
 
       // 凶悪な二重クラッシャー大顎
-      const open = 0.32 + 0.22 * Math.sin(t * 3.2) + (e.state === 'charge' ? 0.35 : 0);
+      const open = 0.32 + 0.22 * Math.sin(t * 3.2) + (e.state === 'charge' ? 0.35 : 0) +
+        (e.state === 'charge_wind' ? 0.5 * p : e.state === 'rage' ? 0.45 : inhale ? 0.3 * p : 0);
       for (const s of [-1, 1]) {
         ctx.save();
         ctx.translate(3.5, s * 1.5);
@@ -718,8 +731,21 @@ const ENEMY_ART = {
         ctx.stroke();
       }
 
-      // 巨大な多眼センサー（王の眼光）
-      const eyeColor = e.phase2 ? '#ff2200' : '#ffc020';
+      // 弾の放出前：甲殻の内側から光が漏れる
+      if (inhale) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, e.r * 1.1);
+        g.addColorStop(0, `rgba(255,170,60,${0.6 * p})`);
+        g.addColorStop(1, 'rgba(255,90,20,0)');
+        ctx.fillStyle = g;
+        circle(ctx, 0, 0, e.r * 1.1);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 巨大な多眼センサー（王の眼光）。突進の直前は白く明滅する
+      const eyeColor = e.state === 'charge_wind' && Math.sin(t * 40) > 0 ? '#fff4d0' : e.phase2 ? '#ff2200' : '#ffc020';
       const eyeGlow = e.phase2 ? '#ff1100' : '#ff9900';
       ctx.save();
       ctx.fillStyle = eyeColor;
@@ -744,6 +770,153 @@ const ENEMY_ART = {
       ctx.restore();
 
       enemyFlash(ctx, e, 0.45);
+      ctx.restore();
+    },
+  },
+
+  // ------------------------------------------------------------ ボス：蒼晶蜘蛛ノクタラクネ（洞窟）
+  // 背に青い結晶を生やした巨大蜘蛛。天井から糸で降り、跳躍して襲いかかる
+  // 跳躍中・降下中は宙に浮くので、影は地面に残したまま体を上にずらして大きく描く
+  spider: {
+    rotate: false,
+    hpBar: false,
+    gibColor: '#8fd8ff',
+    scorchColor: 'rgba(60,110,160,0.45)',
+    mapColor: '#4ad8ff', mapSize: 6,
+    draw(ctx, e) {
+      const t = e.anim, p = bossWind(e), st = e.state, p2 = e.phase2;
+      // 高さ（0 = 接地）：跳躍は放物線、出現は天井から降りてくる
+      const h = st === 'leap' ? Math.sin(Math.PI * p) : st === 'emerge' ? (1 - p) * 2.2 : 0;
+      const crouch = st === 'leap_wind' ? p : 0;                                          // しゃがみ込み
+      const rear = st === 'fan_wind' || st === 'sweep_wind' || st === 'web_wind' ? p : st === 'rage' ? 0.6 : 0;  // 立ち上がり
+      const glow = st === 'fan_wind' ? p : st === 'rage' ? 0.7 + 0.3 * Math.sin(t * 30) : st === 'fan' ? 0.8 : 0;
+      const jit = st === 'rage' || st === 'rain_wind' ? Math.sin(t * 70) * 0.12 : 0;
+      const crys = p2 ? '#9ff0ff' : '#6cc6ff';
+
+      ctx.save();
+      if (st === 'emerge') ctx.globalAlpha = Math.min(1, 0.2 + p);
+
+      // 接地影（高いほど小さく薄い）
+      groundShadow(ctx, 0, 0.4, 5.6 * (1 - 0.25 * h), 4.6 * (1 - 0.25 * h), 0.36 * (1 - 0.35 * h));
+      // 出現：天井から垂れる糸
+      if (st === 'emerge') {
+        ctx.strokeStyle = 'rgba(230,240,255,0.6)';
+        ctx.lineWidth = 0.08;
+        ctx.beginPath(); ctx.moveTo(0, -h * 4); ctx.lineTo(0, -60); ctx.stroke();
+      }
+
+      ctx.translate(jit, -h * 4 + jit * 0.5);
+      const sc = 1 + 0.3 * h - 0.06 * crouch;
+      ctx.scale(sc, sc);
+      ctx.rotate(e.a);
+      ctx.translate(-0.9 * rear, 0);   // 立ち上がると体が後ろへ下がる
+
+      // 脚（左右4本ずつ）。歩くと交互に動き、しゃがむと縮む
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const walk = e.walk || 0;
+      const base = [0.75, 0.25, -0.25, -0.7];   // 横向きからの角度（前脚ほど前へ）
+      for (let i = 0; i < 4; i++) {
+        for (const s of [-1, 1]) {
+          let sw = Math.sin(walk * 1.3 + i * 1.7 + (s > 0 ? Math.PI : 0)) * 0.22;
+          if (st === 'leap') sw = 0;
+          let ang = base[i] + sw;
+          let len = 1 - 0.25 * crouch + 0.1 * h;
+          // 前脚：立ち上がると前へ高く振り上げる
+          if (i === 0 && rear > 0) { ang += 0.6 * rear; len += 0.35 * rear; }
+          const rx = 0.9 - i * 0.55, ry = s * 1.1;
+          const ka = s * (Math.PI / 2) - s * ang;         // 膝への向き
+          const kx = rx + Math.cos(ka) * 3.0 * len, ky = ry + Math.sin(ka) * 3.0 * len;
+          const ta = ka - s * (0.55 + 0.3 * crouch);       // 爪先は外側へ折れ曲がる
+          const tx = kx + Math.cos(ta) * 3.2 * len, ty = ky + Math.sin(ta) * 3.2 * len;
+          ctx.strokeStyle = '#141220';
+          ctx.lineWidth = 0.55;
+          ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(kx, ky); ctx.lineTo(tx, ty); ctx.stroke();
+          ctx.strokeStyle = p2 ? '#3d5a78' : '#2e2b44';
+          ctx.lineWidth = 0.32;
+          ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(kx, ky); ctx.lineTo(tx, ty); ctx.stroke();
+          // 膝の結晶の棘
+          ctx.fillStyle = crys;
+          ctx.beginPath();
+          ctx.moveTo(kx - 0.18, ky); ctx.lineTo(kx + Math.cos(ka - s * 1.2) * 0.7, ky + Math.sin(ka - s * 1.2) * 0.7); ctx.lineTo(kx + 0.18, ky);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+
+      // 腹部（後ろの大きな楕円）と背の結晶群
+      ctx.fillStyle = '#1b1828';
+      ctx.beginPath(); ctx.ellipse(-3.1, 0, 3.0, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#272338';
+      ctx.beginPath(); ctx.ellipse(-3.0, 0, 2.4, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+      // 腹部の模様
+      ctx.strokeStyle = 'rgba(110,190,255,0.25)';
+      ctx.lineWidth = 0.12;
+      for (const k of [-1.0, 0, 1.0]) {
+        ctx.beginPath(); ctx.ellipse(-3.0 + k * 0.9, 0, 0.35, 1.2 - Math.abs(k) * 0.3, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      // 結晶（発光は扇射の予備動作・暴走で強まる）
+      ctx.save();
+      ctx.shadowColor = crys;
+      ctx.shadowBlur = 6 + 18 * glow + (p2 ? 8 : 0);
+      const spikes = [[-2.2, -0.9, 1.6, -2.3], [-3.0, 0.2, 1.9, 2.9], [-3.9, -0.5, 1.4, -2.7], [-2.6, 0.9, 1.3, 2.1], [-4.4, 0.6, 1.1, 2.6], [-3.4, -1.2, 1.2, -1.9]];
+      for (const [x, y, l, a] of spikes) {
+        const L = l * (1 + 0.25 * glow);
+        ctx.fillStyle = glow > 0.05 ? `rgba(${170 + 85 * glow},${230 + 25 * glow},255,0.95)` : crys;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a + 1.57) * 0.3, y + Math.sin(a + 1.57) * 0.3);
+        ctx.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L);
+        ctx.lineTo(x + Math.cos(a - 1.57) * 0.3, y + Math.sin(a - 1.57) * 0.3);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // 頭胸部
+      ctx.fillStyle = '#161322';
+      ctx.beginPath(); ctx.ellipse(0.5, 0, 2.0, 1.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2c283f';
+      ctx.beginPath(); ctx.ellipse(0.35, 0, 1.5, 1.2, 0, 0, Math.PI * 2); ctx.fill();
+      if (p2) {
+        // 晶化暴走：頭胸部にも結晶の筋が走る
+        ctx.save();
+        ctx.strokeStyle = `rgba(150,240,255,${0.6 + 0.4 * Math.sin(t * 9)})`;
+        ctx.shadowColor = '#7ae8ff';
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 0.18;
+        ctx.beginPath();
+        ctx.moveTo(-1.2, 0); ctx.lineTo(1.6, 0);
+        ctx.moveTo(-0.6, -1.1); ctx.lineTo(0.8, -0.5);
+        ctx.moveTo(-0.6, 1.1); ctx.lineTo(0.8, 0.5);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 鋏角（牙）。糸玉や薙ぎ払いの前に開く
+      const open = 0.2 + 0.5 * rear + 0.08 * Math.sin(t * 4);
+      ctx.fillStyle = '#0f0d18';
+      ctx.strokeStyle = crys;
+      ctx.lineWidth = 0.08;
+      for (const s of [-1, 1]) {
+        ctx.save();
+        ctx.translate(2.3, s * 0.45);
+        ctx.rotate(s * open);
+        ctx.beginPath();
+        ctx.moveTo(0, -0.25 * s); ctx.quadraticCurveTo(1.2, -0.1 * s, 1.3, 0.55 * s); ctx.lineTo(0.9, 0.35 * s); ctx.quadraticCurveTo(0.6, 0.15 * s, 0, 0.25 * s);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+
+      // 8つの眼
+      ctx.save();
+      ctx.fillStyle = p2 ? '#d6fbff' : '#7fe0ff';
+      ctx.shadowColor = p2 ? '#9ff6ff' : '#3ab8ff';
+      ctx.shadowBlur = p2 ? 14 : 8;
+      for (const [x, y, r] of [[1.9, -0.35, 0.22], [1.9, 0.35, 0.22], [1.6, -0.75, 0.16], [1.6, 0.75, 0.16], [1.35, -0.3, 0.12], [1.35, 0.3, 0.12], [1.1, -0.95, 0.1], [1.1, 0.95, 0.1]]) {
+        circle(ctx, x, y, r); ctx.fill();
+      }
+      ctx.restore();
+
+      enemyFlash(ctx, e, 0.4);
       ctx.restore();
     },
   },
@@ -831,6 +1004,46 @@ const ENEMY_SHOT_ART = {
       ctx.stroke();
       ctx.restore();
 
+      ctx.restore();
+    },
+  },
+
+  // ------------------------------------------------------------ 晶弾（蒼晶蜘蛛）
+  shard: {
+    hitColor: '#9fe4ff',
+    draw(ctx, s) {
+      ctx.save();
+      ctx.rotate(Math.atan2(s.vy, s.vx));
+      ctx.fillStyle = 'rgba(110,200,255,0.3)';
+      ctx.beginPath(); ctx.ellipse(-s.r * 0.6, 0, s.r * 2.4, s.r * 1.1, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#9fe4ff';
+      ctx.strokeStyle = '#e8faff';
+      ctx.lineWidth = s.r * 0.15;
+      ctx.beginPath();
+      ctx.moveTo(s.r * 1.6, 0); ctx.lineTo(0, -s.r * 0.55); ctx.lineTo(-s.r * 1.3, 0); ctx.lineTo(0, s.r * 0.55);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    },
+  },
+
+  // ------------------------------------------------------------ 糸玉（蒼晶蜘蛛）。着弾点に蜘蛛の巣が張られる
+  web: {
+    hitColor: '#eef2ff',
+    draw(ctx, s) {
+      ctx.save();
+      ctx.rotate(Math.atan2(s.vy, s.vx));
+      ctx.strokeStyle = 'rgba(235,240,255,0.5)';
+      ctx.lineWidth = 0.06;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-s.r * 4, 0); ctx.stroke();
+      ctx.fillStyle = 'rgba(240,244,255,0.9)';
+      circle(ctx, 0, 0, s.r); ctx.fill();
+      ctx.strokeStyle = 'rgba(180,190,220,0.8)';
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2;
+        ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * s.r * 1.4, Math.sin(a) * s.r * 1.4);
+      }
+      ctx.stroke();
       ctx.restore();
     },
   },

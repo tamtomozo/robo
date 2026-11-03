@@ -20,6 +20,7 @@ const Game = {
         const d = defaultSave();
         return {
           build: Object.assign(d.build, s.build), program: s.program, enemyCount: s.enemyCount || d.enemyCount,
+          field: fieldById(s.field).id,
           ore: Object.assign(d.ore, s.ore), upgrades: Object.assign(d.upgrades, s.upgrades),
         };
       }

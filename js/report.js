@@ -17,6 +17,7 @@ const Report = {
     const acc = (side) => s.shots[side] ? Math.round(s.hits[side] / s.shots[side] * 100) + '%' : '—';
     const armName = (side) => P.arms[side].def.name;
     const killsN = s.kills.scarab + s.kills.spitter + s.kills.troll;
+    const DS = w.field.districts;
     const ore = finishOre(w);
     const lostAny = ORES.some(k => ore.lost[k.id]);
 
@@ -39,7 +40,7 @@ const Report = {
     if (P.st.over) notes.push('過積載状態で出撃しています。脚部の積載量を見直してください。');
     if (w.result === 'return') {
       const pct = Math.round(P.hp / P.maxHp * 100);
-      notes.push(`機体HP ${pct}% で帰還しました。${s.cleared < DISTRICTS.length ? `次は${DISTRICTS[s.cleared].name}以降が待っています。` : 'ボス戦に挑むには、さらに損傷を抑える必要があります。'}`);
+      notes.push(`機体HP ${pct}% で帰還しました。${s.cleared < DS.length ? `次は${DS[s.cleared].name}以降が待っています。` : 'ボス戦に挑むには、さらに損傷を抑える必要があります。'}`);
     }
     if (w.result === 'win' && w.time < 420) notes.push('迅速な任務遂行です。敵数を増やして挑戦してみましょう。');
     if (lostAny) notes.push('機体大破により、回収した鉱石の半分を失いました。');
@@ -48,8 +49,8 @@ const Report = {
     if (!notes.length) notes.push('特記事項なし。良好な戦闘データです。');
 
     document.getElementById('report').innerHTML = `
-      <div class="rep-head ${cls}"><h1>${title}</h1><p>荒野 第7区画 / 掃討 ${s.cleared} / ${DISTRICTS.length} 地区 / 戦闘時間 ${mmss(w.time)} / 交戦した敵 ${s.total}体</p>
-        <div class="rep-districts">${DISTRICTS.map((D, i) => {
+      <div class="rep-head ${cls}"><h1>${title}</h1><p>${w.field.name} / 掃討 ${s.cleared} / ${DS.length} 地区 / 戦闘時間 ${mmss(w.time)} / 交戦した敵 ${s.total}体</p>
+        <div class="rep-districts">${DS.map((D, i) => {
           const st = i < s.cleared ? 'done' : i === w.district && w.result !== 'return' ? 'fail' : 'none';
           return `<span class="${st}">${D.name}「${D.sub}」${st === 'done' ? ' ✔' : st === 'fail' ? ' ✖' : ''}</span>`;
         }).join('<em>›</em>')}<em>›</em><span class="${s.kills.boss ? 'done' : s.bossAt != null ? 'fail' : 'none'}">BOSS${s.kills.boss ? ' ✔' : s.bossAt != null ? ' ✖' : ''}</span></div></div>
@@ -60,7 +61,7 @@ const Report = {
             <tr><th>${ENEMY_DEFS.scarab.name}</th><td>${s.kills.scarab}</td></tr>
             <tr><th>${ENEMY_DEFS.spitter.name}</th><td>${s.kills.spitter}</td></tr>
             <tr><th>${ENEMY_DEFS.troll.name}</th><td>${s.kills.troll}</td></tr>
-            <tr><th>${ENEMY_DEFS.boss.name}</th><td>${s.kills.boss ? '撃破' : (s.bossAt != null ? '未撃破' : '未出現')}</td></tr>
+            <tr><th>${ENEMY_DEFS[w.field.boss].name}</th><td>${s.kills.boss ? '撃破' : (s.bossAt != null ? '未撃破' : '未出現')}</td></tr>
             <tr class="sum"><th>合計（一般）</th><td>${killsN} / ${s.total}</td></tr>
           </table>
           <h3>回収鉱石</h3>
