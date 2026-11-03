@@ -178,14 +178,13 @@ const FIELDS = [
     rocksPer: 10, rockR: [2, 6], decorN: 900, decor: ['pebble', 'pebble', 'pebble', 'bush', 'bush', 'crack', 'bone'],
   },
   {
-    id: 'cave', name: '円形洞窟「奈落の大空洞」', shape: 'disc', radii: [40, 64, 87, 110], dark: true,
+    id: 'cave', name: '円形洞窟「奈落の大空洞」', shape: 'disc', radii: [45, 80, 110], dark: true,
     boss: 'spider', bossWarn: '天井の暗闇から巨大な生体反応が降りてくる！',
     desc: '巨大な円形の地下空洞。中心に降下し、地区を掃討するたびに外側の輪へ戦場が広がる。全地区を掃討すると空洞全体でボス戦になる。',
     districts: [
       { name: '第1地区', sub: '崩落の底',     tint: 'rgba(0,0,0,0)',          troll: 8, spitter: 4 },
-      { name: '第2地区', sub: '蒼晶の坑道',   tint: 'rgba(40,110,170,0.12)', troll: 7, spitter: 3 },
-      { name: '第3地区', sub: '地底湖畔',     tint: 'rgba(30,90,110,0.16)',  troll: 6, spitter: 3 },
-      { name: '第4地区', sub: '骨喰いの外縁', tint: 'rgba(120,40,30,0.14)',  troll: 5, spitter: 3 },
+      { name: '第2地区', sub: '蒼晶の坑道',   tint: 'rgba(40,110,170,0.12)', troll: 6, spitter: 3 },
+      { name: '第3地区', sub: '骨喰いの外縁', tint: 'rgba(120,40,30,0.14)',  troll: 5, spitter: 3 },
     ],
     rocksPer: 6, rockR: [2, 4.5], decorN: 500, decor: ['pebble', 'pebble', 'crack', 'bone', 'crystal', 'crystal', 'stalag', 'stalag'],
   },
