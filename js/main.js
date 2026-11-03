@@ -10,6 +10,11 @@ const Game = {
     this.save = this.load();
     Sound.init();
     Garage.init();
+    document.getElementById('btn-reload').onclick = () => location.reload();
+    // 開きっぱなしのタブに戻ってきたときも確認する
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && document.getElementById('screen-garage').classList.contains('active')) this.checkUpdate();
+    });
     this.toGarage();
   },
 
@@ -46,6 +51,24 @@ const Game = {
     this.show('garage');
     Sound.playBgm('garage');
     Garage.onShow();
+    this.checkUpdate();
+  },
+
+  // Web 版：サーバー上の version.json と自分の版（index.html の game-version）を比べ、
+  // 新しい版が公開されていればガレージにお知らせを出す。版の番号はコミット時に自動で書き換わる（.githooks/pre-commit）
+  lastCheck: 0,
+  async checkUpdate() {
+    const meta = document.querySelector('meta[name="game-version"]');
+    const cur = meta && meta.content;
+    if (!cur || cur === 'dev' || location.protocol === 'file:') return;
+    if (performance.now() - this.lastCheck < 30000) return;   // 確認は30秒に1回まで
+    this.lastCheck = performance.now();
+    try {
+      // ブラウザと配信サーバーのキャッシュを通さずに最新の version.json を読む
+      const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+      const { version } = await r.json();
+      if (version && version > cur) document.getElementById('update-banner').classList.add('show');
+    } catch (e) { /* オフラインなど */ }
   },
 
   sortie() {

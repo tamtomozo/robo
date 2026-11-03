@@ -1,0 +1,15 @@
+#!/bin/sh
+# =====================================================================
+#  コミット前フック：Web 版（GitHub Pages）のキャッシュ対策のバージョン番号を書き換える
+#   ・index.html の js / css の読み込みに付けた ?v=… と <meta name="game-version">
+#     → 新しい index.html を読めば、全ファイルが新しい版でそろって読み込まれる
+#   ・version.json → ゲームが起動時・ガレージ表示時に読み、新しい版があればお知らせを出す
+#  GitHub Pages は全ファイルを max-age=600（10分）で配信し、ヘッダーは変更できないための対策
+#  有効化（クローンごとに1回）：git config core.hooksPath .githooks
+# =====================================================================
+set -e
+cd "$(git rev-parse --show-toplevel)"
+v=$(date +%Y%m%d-%H%M%S)
+sed -i -E "s/\?v=[A-Za-z0-9-]+\"/?v=$v\"/g; s/(<meta name=\"game-version\" content=\")[^\"]*/\1$v/" index.html
+printf '{ "version": "%s" }\n' "$v" > version.json
+git add index.html version.json

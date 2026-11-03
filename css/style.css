@@ -311,3 +311,13 @@ table.rep tr.sum th, table.rep tr.sum td { color: #ffb050; font-weight: bold; }
 .field-card small { color: #a89a80; font-size: 11px; }
 .field-card em { font-style: normal; font-size: 11px; color: #cbbd9c; line-height: 1.5; }
 .field-card.sel { border-color: #e08a3a; background: #4a3420; box-shadow: 0 0 0 1px #e08a3a inset; }
+
+/* ===================== 更新のお知らせ ===================== */
+.update-banner {
+  display: none; position: fixed; top: 72px; left: 50%; transform: translateX(-50%); z-index: 60;
+  align-items: center; gap: 12px; padding: 8px 10px 8px 16px;
+  background: #2c3a24; border: 1px solid #7fbf5a; border-radius: 4px; color: #d8f0c8; font-weight: bold;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+}
+.update-banner.show { display: flex; }
+.update-banner button { padding: 4px 12px; }
