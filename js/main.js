@@ -43,10 +43,19 @@ const Game = {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY));
       if (s && s.build && Array.isArray(s.program) && s.program.length === MAX_GRID * MAX_GRID) {
         const d = defaultSave();
+        const stock = Array.isArray(s.stock) ? s.stock.filter(it => it && PARTS[it.cat] && PARTS[it.cat].some(p => p.id === it.id)) : [];
+        const build = Object.assign(d.build, s.build);
+        // 装着中のドロップパーツが倉庫に無ければ（分解済みなど）標準パーツ扱いに戻す
+        const gear = {};
+        for (const [k, g] of Object.entries(build.gear || {})) {
+          if (g && build[k] === g.id && stock.some(it => it.uid === g.uid)) gear[k] = g;
+        }
+        build.gear = gear;
         return {
-          build: Object.assign(d.build, s.build), program: s.program, enemyCount: s.enemyCount || d.enemyCount,
+          build, program: s.program, enemyCount: s.enemyCount || d.enemyCount,
           field: fieldById(s.field).id,
           ore: Object.assign(d.ore, s.ore), upgrades: Object.assign(d.upgrades, s.upgrades),
+          stock, nextUid: Math.max(s.nextUid || 1, ...stock.map(it => it.uid + 1)),
         };
       }
     } catch (e) { /* 壊れたセーブは無視 */ }
@@ -60,6 +69,13 @@ const Game = {
   // 戦闘で持ち帰った鉱石を所持数に加える
   addOre(gain) {
     for (const k of ORES) this.save.ore[k.id] += gain[k.id] || 0;
+    this.persist();
+  },
+
+  // 戦闘で持ち帰ったパーツを倉庫に加える（uid を振る）
+  addParts(list) {
+    const now = Date.now();
+    for (const p of list) this.save.stock.push({ uid: this.save.nextUid++, cat: p.cat, id: p.id, bonus: p.bonus, got: now, isNew: true });
     this.persist();
   },
 

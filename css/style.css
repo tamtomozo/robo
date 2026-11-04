@@ -157,6 +157,48 @@ h3 small { color: #a89a80; font-weight: normal; font-size: 12px; margin-left: 6p
 .ore-bank b { color: #f0c890; margin-right: 12px; }
 .lv { margin-left: 8px; font-size: 11px; background: #3a5a2a; color: #cfffb0; padding: 1px 6px; border-radius: 8px; }
 
+/* ドロップパーツ（レアエネミー）：--c に等級の色 */
+.ptag { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; font-size: 12px; padding: 1px 7px 1px 3px; border-radius: 4px;
+  border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 14%, #1e1a14); color: #e9e2d2; margin: 1px 0; }
+.ptag em { font-style: normal; font-size: 10px; font-weight: bold; color: #1a1510; background: var(--c); padding: 0 4px; border-radius: 3px; }
+.ptag b { color: var(--c); }
+.ptag.lost { opacity: 0.45; text-decoration: line-through; }
+.new { margin-left: 6px; font-size: 10px; font-weight: bold; background: #ffd84a; color: #1a1510; padding: 0 5px; border-radius: 7px; }
+.tabs button .new { margin-left: 5px; }
+.own { margin-left: 8px; font-size: 11px; color: #ffd84a; }
+.tag.other { background: #6b5a40; color: #e9e2d2; }
+.insts { margin-top: 6px; border-top: 1px dashed #4a3e2c; padding-top: 5px; display: flex; flex-direction: column; gap: 3px; }
+.inst { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
+.inst:hover { border-color: #a08458; background: rgba(0,0,0,0.25); }
+.inst.eq { border-color: #e08a3a; background: rgba(90,55,20,0.6); }
+.inst small { font-size: 11px; color: #b8aa8e; }
+.inst .tag { margin-left: auto; }
+
+/* 倉庫 */
+.stock-panel h2 small { font-size: 14px; color: #a89a80; margin-left: 8px; }
+.stock-panel > p { line-height: 1.8; }
+.stock-bar { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0 8px; font-size: 13px; color: #a89a80; }
+.stock-bar .seg { display: flex; align-items: center; gap: 4px; }
+.stock-bar button { padding: 3px 10px; font-size: 13px; }
+.stock-bar button.on { background: #6b4a24; border-color: #e08a3a; color: #fff; }
+.stock-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stock-tbl th { text-align: left; font-weight: normal; color: #a89a80; padding: 4px 6px; border-bottom: 1px solid #6b4a24; }
+.stock-tbl td { padding: 4px 6px; border-bottom: 1px solid #3a3226; }
+.stock-tbl tr.sel td { background: rgba(160,60,40,0.22); }
+.stock-tbl tr.eq td { background: rgba(90,55,20,0.35); }
+.stock-tbl td.bd { font-size: 12px; color: #cfc4ac; }
+.stock-tbl td.cost { font-size: 12px; }
+.stock-tbl td:last-child { text-align: right; white-space: nowrap; }
+.stock-tbl .dup { margin-left: 6px; color: #a89a80; font-size: 11px; }
+.stock-tbl .salv { padding: 2px 12px; }
+.stock-panel .empty { color: #8a7e68; padding: 20px 0; text-align: center; }
+.stock-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; }
+.stock-foot .salv-tier { border-color: var(--c); padding: 4px 10px; font-size: 12px; }
+.stock-foot .sum { margin-left: auto; }
+.stock-foot button:disabled { opacity: 0.4; cursor: not-allowed; }
+.rep-parts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.rep-col h3 small { font-weight: normal; font-size: 12px; color: #a89a80; margin-left: 6px; }
+
 /* 強化 */
 .upgrade-panel { max-width: 980px; margin: 0 auto; width: 100%; background: rgba(0,0,0,0.3); border: 1px solid #4a3e2c; border-radius: 6px; padding: 18px 24px; }
 .upgrade-panel h2 { margin: 0 0 6px; color: #f0c890; }

@@ -106,11 +106,13 @@ function createWorld(save) {
     phase: 'fight', phaseT: 0, boss: null, log: [], result: null, endT: 0, shake: 0, banner: null,
     program: save.program,
     ores: [], ore: emptyOre(), orePulse: {}, oreResult: null,   // 落ちている鉱石 / 回収した鉱石
+    loot: [], parts: [], partPulse: 0,   // 落ちているパーツ（レアエネミーのドロップ） / 回収したパーツ
     veins: [], surge: { state: 'idle', t: rand(35, 55), k: 0, ph: 0 },   // 大地の脈動（地面の亀裂 / 状態）
     stats: {
       kills: { scarab: 0, spitter: 0, troll: 0, boss: 0 }, dmgDealt: 0, dmgTaken: 0,
       shots: { L: 0, R: 0 }, hits: { L: 0, R: 0 }, dmgBy: { L: 0, R: 0 },
       distance: 0, total: save.enemyCount, bossAt: null, cleared: 0,
+      rareSeen: 0, rareKills: 0,
     },
   };
   w.start = geo.start(F);
@@ -293,13 +295,28 @@ function spawnEnemy(w, type, at) {
     if (!best) best = w.geo.randomPoint(w, w.district, 5);
     ({ x, y } = best);
   }
+  // 一般エネミーは地区の出現・増援のときだけ、まれにレア（輝晶個体）になる
+  const rare = !def.boss && !at && Math.random() < RARE.chance * (w.surge.k > 0.5 ? RARE.surgeMul : 1);
+  const d = rare ? rareDef(def) : def;
   const e = {
-    type, def, x, y, vx: 0, vy: 0, a: 0, r: def.r, hp: def.hp, maxHp: def.hp,
+    type, def: d, rare, x, y, vx: 0, vy: 0, a: 0, r: d.r, hp: d.hp, maxHp: d.hp,
     cd: rand(0, def.cd), flash: 0, anim: rand(0, 10), strafeDir: Math.random() < 0.5 ? -1 : 1, lunge: 0,
     cx: x, cy: y, chkT: rand(1, 1.5), unstuck: 0,
   };
   w.enemies.push(e);
+  if (rare) {
+    w.stats.rareSeen++;
+    addLog(w, `レア個体を検知：${d.name}（撃破するとパーツを落とす）`, '#ffd84a');
+    Sound.play('rare');
+  }
   return e;
+}
+
+// レア個体の性能（元の種類の写しを強化する）
+function rareDef(def) {
+  return Object.assign({}, def, {
+    name: RARE.prefix + def.name, hp: Math.round(def.hp * RARE.hp), speed: def.speed * RARE.speed, dmg: def.dmg * RARE.dmg,
+  });
 }
 
 function spawnBoss(w) {
@@ -659,6 +676,7 @@ function killEnemy(w, e) {
   }
   addScorch(w, e.x, e.y, e.r * 1.2, art.scorchColor);
   dropOre(w, e);
+  if (e.rare) dropPart(w, e);
   Sound.play(e.def.boss ? 'bossDie' : e.type === 'troll' ? 'killBig' : 'kill', { x: e.x, y: e.y });
   if (e.def.boss) {
     w.hazards = [];
@@ -1283,7 +1301,7 @@ function dropOre(w, e) {
   const drop = ORE_DROPS[e.type];
   if (!drop) return;
   const big = e.def.boss ? 2.5 : 1;
-  const mul = !e.def.boss && w.surge.k > 0.5 ? 2 : 1;   // 脈動中に倒すと鉱石 2倍
+  const mul = (!e.def.boss && w.surge.k > 0.5 ? 2 : 1) * (e.rare ? RARE.ore : 1);   // 脈動中に倒すと鉱石 2倍 / レアは RARE.ore 倍
   for (const [kind, n] of Object.entries(drop)) {
     for (let i = 0; i < n * mul; i++) {
       const a = rand(0, Math.PI * 2), sp = rand(1.5, 5) * big;
@@ -1300,15 +1318,15 @@ function updateOres(w, dt) {
   // ボス撃破後は残りの鉱石もすべて機体へ集まる
   const sweep = w.result === 'win';
   const canPick = !P.dead && (!w.result || sweep);
-  for (const o of w.ores) {
+  const step = (o, delay, collect) => {
     o.t += dt;
     const dx = P.x - o.x, dy = P.y - o.y, d = Math.hypot(dx, dy) || 0.001;
-    if (canPick && o.t > 0.35 && (d < ORE_MAGNET_R || sweep)) o.pull += dt;
+    if (canPick && o.t > delay && (d < ORE_MAGNET_R || sweep)) o.pull += dt;
     if (o.pull > 0) {
       const sp = 10 + o.pull * 45;
       o.vx = dx / d * sp;
       o.vy = dy / d * sp;
-      if (d < P.r + 0.3 || d < sp * dt) { collectOre(w, o); continue; }
+      if (d < P.r + 0.3 || d < sp * dt) { collect(w, o); return; }
     } else {
       o.vx *= 1 - Math.min(1, 4 * dt);
       o.vy *= 1 - Math.min(1, 4 * dt);
@@ -1316,9 +1334,38 @@ function updateOres(w, dt) {
     o.x += o.vx * dt;
     o.y += o.vy * dt;
     if (!o.pull) { o.r = 0.5; clampField(w, o); }   // 吸い寄せ中は岩壁を越えて機体へ飛んでいく
-  }
+  };
+  for (const o of w.ores) step(o, 0.35, collectOre);
+  for (const o of w.loot) step(o, 0.8, collectPart);
   if (w.ores.some(o => o.got)) w.ores = w.ores.filter(o => !o.got);
+  if (w.loot.some(o => o.got)) w.loot = w.loot.filter(o => !o.got);
   for (const k in w.orePulse) w.orePulse[k] = Math.max(0, w.orePulse[k] - dt);
+  w.partPulse = Math.max(0, w.partPulse - dt);
+}
+
+// レアエネミーが落とすパーツ（光る容器。鉱石と同じく近づくと吸い寄せられる）
+function dropPart(w, e) {
+  const part = randomDropPart();
+  const a = rand(0, Math.PI * 2);
+  w.loot.push({ part, x: e.x, y: e.y, vx: Math.cos(a) * 3, vy: Math.sin(a) * 3, rot: rand(0, 6.283), t: 0, pull: 0 });
+  w.stats.rareKills++;
+  const p = partById(part.cat, part.id), tier = bonusTier(part.bonus);
+  addLog(w, `${e.def.name} 撃破 ― パーツを落とした：${p.name} +${part.bonus}`, tier.color);
+}
+
+function partLogText(part) {
+  return `${partById(part.cat, part.id).name} +${part.bonus}`;
+}
+
+function collectPart(w, o) {
+  o.got = true;
+  w.parts.push(o.part);
+  w.partPulse = 0.6;
+  Sound.play('partGet');
+  addLog(w, `パーツ回収：${partLogText(o.part)}（${bonusTier(o.part.bonus).name}）`, bonusTier(o.part.bonus).color);
+  for (let i = 0; i < 6; i++) {
+    w.fx.push({ type: 'gib', x: w.player.x, y: w.player.y, vx: rand(-4, 4), vy: rand(-4, 4), life: 0.35, max: 0.35, size: 0.2, color: bonusTier(o.part.bonus).color });
+  }
 }
 
 function collectOre(w, o) {
@@ -1332,6 +1379,11 @@ function collectOre(w, o) {
 
 // 地区掃討時など：フィールドに残った鉱石を回収ドローンがまとめて回収
 function collectAllOres(w) {
+  if (w.loot.length) {
+    for (const o of w.loot) w.parts.push(o.part);
+    addLog(w, `回収ドローン：残りのパーツを回収（${w.loot.map(o => partLogText(o.part)).join(' / ')}）`, '#ffd84a');
+    w.loot = [];
+  }
   if (!w.ores.length) return;
   const got = emptyOre();
   for (const o of w.ores) { got[o.kind]++; w.ore[o.kind]++; }
@@ -1342,15 +1394,20 @@ function collectAllOres(w) {
 // 戦闘終了時の鉱石の精算。帰還・勝利は全回収、撤退は拾った分のみ、大破は拾った分の半分を失う
 function finishOre(w) {
   if (w.oreResult) return w.oreResult;
-  let field = 0;
+  let field = 0, fieldParts = 0;
   if (w.result === 'win' || w.result === 'return') collectAllOres(w);
-  else field = w.ores.length;
+  else { field = w.ores.length; fieldParts = w.loot.length; }
   const lost = emptyOre(), gain = emptyOre();
   for (const k of ORES) {
     lost[k.id] = w.result === 'lose' ? Math.floor(w.ore[k.id] / 2) : 0;
     gain[k.id] = w.ore[k.id] - lost[k.id];
   }
-  w.oreResult = { collected: Object.assign({}, w.ore), lost, gain, field };
+  // パーツ：大破すると回収したうちの半分（切り捨て）をランダムに失う
+  const keep = w.parts.slice(), lostParts = [];
+  if (w.result === 'lose') {
+    for (let n = Math.floor(keep.length / 2); n > 0; n--) lostParts.push(keep.splice((Math.random() * keep.length) | 0, 1)[0]);
+  }
+  w.oreResult = { collected: Object.assign({}, w.ore), lost, gain, field, parts: keep, lostParts, fieldParts };
   return w.oreResult;
 }
 
@@ -1545,12 +1602,17 @@ function drawWorld(ctx, w, B, VW, VH) {
   for (const o of w.ores) {
     if (inView(o.x, o.y, 1)) drawOre(ctx, o, w.time);
   }
+  for (const o of w.loot) {
+    if (inView(o.x, o.y, 4)) drawLoot(ctx, o, w.time);
+  }
 
   // 敵（脈動中は足元に赤い揺らめき）
   for (const e of w.enemies) {
     if (!inView(e.x, e.y, e.def.boss ? 20 : 3)) continue;
     if (sk > 0.05 && !e.buried) drawSurgeAura(ctx, e, sk, sb);
+    if (e.rare) drawRareAura(ctx, e, w.time, false);
     drawEnemy(ctx, e);
+    if (e.rare) drawRareAura(ctx, e, w.time, true);
   }
 
   // プレイヤー
@@ -1642,6 +1704,77 @@ function drawSurgeAura(ctx, e, k, b) {
   ctx.beginPath();
   ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
   ctx.fill();
+}
+
+// レア個体（輝晶個体）の輝き。front=false で足元の光輪、true で体の上に舞う光の粒
+function drawRareAura(ctx, e, time, front) {
+  const t = time + e.anim;
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  if (!front) {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+    const g = ctx.createRadialGradient(0, 0, e.r * 0.4, 0, 0, e.r * 2.2);
+    g.addColorStop(0, `rgba(255,220,90,${0.45 + 0.2 * pulse})`);
+    g.addColorStop(1, 'rgba(255,200,60,0)');
+    ctx.fillStyle = g;
+    circle(ctx, 0, 0, e.r * 2.2); ctx.fill();
+    ctx.strokeStyle = `rgba(255,230,120,${0.5 + 0.4 * pulse})`;
+    ctx.lineWidth = 0.12;
+    ctx.setLineDash([0.5, 0.35]);
+    ctx.rotate(t * 1.2);
+    circle(ctx, 0, 0, e.r * 1.45); ctx.stroke();
+  } else {
+    // 体を金色に染める
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = `rgba(255,190,40,${0.22 + 0.1 * Math.sin(t * 6)})`;
+    circle(ctx, 0, 0, e.r * 0.95); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    for (let i = 0; i < 5; i++) {
+      const a = t * 1.7 + i * 1.2566, rr = e.r * (1 + 0.35 * Math.sin(t * 2.3 + i));
+      const tw = 0.5 + 0.5 * Math.sin(t * 7 + i * 2);
+      const x = Math.cos(a) * rr, y = Math.sin(a) * rr, s = 0.12 + 0.12 * tw;
+      ctx.fillStyle = `rgba(255,250,210,${0.5 + 0.5 * tw})`;
+      ctx.beginPath();
+      ctx.moveTo(x, y - s * 2); ctx.lineTo(x + s * 0.5, y); ctx.lineTo(x, y + s * 2); ctx.lineTo(x - s * 0.5, y);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x - s * 2, y); ctx.lineTo(x, y + s * 0.5); ctx.lineTo(x + s * 2, y); ctx.lineTo(x, y - s * 0.5);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+// 落ちているパーツ（等級の色に光る容器と、遠くからでも見える光の柱）
+function drawLoot(ctx, o, time) {
+  const col = bonusTier(o.part.bonus).color;
+  const glint = 0.5 + 0.5 * Math.sin(time * 4 + o.rot * 3);
+  ctx.save();
+  ctx.translate(o.x, o.y);
+  const g = ctx.createRadialGradient(0, 0, 0.2, 0, 0, 2.4);
+  g.addColorStop(0, col + 'aa');
+  g.addColorStop(1, col + '00');
+  ctx.fillStyle = g;
+  ctx.globalAlpha = 0.55 + 0.35 * glint;
+  circle(ctx, 0, 0, 2.4); ctx.fill();
+  // 光の柱（見下ろしなので上方向へ伸びる帯で表現）
+  const bg = ctx.createLinearGradient(0, 0, 0, -6);
+  bg.addColorStop(0, col + 'cc');
+  bg.addColorStop(1, col + '00');
+  ctx.fillStyle = bg;
+  ctx.fillRect(-0.25, -6, 0.5, 6);
+  ctx.globalAlpha = 1;
+  ctx.rotate(o.rot + o.t * (o.pull > 0 ? 8 : 0.6));
+  ctx.fillStyle = '#3a3a40';
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 0.1;
+  rr(ctx, -0.55, -0.4, 1.1, 0.8, 0.14);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = col;
+  ctx.fillRect(-0.4, -0.08, 0.8, 0.16);
+  ctx.fillStyle = `rgba(255,255,255,${0.4 + 0.5 * glint})`;
+  circle(ctx, 0.25, -0.18, 0.08); ctx.fill();
+  ctx.restore();
 }
 
 // 落ちている鉱石（種類ごとに形を変える。きらめきで地面と見分けやすくする）
@@ -1950,7 +2083,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   let y = 94;
   for (const arm of [P.arms.L, P.arms.R]) {
     ctx.fillStyle = '#e8f0ea';
-    const nm = `${arm.side === 'L' ? '左腕' : '右腕'}：${arm.def.name}`;
+    const nm = `${arm.side === 'L' ? '左腕' : '右腕'}：${partLabel(arm.def)}`;
     ctx.fillText(nm, 20, y);
     if (arm.def.type === 'none') { /* なし */ }
     else if (arm.reloading > 0) {
@@ -1980,6 +2113,13 @@ function drawHUD(ctx, w, B, VW, VH) {
 
   // --- 回収鉱石 ---
   hudPanel(ctx, 12, 190 + jh, 310, 44, `回収鉱石${w.ores.length ? `   （フィールドに ${w.ores.length}個）` : ''}`);
+  if (w.parts.length || w.loot.length) {   // レアエネミーのパーツ（右上に個数）
+    ctx.textAlign = 'right';
+    ctx.font = w.partPulse > 0 ? 'bold 13px sans-serif' : 'bold 12px sans-serif';
+    ctx.fillStyle = w.partPulse > 0 ? '#fff' : '#ffd84a';
+    ctx.fillText(`パーツ ${w.parts.length}${w.loot.length ? `（+${w.loot.length}）` : ''}`, 314, 196 + jh);
+    ctx.textAlign = 'left';
+  }
   ORES.forEach((k, i) => {
     const ox = 22 + i * 100, oy = 216 + jh;
     const pulse = w.orePulse[k.id] || 0;
@@ -2065,6 +2205,16 @@ function drawHUD(ctx, w, B, VW, VH) {
     const s = art.mapSize;
     ctx.fillRect(mx + e.x * k - s / 2, my + e.y * k - s / 2, s, s);
   }
+  // レア個体と落ちているパーツは点滅する金色の印
+  const blink = 0.5 + 0.5 * Math.sin(w.time * 6);
+  ctx.strokeStyle = `rgba(255,216,74,${0.5 + 0.5 * blink})`;
+  ctx.lineWidth = 1.5;
+  for (const e of w.enemies) if (e.rare) { circle(ctx, mx + e.x * k, my + e.y * k, 4); ctx.stroke(); }
+  for (const o of w.loot) {
+    ctx.fillStyle = bonusTier(o.part.bonus).color;
+    ctx.fillRect(mx + o.x * k - 2, my + o.y * k - 2, 4, 4);
+  }
+  ctx.lineWidth = 1;
   ctx.strokeStyle = 'rgba(140,255,190,0.35)';
   circle(ctx, mx + P.x * k, my + P.y * k, P.st.sensor * k); ctx.stroke();
   ctx.fillStyle = '#7dff9a';
@@ -2201,6 +2351,7 @@ const Battle = {
       <div class="hpline"><span>機体HP ${Math.ceil(P.hp)} / ${P.maxHp}（${hpPct}%）</span><i><b style="width:${hpPct}%"></b></i></div>
       <p class="muted">${ammo}　※HP・弾薬は持ち越し（補給なし）</p>
       <p class="ore-line">回収鉱石：${oreHTML(w.ore)}</p>
+      ${w.parts.length ? `<p class="ore-line">回収パーツ：${w.parts.map(partTagHTML).join(' ')}</p>` : ''}
       ${next}
       <p class="q">${last ? 'ボス戦に進みますか？' : '次に進みますか？'}</p>`;
     document.getElementById('confirm-yes').textContent = last ? 'ボス戦へ（Enter）' : '次の地区へ（Enter）';
@@ -2356,7 +2507,9 @@ const Battle = {
 
     if (w.result && w.endT > 3.2) {
       this.stop();
-      Game.addOre(finishOre(w).gain);
+      const res = finishOre(w);
+      Game.addOre(res.gain);
+      Game.addParts(res.parts);
       Report.show(w);
       return;
     }

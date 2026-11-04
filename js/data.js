@@ -186,6 +186,75 @@ const UPGRADES = {
   },
 };
 
+// ---------------------------------------------------------------------
+//  レアエネミー（一般エネミーがまれに「輝晶個体」として出現し、倒すとパーツを落とす）
+// ---------------------------------------------------------------------
+const RARE = {
+  chance: 0.03,      // 一般エネミー1体がレアになる確率（大地の脈動中は surgeMul 倍）
+  surgeMul: 2,
+  hp: 4, speed: 1.2, dmg: 1.3,   // 元の種類に対する倍率
+  ore: 3,            // 鉱石ドロップの倍率
+  prefix: '輝晶',    // 表示名の頭に付ける（例：輝晶サンドスカラベ）
+};
+
+// ドロップしたパーツの性能ボーナス（+0〜+50）。値が低いほど出やすい
+const BONUS_MAX = 50;
+function rollBonus() {
+  return Math.floor((BONUS_MAX + 1) * Math.pow(Math.random(), 2));
+}
+
+// ボーナスの等級（色分け）
+const BONUS_TIERS = [
+  { min: 50, name: '極', color: '#ffd84a' },
+  { min: 40, name: '秀', color: '#e07aff' },
+  { min: 25, name: '優', color: '#5ab0ff' },
+  { min: 10, name: '良', color: '#7dff9a' },
+  { min: 0,  name: '並', color: '#c8c0b0' },
+];
+function bonusTier(b) {
+  return BONUS_TIERS.find(t => b >= t.min);
+}
+
+// ボーナス +N が上げる性能と、その効き方（係数 × N%）
+const BONUS_STATS = {
+  headCpu: { clock: 1, sensor: 0.5, hp: 1 },
+  headReg: { eff: 0.3, hp: 1 },
+  torso:   { hp: 1, def: 1, power: 0.3 },
+  arm:     { dmg: 1, hp: 1 },
+  legs:    { speed: 0.5, turn: 0.5, accel: 0.5, cap: 0.5, hp: 1 },
+};
+const BONUS_STAT_NAMES = {
+  clock: '処理', sensor: 'センサー', eff: '出力効率', hp: '耐久', def: '防御', power: '出力',
+  dmg: '威力', speed: '速度', turn: '旋回', accel: '加速', cap: '積載',
+};
+// 「威力 +20% / 耐久 +20%」のような説明文
+function bonusDesc(cat, b) {
+  return Object.entries(BONUS_STATS[cat]).map(([k, f]) => `${BONUS_STAT_NAMES[k]} +${fmtPct(b * f)}%`).join(' / ');
+}
+function fmtPct(v) { return Number.isInteger(v) ? String(v) : v.toFixed(1); }
+
+// パーツを分解して得られる鉱石（ボーナスが高いほど多い。+50 で3倍）
+const SALVAGE = {
+  headCpu: { crystal: 3, core: 1 },
+  headReg: { iron: 3, crystal: 2, core: 1 },
+  torso:   { iron: 6, core: 2 },
+  arm:     { iron: 6, crystal: 2 },
+  legs:    { iron: 9 },
+};
+function salvageOre(item) {
+  const k = 1 + item.bonus / 25, o = emptyOre();
+  for (const [id, n] of Object.entries(SALVAGE[item.cat])) o[id] = Math.round(n * k);
+  return o;
+}
+
+// ドロップするパーツの種類（未装着は除く）
+function randomDropPart() {
+  const all = [];
+  for (const cat of Object.keys(PARTS)) for (const p of PARTS[cat]) if (p.type !== 'none') all.push({ cat, id: p.id });
+  const p = all[(Math.random() * all.length) | 0];
+  return { cat: p.cat, id: p.id, bonus: rollBonus() };
+}
+
 // 同時にフィールドにいる一般エネミーの上限（残りは増援として順次出現）
 const MAX_ACTIVE_ENEMIES = 30;
 
@@ -316,11 +385,14 @@ function defaultProgram() {
 
 function defaultSave() {
   return {
-    build: { headCpu: 'cpu_m', headReg: 'reg_b', torso: 't_std', armL: 'gatling', armR: 'cannon', legs: 'biped', armRatio: 0.5 },
+    // gear = スロット → 装着中のドロップパーツ { uid, id, bonus }（標準パーツを付けているスロットは無し）
+    build: { headCpu: 'cpu_m', headReg: 'reg_b', torso: 't_std', armL: 'gatling', armR: 'cannon', legs: 'biped', armRatio: 0.5, gear: {} },
     program: defaultProgram(),
     enemyCount: 20,
     field: 'wasteland',   // 出撃するフィールド（FIELDS の id）
     ore: emptyOre(),   // 所持している鉱石
     upgrades: {},      // パーツ id → 強化レベル
+    stock: [],         // レアエネミーが落としたパーツ { uid, cat, id, bonus, got }（同じパーツを何個でも持てる）
+    nextUid: 1,
   };
 }

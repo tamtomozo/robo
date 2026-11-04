@@ -15,7 +15,7 @@ const Report = {
     const cls = { win: 'win', lose: 'lose', retreat: 'retreat', return: 'return' }[w.result];
     const mmss = (t) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
     const acc = (side) => s.shots[side] ? Math.round(s.hits[side] / s.shots[side] * 100) + '%' : '—';
-    const armName = (side) => P.arms[side].def.name;
+    const armName = (side) => partLabel(P.arms[side].def);
     const killsN = s.kills.scarab + s.kills.spitter + s.kills.troll;
     const DS = w.field.districts;
     const ore = finishOre(w);
@@ -45,6 +45,10 @@ const Report = {
     if (w.result === 'win' && w.time < 420) notes.push('迅速な任務遂行です。敵数を増やして挑戦してみましょう。');
     if (lostAny) notes.push('機体大破により、回収した鉱石の半分を失いました。');
     if (ore.field) notes.push(`フィールドに残した鉱石 ${ore.field}個は回収できませんでした（地区を掃討すると回収ドローンが残りを回収します）。`);
+    if (s.rareKills) notes.push(`レア個体を ${s.rareKills}体 撃破しました。落としたパーツはガレージの「倉庫」で装着・分解できます。`);
+    else if (s.rareSeen) notes.push('レア個体を検知しましたが、撃破できませんでした。');
+    if (ore.lostParts.length) notes.push(`機体大破により、回収したパーツ ${ore.lostParts.length}個を失いました。`);
+    if (ore.fieldParts) notes.push(`フィールドに残したパーツ ${ore.fieldParts}個は回収できませんでした。`);
     if (ORES.some(k => ore.gain[k.id])) notes.push('持ち帰った鉱石は、ガレージの「強化」タブでパーツの強化に使えます。');
     if (!notes.length) notes.push('特記事項なし。良好な戦闘データです。');
 
@@ -69,6 +73,8 @@ const Report = {
             <tr><th></th><td>回収</td>${lostAny ? '<td>大破で喪失</td>' : ''}<td>持ち帰り</td><td>所持数</td></tr>
             ${ORES.map(k => `<tr><th><i class="ore-dot" style="background:${k.color}"></i>${k.name}</th><td>${ore.collected[k.id]}</td>${lostAny ? `<td class="lost">−${ore.lost[k.id]}</td>` : ''}<td class="gain">+${ore.gain[k.id]}</td><td>${Game.save.ore[k.id]}</td></tr>`).join('')}
           </table>
+          ${ore.parts.length || ore.lostParts.length ? `<h3>回収パーツ <small>レア個体 ${s.rareKills} / ${s.rareSeen}体 撃破</small></h3>
+          <div class="rep-parts">${ore.parts.map(partTagHTML).join('')}${ore.lostParts.map(p => partTagHTML(p).replace('class="ptag"', 'class="ptag lost"')).join('')}</div>` : ''}
           <h3>戦闘データ</h3>
           <table class="rep">
             <tr><th>与ダメージ</th><td>${Math.round(s.dmgDealt)}</td></tr>

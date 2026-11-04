@@ -25,11 +25,40 @@ function upgradedPart(cat, p, lv) {
   return q;
 }
 
+// ドロップパーツの性能ボーナス（+N）を反映した写し。強化はこのあとに重ねる
+function bonusPart(cat, p, bonus) {
+  if (!bonus || p.type === 'none') return p;
+  const q = Object.assign({}, p, { bonus });
+  for (const [k, f] of Object.entries(BONUS_STATS[cat])) {
+    const v = p[k] * (1 + bonus * f / 100);
+    q[k] = k === 'hp' || k === 'cap' || k === 'power' ? Math.round(v) : Math.round(v * 100) / 100;
+  }
+  return q;
+}
+
+// 表示名（ボーナス付きなら「GA-10 ガトリング +23」）
+function partLabel(p) {
+  return p.bonus ? `${p.name} +${p.bonus}` : p.name;
+}
+
+// ドロップパーツ { cat, id, bonus } を等級の色で表示する HTML
+function partTagHTML(item) {
+  const t = bonusTier(item.bonus);
+  return `<span class="ptag" style="--c:${t.color}" title="${bonusDesc(item.cat, item.bonus)}"><em>${t.name}</em>${partById(item.cat, item.id).name} <b>+${item.bonus}</b></span>`;
+}
+
+// スロットに装着中のドロップパーツ（標準パーツなら null）
+function slotGear(build, key) {
+  const g = build.gear && build.gear[key];
+  return g && g.id === build[key] ? g : null;
+}
+
 function buildParts(build, upgrades) {
   const o = {};
   for (const s of SLOTS) {
     const p = partById(s.cat, build[s.key]);
-    o[s.key] = upgradedPart(s.cat, p, upgradeLevel(upgrades, p.id));
+    const g = slotGear(build, s.key);
+    o[s.key] = upgradedPart(s.cat, bonusPart(s.cat, p, g ? g.bonus : 0), upgradeLevel(upgrades, p.id));
   }
   return o;
 }

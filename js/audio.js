@@ -224,6 +224,21 @@ const SFX = {
     S.tone(out, t + 0.015, { type: 'sine', f: f * 1.5, dur: 0.07, vol: 0.07 });
     return 0.1;
   } },
+  partGet: { gap: 0.2, play(S, t, out) {   // レアパーツ回収：きらびやかな上昇アルペジオ
+    [72, 76, 79, 84, 88].forEach((m, i) => {
+      S.tone(out, t + i * 0.055, { type: 'triangle', f: midiHz(m), dur: 0.16, vol: 0.14 });
+      S.tone(out, t + i * 0.055 + 0.01, { type: 'sine', f: midiHz(m + 12), dur: 0.12, vol: 0.05 });
+    });
+    S.noise(out, t + 0.22, { dur: 0.3, vol: 0.1, filt: 'highpass', f: 7000 });
+    return 0.5;
+  } },
+  rare: { gap: 1.5, play(S, t, out) {      // レア個体の出現：澄んだ鈴のような2音を繰り返す
+    for (let i = 0; i < 3; i++) {
+      S.tone(out, t + i * 0.18, { type: 'sine', f: midiHz(91), dur: 0.22, vol: 0.12 });
+      S.tone(out, t + i * 0.18 + 0.09, { type: 'sine', f: midiHz(96), dur: 0.22, vol: 0.1 });
+    }
+    return 0.7;
+  } },
 
   // ---- エネミー ----
   acid: { gap: 0.07, play(S, t, out) {

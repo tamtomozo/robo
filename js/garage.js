@@ -38,9 +38,9 @@ const SLOT_POS = {
 function statChips(cat, p) {
   const c = (k, v) => `<span class="chip"><em>${k}</em>${v}</span>`;
   switch (cat) {
-    case 'headCpu': return c('回路盤', `${p.grid}×${p.grid}`) + c('処理', `${fmtNum(p.clock)}Hz`) + c('センサー', `${p.sensor}m`) + c('耐久', p.hp) + c('重量', p.weight);
+    case 'headCpu': return c('回路盤', `${p.grid}×${p.grid}`) + c('処理', `${fmtNum(p.clock)}Hz`) + c('センサー', `${fmtNum(p.sensor)}m`) + c('耐久', p.hp) + c('重量', p.weight);
     case 'headReg': return c('配分範囲', `腕${Math.round(p.min * 100)}〜${Math.round(p.max * 100)}%`) + c('出力効率', `×${p.eff.toFixed(2)}`) + c('耐久', p.hp) + c('重量', p.weight);
-    case 'torso': return c('耐久', p.hp) + c('防御', p.def) + c('出力', p.power) + c('重量', p.weight);
+    case 'torso': return c('耐久', p.hp) + c('防御', fmtNum(p.def)) + c('出力', p.power) + c('重量', p.weight);
     case 'arm':
       if (p.type === 'none') return c('重量', 0);
       return c('威力', fmtNum(p.dmg) + (p.shots > 1 ? ` ×${p.shots}発` : '')) + c(p.type === 'melee' ? '振り' : '連射', `${p.rate}/s`) + c('射程', `${p.range}m`) +
@@ -135,6 +135,11 @@ const Garage = {
       this.askOrphans(name);
       return;
     }
+    // 倉庫を見終えたら NEW の印を消す
+    if (this.curTab === 'stock' && name !== 'stock' && Game.save.stock.some(it => it.isNew)) {
+      for (const it of Game.save.stock) delete it.isNew;
+      Game.persist();
+    }
     this.curTab = name;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
@@ -150,6 +155,7 @@ const Garage = {
     this.renderOutput();
     this.renderSortie();
     this.renderUpgrade();
+    this.renderStock();
   },
 
   // ------------------------------------------------------------ 組立
@@ -158,9 +164,10 @@ const Garage = {
     const b = Game.save.build;
     el.innerHTML = SKELETON_SVG + SLOTS.map(s => {
       const [x, y] = SLOT_POS[s.key];
-      const p = partById(s.cat, b[s.key]);
+      const p = partById(s.cat, b[s.key]), g = slotGear(b, s.key);
+      const bn = g ? ` <b style="color:${bonusTier(g.bonus).color}">+${g.bonus}</b>` : '';
       return `<button class="slot ${s.key === this.slot ? 'sel' : ''}" data-slot="${s.key}" style="left:${x}%;top:${y}%">
-        <span class="sl">${s.label}<small>${s.sub}</small></span><span class="pn">${p.name}</span></button>`;
+        <span class="sl">${s.label}<small>${s.sub}</small></span><span class="pn">${p.name}${bn}</span></button>`;
     }).join('');
     el.querySelectorAll('.slot').forEach(btn => {
       btn.onclick = () => { this.slot = btn.dataset.slot; this.renderSkeleton(); this.renderParts(); };
@@ -172,23 +179,164 @@ const Garage = {
     const b = Game.save.build;
     document.getElementById('parts-title').textContent = `${s.label}（${s.sub}）のパーツ`;
     const el = document.getElementById('parts-list');
+    const g = slotGear(b, s.key);
+    const other = s.cat === 'arm' ? (s.key === 'armL' ? 'armR' : 'armL') : null;
+    const og = other && slotGear(b, other);
     el.innerHTML = PARTS[s.cat].map(p0 => {
-      const p = upgradedPart(s.cat, p0, upgradeLevel(Game.save.upgrades, p0.id));
-      const eq = b[s.key] === p.id;
+      const lv = upgradeLevel(Game.save.upgrades, p0.id);
+      const p = upgradedPart(s.cat, p0, lv);
+      const eq = b[s.key] === p.id && !g;
+      // 倉庫にある同じパーツ（ドロップ品）。ボーナスの高い順
+      const own = Game.save.stock.filter(it => it.cat === s.cat && it.id === p0.id).sort((x, y) => y.bonus - x.bonus);
+      const inst = own.map(it => {
+        const ieq = g && g.uid === it.uid, oth = og && og.uid === it.uid;
+        const q = upgradedPart(s.cat, bonusPart(s.cat, p0, it.bonus), lv);
+        return `<div class="inst ${ieq ? 'eq' : ''}" data-uid="${it.uid}" title="${statChips(s.cat, q).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')}">
+          ${partTagHTML(it)}<small>${bonusDesc(s.cat, it.bonus)}</small>
+          ${ieq ? '<span class="tag">装着中</span>' : oth ? `<span class="tag other">${other === 'armL' ? '左腕' : '右腕'}に装着中</span>` : ''}${it.isNew ? '<span class="new">NEW</span>' : ''}</div>`;
+      }).join('');
       return `<div class="part ${eq ? 'eq' : ''}" data-id="${p.id}">
-        <div class="pname">${p.name}${p.lv ? `<span class="lv">強化 Lv${p.lv}</span>` : ''}${eq ? '<span class="tag">装着中</span>' : ''}</div>
+        <div class="pname">${p.name}${p.lv ? `<span class="lv">強化 Lv${p.lv}</span>` : ''}${eq ? '<span class="tag">装着中</span>' : ''}${own.length ? `<span class="own">ドロップ品 ×${own.length}</span>` : ''}</div>
         <div class="pstat">${statChips(s.cat, p)}</div>
-        <div class="pdesc">${p.desc}</div></div>`;
+        <div class="pdesc">${p.desc}</div>
+        ${inst ? `<div class="insts">${inst}</div>` : ''}</div>`;
     }).join('');
     el.querySelectorAll('.part').forEach(d => {
-      d.onclick = () => {
-        b[s.key] = d.dataset.id;
-        Sound.play('equip');
-        if (s.key === 'headReg') b.armRatio = clampRatio(partById('headReg', b.headReg), b.armRatio);
-        Game.persist();
-        this.renderAll();
+      d.onclick = () => this.equip(s.key, d.dataset.id, null);
+    });
+    el.querySelectorAll('.inst').forEach(d => {
+      d.onclick = (e) => {
+        e.stopPropagation();
+        this.equip(s.key, null, Game.save.stock.find(it => it.uid === +d.dataset.uid));
       };
     });
+  },
+
+  // スロットにパーツを装着する。id = 標準パーツ / item = 倉庫のドロップパーツ
+  equip(key, id, item) {
+    const b = Game.save.build;
+    b.gear = b.gear || {};
+    if (item) {
+      // 反対の腕に付いていたら外す（そちらは同じ種類の標準パーツに戻す）
+      for (const k of Object.keys(b.gear)) if (k !== key && b.gear[k] && b.gear[k].uid === item.uid) delete b.gear[k];
+      b[key] = item.id;
+      b.gear[key] = { uid: item.uid, id: item.id, bonus: item.bonus };
+    } else {
+      b[key] = id;
+      delete b.gear[key];
+    }
+    Sound.play('equip');
+    if (key === 'headReg') b.armRatio = clampRatio(partById('headReg', b.headReg), b.armRatio);
+    Game.persist();
+    this.renderAll();
+  },
+
+  // ------------------------------------------------------------ 倉庫（ドロップパーツの一覧・分解）
+  stockCat: 'all',
+  stockSort: 'bonus',
+  stockSel: new Set(),
+
+  equippedUids() {
+    const b = Game.save.build, set = new Set();
+    for (const s of SLOTS) { const g = slotGear(b, s.key); if (g) set.add(g.uid); }
+    return set;
+  },
+
+  renderStock() {
+    const el = document.getElementById('stock');
+    if (!el) return;
+    const save = Game.save, eqd = this.equippedUids();
+    const nNew = save.stock.filter(it => it.isNew).length;
+    const tb = document.querySelector('.tabs button[data-tab="stock"]');
+    if (tb) tb.innerHTML = `② 倉庫${nNew ? `<span class="new">${nNew}</span>` : ''}`;
+    for (const u of [...this.stockSel]) if (!save.stock.some(it => it.uid === u) || eqd.has(u)) this.stockSel.delete(u);
+    const cats = [['all', 'すべて'], ...SLOTS.filter(s => s.key !== 'armR').map(s => [s.cat, s.cat === 'arm' ? '腕' : s.label])];
+    const catOrder = SLOTS.map(s => s.cat);
+    let list = save.stock.filter(it => this.stockCat === 'all' || it.cat === this.stockCat);
+    const sorts = {
+      bonus: (x, y) => y.bonus - x.bonus || y.uid - x.uid,
+      new:   (x, y) => y.uid - x.uid,
+      kind:  (x, y) => catOrder.indexOf(x.cat) - catOrder.indexOf(y.cat) || x.id.localeCompare(y.id) || y.bonus - x.bonus,
+    };
+    list.sort(sorts[this.stockSort]);
+    const dup = {};
+    for (const it of save.stock) dup[it.id] = (dup[it.id] || 0) + 1;
+    const sum = emptyOre();
+    for (const it of save.stock) if (this.stockSel.has(it.uid)) { const o = salvageOre(it); for (const k of ORES) sum[k.id] += o[k.id]; }
+    const rows = list.map(it => {
+      const eq = eqd.has(it.uid), sel = this.stockSel.has(it.uid);
+      const slot = SLOTS.find(s => slotGear(save.build, s.key) && save.build.gear[s.key].uid === it.uid);
+      return `<tr class="${eq ? 'eq' : ''}${sel ? ' sel' : ''}" data-uid="${it.uid}">
+        <td><input type="checkbox" ${sel ? 'checked' : ''} ${eq ? 'disabled' : ''}></td>
+        <td class="nm">${partTagHTML(it)}${it.isNew ? '<span class="new">NEW</span>' : ''}${dup[it.id] > 1 ? `<small class="dup">同種 ×${dup[it.id]}</small>` : ''}</td>
+        <td class="bd">${bonusDesc(it.cat, it.bonus)}</td>
+        <td class="cost">${oreHTML(salvageOre(it))}</td>
+        <td>${eq ? `<span class="tag">${slot.label}に装着中</span>` : `<button class="salv" data-uid="${it.uid}">分解</button>`}</td></tr>`;
+    }).join('');
+    // 「並」「良以下」「優以下」をまとめて選ぶボタン（装着中は除く）
+    const asc = BONUS_TIERS.slice().reverse();
+    const tierBtns = asc.slice(0, 3).map((t, i) => {
+      const max = asc[i + 1].min - 1;
+      return `<button class="salv-tier" data-max="${max}" style="--c:${t.color}">${i ? `${t.name}以下` : t.name}（+${max}以下）を選択</button>`;
+    }).join('');
+    el.innerHTML = `<h2>パーツ倉庫 <small>${save.stock.length}個</small></h2>
+      <p class="muted">レアエネミー（金色に輝く<b>輝晶個体</b>）が落としたパーツです。性能ボーナスは <b>+0〜+${BONUS_MAX}</b>（+N は主な性能が最大 N% 上がる）で、同じ種類のパーツを何個でも持てます。
+      「組立」タブで装着でき、強化レベルはパーツの種類ごとに共通です。不要なパーツは分解すると鉱石になります（ボーナスが高いほど多く取れる）。<br>
+      ${BONUS_TIERS.map(t => `<span class="ptag" style="--c:${t.color}"><em>${t.name}</em>+${t.min}〜</span>`).join(' ')}</p>
+      <div class="stock-bar">
+        <div class="seg">${cats.map(([k, n]) => `<button class="scat ${this.stockCat === k ? 'on' : ''}" data-cat="${k}">${n}</button>`).join('')}</div>
+        <div class="seg">並び順 ${[['bonus', 'ボーナス順'], ['new', '新しい順'], ['kind', '種類順']].map(([k, n]) => `<button class="ssort ${this.stockSort === k ? 'on' : ''}" data-sort="${k}">${n}</button>`).join('')}</div>
+      </div>
+      ${list.length ? `<table class="stock-tbl">
+        <thead><tr><th><input type="checkbox" id="stock-all"></th><th>パーツ</th><th>性能ボーナス</th><th>分解で得る鉱石</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table>` : `<p class="empty">${save.stock.length ? 'この部位のパーツはありません。' : 'まだパーツを持っていません。出撃してレアエネミーを倒しましょう。'}</p>`}
+      <div class="stock-foot">
+        ${tierBtns}<button id="salv-clear" ${this.stockSel.size ? '' : 'disabled'}>選択を解除</button>
+        <span class="sum">選択 ${this.stockSel.size}個 → ${oreHTML(sum)}</span>
+        <button id="salv-sel" class="danger" ${this.stockSel.size ? '' : 'disabled'}>選択したパーツを分解</button>
+      </div>`;
+    el.querySelectorAll('.scat').forEach(btn => { btn.onclick = () => { this.stockCat = btn.dataset.cat; this.renderStock(); }; });
+    el.querySelectorAll('.ssort').forEach(btn => { btn.onclick = () => { this.stockSort = btn.dataset.sort; this.renderStock(); }; });
+    el.querySelectorAll('.stock-tbl tbody tr').forEach(tr => {
+      const uid = +tr.dataset.uid;
+      const cb = tr.querySelector('input');
+      cb.onchange = () => { if (cb.checked) this.stockSel.add(uid); else this.stockSel.delete(uid); Sound.play('tick'); this.renderStock(); };
+    });
+    const all = document.getElementById('stock-all');
+    if (all) {
+      const free = list.filter(it => !eqd.has(it.uid));
+      all.checked = free.length > 0 && free.every(it => this.stockSel.has(it.uid));
+      all.onchange = () => { for (const it of free) all.checked ? this.stockSel.add(it.uid) : this.stockSel.delete(it.uid); this.renderStock(); };
+    }
+    el.querySelectorAll('.salv').forEach(btn => { btn.onclick = () => this.salvage([+btn.dataset.uid]); });
+    el.querySelectorAll('.salv-tier').forEach(btn => {
+      btn.onclick = () => {
+        for (const it of list) if (it.bonus <= +btn.dataset.max && !eqd.has(it.uid)) this.stockSel.add(it.uid);
+        Sound.play('tick');
+        this.renderStock();
+      };
+    });
+    document.getElementById('salv-clear').onclick = () => { this.stockSel.clear(); this.renderStock(); };
+    document.getElementById('salv-sel').onclick = () => this.salvage([...this.stockSel]);
+  },
+
+  // パーツを分解して鉱石にする（装着中のパーツは分解できない）
+  salvage(uids) {
+    const save = Game.save, eqd = this.equippedUids();
+    const items = save.stock.filter(it => uids.includes(it.uid) && !eqd.has(it.uid));
+    if (!items.length) return;
+    const gain = emptyOre();
+    for (const it of items) { const o = salvageOre(it); for (const k of ORES) gain[k.id] += o[k.id]; }
+    const txt = ORES.filter(k => gain[k.id]).map(k => `${k.name}×${gain[k.id]}`).join(' ');
+    const best = Math.max(...items.map(it => it.bonus));
+    if (!confirm(`${items.length === 1 ? partLabel(bonusPart(items[0].cat, partById(items[0].cat, items[0].id), items[0].bonus)) : `パーツ ${items.length}個`} を分解しますか？\n得られる鉱石：${txt}${best >= 25 ? `\n\n※ +${best} の高ボーナス品が含まれています。` : ''}\n（元に戻せません）`)) return;
+    const set = new Set(items.map(it => it.uid));
+    save.stock = save.stock.filter(it => !set.has(it.uid));
+    for (const u of set) this.stockSel.delete(u);
+    for (const k of ORES) save.ore[k.id] += gain[k.id];
+    Sound.play('upgrade');
+    Game.persist();
+    this.renderAll();
   },
 
   renderStats() {
@@ -197,7 +345,7 @@ const Garage = {
     document.getElementById('stats').innerHTML = `<table>
       ${row('全高', '2.5 m', 1)}
       ${row('総耐久 HP', st.hp, st.hp / 1300)}
-      ${row('防御', st.def, st.def / 25)}
+      ${row('防御', fmtNum(st.def), st.def / 25)}
       ${row('総出力', Math.round(st.power), st.power / 190)}
       ${row('重量 / 積載', `${st.weight} / ${st.cap}${st.over ? '  過積載！' : ''}`, st.weight / st.cap, st.over)}
       ${row('最高速度', st.speed.toFixed(1) + ' m/s', st.speed / 18)}
@@ -205,7 +353,7 @@ const Garage = {
       ${st.jump ? row('ジャンプ', `${st.jump.dist} m / 再使用 ${fmtNum(st.jump.cd)} s`, st.jump.dist / 12) : ''}
       ${row('左腕 DPS', st.armL.dps.toFixed(1), st.armL.dps / 100)}
       ${row('右腕 DPS', st.armR.dps.toFixed(1), st.armR.dps / 100)}
-      ${row('センサー', st.sensor + ' m', st.sensor / 75)}
+      ${row('センサー', fmtNum(st.sensor) + ' m', st.sensor / 75)}
       ${row('回路盤', `${st.grid}×${st.grid} / ${fmtNum(st.clock)}Hz`, st.clock / 20)}
     </table>`;
   },
@@ -268,7 +416,7 @@ const Garage = {
       return `<section class="up-sec"><h3>${U.label}<small>${U.where} / ${U.per}</small></h3><table class="up-tbl">${rows}</table></section>`;
     }).join('');
     el.innerHTML = `<h2>パーツ強化</h2>
-      <p class="muted">エネミーが落とす鉱石でパーツを強化します（各パーツ最大 Lv${UPGRADE_MAX}）。強化はパーツごとで、付け替えても強化はそのパーツに残ります。<br>
+      <p class="muted">エネミーが落とす鉱石でパーツを強化します（各パーツ最大 Lv${UPGRADE_MAX}）。強化はパーツの種類ごとで、付け替えても強化はそのパーツに残ります（同じ種類のドロップパーツにも同じ強化が効きます）。<br>
       ${ORES.map(k => `<span class="ore"><i style="background:${k.color}"></i>${k.name}</span>${k.desc}`).join('　')}</p>${secs}`;
     el.querySelectorAll('.up-btn').forEach(btn => {
       btn.onclick = () => {
@@ -337,7 +485,7 @@ const Garage = {
     const grid = st.grid;
     const prog = Game.save.program;
     document.getElementById('circuit-info').innerHTML =
-      `頭部A <b>${st.parts.headCpu.name}</b>：使用可能 ${grid}×${grid} マス / 処理速度 ${fmtNum(st.clock)} タイル毎秒 / センサー ${st.sensor}m`;
+      `頭部A <b>${partLabel(st.parts.headCpu)}</b>：使用可能 ${grid}×${grid} マス / 処理速度 ${fmtNum(st.clock)} タイル毎秒 / センサー ${fmtNum(st.sensor)}m`;
     const el = document.getElementById('circuit-grid');
     const orphans = new Set(orphanTiles(prog, grid));
     let html = '';
@@ -565,7 +713,7 @@ const Garage = {
     const reg = st.parts.headReg;
     const slider = document.getElementById('ratio');
     slider.value = Math.round(st.ratio * 100);
-    document.getElementById('reg-name').textContent = `${reg.name}（配分範囲：腕 ${Math.round(reg.min * 100)}〜${Math.round(reg.max * 100)}%  / 出力効率 ×${reg.eff.toFixed(2)}）`;
+    document.getElementById('reg-name').textContent = `${partLabel(reg)}（配分範囲：腕 ${Math.round(reg.min * 100)}〜${Math.round(reg.max * 100)}%  / 出力効率 ×${reg.eff.toFixed(2)}）`;
     document.getElementById('arm-pct').textContent = Math.round(st.ratio * 100) + '%';
     document.getElementById('leg-pct').textContent = Math.round((1 - st.ratio) * 100) + '%';
     document.getElementById('ratio-arm').style.width = (st.ratio * 100) + '%';
@@ -618,7 +766,8 @@ const Garage = {
         </tbody>
       </table>
       <p class="muted">各地区を掃討するたびに「次に進みますか？」と確認されます。帰還すればそこまでの戦果で任務終了。HP・弾薬は地区をまたいで持ち越します。<br>
-      スカラベ：小型・高速の近接群体 / スピッター：距離を取って酸を吐く / トロール：鈍重だが高耐久・高打撃</p>`;
+      スカラベ：小型・高速の近接群体 / スピッター：距離を取って酸を吐く / トロール：鈍重だが高耐久・高打撃<br>
+      <b style="color:#ffd84a">レア個体</b>：一般エネミーが ${Math.round(RARE.chance * 100)}% の確率で金色に輝く「${RARE.prefix}個体」として現れる（大地の脈動中は ${RARE.surgeMul}倍）。耐久 ${RARE.hp}倍と手強いが、倒すと性能ボーナス +0〜+${BONUS_MAX} のパーツを落とす。</p>`;
     const st = computeStats(Game.save.build, null, Game.save.upgrades);
     const prog = Game.save.program;
     const warns = [];
