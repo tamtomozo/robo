@@ -38,16 +38,16 @@ const SLOT_POS = {
 function statChips(cat, p) {
   const c = (k, v) => `<span class="chip"><em>${k}</em>${v}</span>`;
   switch (cat) {
-    case 'headCpu': return c('回路盤', `${p.grid}×${p.grid}`) + c('処理', `${fmtNum(p.clock)}Hz`) + c('センサー', `${fmtNum(p.sensor)}m`) + c('耐久', p.hp) + c('重量', p.weight);
-    case 'headReg': return c('配分範囲', `腕${Math.round(p.min * 100)}〜${Math.round(p.max * 100)}%`) + c('出力効率', `×${p.eff.toFixed(2)}`) + c('耐久', p.hp) + c('重量', p.weight);
-    case 'torso': return c('耐久', p.hp) + c('防御', fmtNum(p.def)) + c('出力', p.power) + c('重量', p.weight);
+    case 'headCpu': return c(T('G026' /* 回路盤 */), `${p.grid}×${p.grid}`) + c(T('G027' /* 処理 */), `${fmtNum(p.clock)}Hz`) + c(T('G028' /* センサー */), `${fmtNum(p.sensor)}m`) + c(T('G029' /* 耐久 */), p.hp) + c(T('G030' /* 重量 */), p.weight);
+    case 'headReg': return c(T('G031' /* 配分範囲 */), T('G032' /* 腕{min}〜{max}% */, { min: Math.round(p.min * 100), max: Math.round(p.max * 100) })) + c(T('G033' /* 出力効率 */), `×${p.eff.toFixed(2)}`) + c(T('G029' /* 耐久 */), p.hp) + c(T('G030' /* 重量 */), p.weight);
+    case 'torso': return c(T('G029' /* 耐久 */), p.hp) + c(T('G034' /* 防御 */), fmtNum(p.def)) + c(T('G035' /* 出力 */), p.power) + c(T('G030' /* 重量 */), p.weight);
     case 'arm':
-      if (p.type === 'none') return c('重量', 0);
-      return c('威力', fmtNum(p.dmg) + (p.shots > 1 ? ` ×${p.shots}発` : '')) + c(p.type === 'melee' ? '振り' : '連射', `${p.rate}/s`) + c('射程', `${p.range}m`) +
-        (p.mag ? c('弾数', p.mag) + c('装填', `${p.reload}s`) : '') + (p.splash ? c('爆風', `${p.splash}m`) : '') + c('耐久', p.hp) + c('重量', p.weight);
-    case 'legs': return c('速度', `${fmtNum(p.speed)}m/s`) + c('旋回', `${Math.round(p.turn * 57.3)}°/s`) + c('横移動', `${Math.round(p.strafe * 100)}%`) +
-      c('積載', p.cap) + c('耐久', p.hp) + c('重量', p.weight) + (p.defBonus ? c('防御+', p.defBonus) : '') +
-      (p.jump ? c('ジャンプ', `${p.jump.dist}m / 待ち${fmtNum(p.jump.cd)}s`) : '');
+      if (p.type === 'none') return c(T('G030' /* 重量 */), 0);
+      return c(T('G036' /* 威力 */), fmtNum(p.dmg) + (p.shots > 1 ? T('G037' /* ×{shots}発 */, { shots: p.shots }) : '')) + c(p.type === 'melee' ? T('G038' /* 振り */) : T('G039' /* 連射 */), `${p.rate}/s`) + c(T('G040' /* 射程 */), `${p.range}m`) +
+        (p.mag ? c(T('G041' /* 弾数 */), p.mag) + c(T('G042' /* 装填 */), `${p.reload}s`) : '') + (p.splash ? c(T('G043' /* 爆風 */), `${p.splash}m`) : '') + c(T('G029' /* 耐久 */), p.hp) + c(T('G030' /* 重量 */), p.weight);
+    case 'legs': return c(T('G044' /* 速度 */), `${fmtNum(p.speed)}m/s`) + c(T('G045' /* 旋回 */), `${Math.round(p.turn * 57.3)}°/s`) + c(T('G046' /* 横移動 */), `${Math.round(p.strafe * 100)}%`) +
+      c(T('G047' /* 積載 */), p.cap) + c(T('G029' /* 耐久 */), p.hp) + c(T('G030' /* 重量 */), p.weight) + (p.defBonus ? c(T('G048' /* 防御+ */), p.defBonus) : '') +
+      (p.jump ? c(T('G049' /* ジャンプ */), T('G050' /* {dist}m / 待ち{cd}s */, { dist: p.jump.dist, cd: fmtNum(p.jump.cd) })) : '');
   }
   return '';
 }
@@ -70,11 +70,11 @@ const Garage = {
     this.buildPalette();
     document.getElementById('btn-sortie').onclick = () => Game.sortie();
     document.getElementById('btn-prog-default').onclick = () => {
-      if (!confirm('回路を初期プログラムに戻しますか？（元に戻す で取り消せます）')) return;
+      if (!confirm(T('G051' /* 回路を初期プログラムに戻しますか？（元に戻す で取り消せます… */))) return;
       this.editProgram(() => { Game.save.program = defaultProgram(); this.sel = null; });
     };
     document.getElementById('btn-prog-clear').onclick = () => {
-      if (!confirm('回路をすべて消去しますか？（STARTは残ります。元に戻す で取り消せます）')) return;
+      if (!confirm(T('G052' /* 回路をすべて消去しますか？（STARTは残ります。元に戻す … */))) return;
       const p = new Array(MAX_GRID * MAX_GRID).fill(null);
       p[0] = { t: 'start', d: 2, n: 1, p: 0 };
       this.editProgram(() => { Game.save.program = p; this.sel = null; });
@@ -177,7 +177,7 @@ const Garage = {
   renderParts() {
     const s = SLOTS.find(x => x.key === this.slot);
     const b = Game.save.build;
-    document.getElementById('parts-title').textContent = `${s.label}（${s.sub}）のパーツ`;
+    document.getElementById('parts-title').textContent = T('G053' /* {label}（{sub}）のパーツ */, { label: s.label, sub: s.sub });
     const el = document.getElementById('parts-list');
     const g = slotGear(b, s.key);
     const slotName = k => SLOTS.find(x => x.key === k).label;
@@ -191,15 +191,15 @@ const Garage = {
       const inst = own.map(it => {
         const here = g && g.uid === it.uid;
         const at = SLOTS.find(x => x.key !== s.key && slotGear(b, x.key) && b.gear[x.key].uid === it.uid);
-        return `<div class="inst ${here ? 'eq' : ''}" data-uid="${it.uid}" title="${here ? 'クリックで外す' : 'クリックで差し込む'}">
+        return `<div class="inst ${here ? 'eq' : ''}" data-uid="${it.uid}" title="${here ? T('G054' /* クリックで外す */) : T('G055' /* クリックで差し込む */)}">
           ${partTagHTML(it, true)}<small>${bonusDesc(s.cat, it.bonus)}</small>
-          ${here ? '<span class="tag">差し込み中</span>' : at ? `<span class="tag other">${at.label}に差し込み中</span>` : ''}${it.isNew ? '<span class="new">NEW</span>' : ''}</div>`;
+          ${here ? `<span class="tag">${T('G056' /* 差し込み中 */)}</span>` : at ? `<span class="tag other">${T('G057' /* {label}に差し込み中 */, { label: at.label })}</span>` : ''}${it.isNew ? '<span class="new">NEW</span>' : ''}</div>`;
       }).join('');
       return `<div class="part ${eq ? 'eq' : ''}" data-id="${p0.id}">
-        <div class="pname">${partLabel(p)}${p.lv ? `<span class="lv">強化 Lv${p.lv}</span>` : ''}${eq ? '<span class="tag">装着中</span>' : ''}${own.length ? `<span class="own">ブースター ×${own.length}</span>` : ''}</div>
+        <div class="pname">${partLabel(p)}${p.lv ? `<span class="lv">${T('G058' /* 強化 */)} Lv${p.lv}</span>` : ''}${eq ? `<span class="tag">${T('G059' /* 装着中 */)}</span>` : ''}${own.length ? `<span class="own">${T('G060' /* ブースター */)} ×${own.length}</span>` : ''}</div>
         <div class="pstat">${statChips(s.cat, p)}</div>
         <div class="pdesc">${p.desc}</div>
-        ${inst ? `<div class="insts"><div class="insts-h">ブースター（1つ差し込める。クリックで差し込む / 外す）</div>${inst}</div>` : ''}</div>`;
+        ${inst ? `<div class="insts"><div class="insts-h">${T('G061' /* ブースター（1つ差し込める。クリックで差し込む / 外す） */)}</div>${inst}</div>` : ''}</div>`;
     }).join('');
     el.querySelectorAll('.part').forEach(d => {
       d.onclick = () => this.equip(s.key, d.dataset.id);
@@ -260,9 +260,9 @@ const Garage = {
     const save = Game.save, eqd = this.equippedUids();
     const nNew = save.stock.filter(it => it.isNew).length;
     const tb = document.querySelector('.tabs button[data-tab="stock"]');
-    if (tb) tb.innerHTML = `② ブースター${nNew ? `<span class="new">${nNew}</span>` : ''}`;
+    if (tb) tb.innerHTML = `${T('G062' /* ② ブースター */)}${nNew ? `<span class="new">${nNew}</span>` : ''}`;
     for (const u of [...this.stockSel]) if (!save.stock.some(it => it.uid === u) || eqd.has(u)) this.stockSel.delete(u);
-    const cats = [['all', 'すべて'], ...SLOTS.filter(s => s.key !== 'armR').map(s => [s.cat, s.cat === 'arm' ? '腕' : s.label])];
+    const cats = [['all', T('G063' /* すべて */)], ...SLOTS.filter(s => s.key !== 'armR').map(s => [s.cat, s.cat === 'arm' ? T('G064' /* 腕 */) : s.label])];
     const catOrder = SLOTS.map(s => s.cat);
     let list = save.stock.filter(it => this.stockCat === 'all' || it.cat === this.stockCat);
     const sorts = {
@@ -280,32 +280,37 @@ const Garage = {
       const slot = SLOTS.find(s => slotGear(save.build, s.key) && save.build.gear[s.key].uid === it.uid);
       return `<tr class="${eq ? 'eq' : ''}${sel ? ' sel' : ''}" data-uid="${it.uid}">
         <td><input type="checkbox" ${sel ? 'checked' : ''} ${eq ? 'disabled' : ''}></td>
-        <td class="nm">${partTagHTML(it)}${it.isNew ? '<span class="new">NEW</span>' : ''}${dup[it.id] > 1 ? `<small class="dup">同じパーツ用 ×${dup[it.id]}</small>` : ''}</td>
+        <td class="nm">${partTagHTML(it)}${it.isNew ? '<span class="new">NEW</span>' : ''}${dup[it.id] > 1 ? `<small class="dup">${T('G065' /* 同じパーツ用 */)} ×${dup[it.id]}</small>` : ''}</td>
         <td class="bd">${bonusDesc(it.cat, it.bonus)}</td>
         <td class="cost">${oreHTML(salvageOre(it))}</td>
-        <td>${eq ? `<span class="tag">${slot.label}に差し込み中</span>` : `<button class="salv" data-uid="${it.uid}">分解</button>`}</td></tr>`;
+        <td>${eq ? `<span class="tag">${T('G057' /* {label}に差し込み中 */, { label: slot.label })}</span>` : `<button class="salv" data-uid="${it.uid}">${T('G066' /* 分解 */)}</button>`}</td></tr>`;
     }).join('');
     // 「並」「良以下」「優以下」をまとめて選ぶボタン（差し込み中は除く）
     const asc = BONUS_TIERS.slice().reverse();
     const tierBtns = asc.slice(0, 3).map((t, i) => {
       const max = asc[i + 1].min - 1;
-      return `<button class="salv-tier" data-max="${max}" style="--c:${t.color}">${i ? `${t.name}以下` : t.name}（+${max}以下）を選択</button>`;
+      const what = i ? T('G142' /* {name}以下 */, { name: t.name }) : t.name;
+      return `<button class="salv-tier" data-max="${max}" style="--c:${t.color}">${T('G143' /* {what}（+{max}以下）を選択 */, { what, max })}</button>`;
     }).join('');
-    el.innerHTML = `<h2>ブースター <small>${save.stock.length}個</small></h2>
-      <p class="muted">レアエネミー（金色に輝く<b>輝晶個体</b>）が落とす、<b>特定のパーツ専用</b>の強化モジュールです。効果アップは <b>+${BONUS_MIN}〜+${BONUS_MAX}</b>（+N で主な性能が最大 N% 上がる）で、同じものを何個でも持てます。
-      「組立」タブで対象パーツに1つ差し込めて、いつでも付け替えられます（パーツの強化レベルとは別に効きます）。不要なブースターは分解すると鉱石になります（+値が高いほど多く取れる）。<br>
-      ${BONUS_TIERS.map(t => `<span class="ptag" style="--c:${t.color}"><em>${t.name}</em>+${t.min}〜</span>`).join(' ')}</p>
+    el.innerHTML = `<h2>${T('G060' /* ブースター */)} <small>${T('G067' /* {n}個 */, { n: save.stock.length })}</small></h2>
+      <p class="muted">${T('G068' /* レアエネミー（金色に輝く輝晶個体）が落とす、特定のパーツ専用… */, { min: BONUS_MIN, max: BONUS_MAX })}<br>
+      ${BONUS_TIERS.map((t, i) => {
+        // 等級の +値の範囲（日本語は「+8〜」、英語は「+8–9」と書く）
+        const lo = Math.max(t.min, BONUS_MIN), hi = i ? BONUS_TIERS[i - 1].min - 1 : BONUS_MAX;
+        const range = T('G144' /* +{min}〜 */, { min: t.min, lo, hi });
+        return `<span class="ptag" style="--c:${t.color}"><em>${t.name}</em>${range}</span>`;
+      }).join(' ')}</p>
       <div class="stock-bar">
         <div class="seg">${cats.map(([k, n]) => `<button class="scat ${this.stockCat === k ? 'on' : ''}" data-cat="${k}">${n}</button>`).join('')}</div>
-        <div class="seg">並び順 ${[['bonus', 'ボーナス順'], ['new', '新しい順'], ['kind', '種類順']].map(([k, n]) => `<button class="ssort ${this.stockSort === k ? 'on' : ''}" data-sort="${k}">${n}</button>`).join('')}</div>
+        <div class="seg">${T('G069' /* 並び順 */)} ${[['bonus', T('G070' /* ボーナス順 */)], ['new', T('G071' /* 新しい順 */)], ['kind', T('G072' /* 種類順 */)]].map(([k, n]) => `<button class="ssort ${this.stockSort === k ? 'on' : ''}" data-sort="${k}">${n}</button>`).join('')}</div>
       </div>
       ${list.length ? `<table class="stock-tbl">
-        <thead><tr><th><input type="checkbox" id="stock-all"></th><th>ブースター</th><th>効果</th><th>分解で得る鉱石</th><th></th></tr></thead>
-        <tbody>${rows}</tbody></table>` : `<p class="empty">${save.stock.length ? 'この部位のブースターはありません。' : 'まだブースターを持っていません。出撃してレアエネミーを倒しましょう。'}</p>`}
+        <thead><tr><th><input type="checkbox" id="stock-all"></th><th>${T('G073' /* ブースター */)}</th><th>${T('G074' /* 効果 */)}</th><th>${T('G075' /* 分解で得る鉱石 */)}</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table>` : `<p class="empty">${save.stock.length ? T('G076' /* この部位のブースターはありません。 */) : T('G077' /* まだブースターを持っていません。出撃してレアエネミーを倒しま… */)}</p>`}
       <div class="stock-foot">
-        ${tierBtns}<button id="salv-clear" ${this.stockSel.size ? '' : 'disabled'}>選択を解除</button>
-        <span class="sum">選択 ${this.stockSel.size}個 → ${oreHTML(sum)}</span>
-        <button id="salv-sel" class="danger" ${this.stockSel.size ? '' : 'disabled'}>選択したブースターを分解</button>
+        ${tierBtns}<button id="salv-clear" ${this.stockSel.size ? '' : 'disabled'}>${T('G078' /* 選択を解除 */)}</button>
+        <span class="sum">${T('G079' /* 選択 {n}個 */, { n: this.stockSel.size })} → ${oreHTML(sum)}</span>
+        <button id="salv-sel" class="danger" ${this.stockSel.size ? '' : 'disabled'}>${T('G080' /* 選択したブースターを分解 */)}</button>
       </div>`;
     el.querySelectorAll('.scat').forEach(btn => { btn.onclick = () => { this.stockCat = btn.dataset.cat; this.renderStock(); }; });
     el.querySelectorAll('.ssort').forEach(btn => { btn.onclick = () => { this.stockSort = btn.dataset.sort; this.renderStock(); }; });
@@ -341,7 +346,9 @@ const Garage = {
     for (const it of items) { const o = salvageOre(it); for (const k of ORES) gain[k.id] += o[k.id]; }
     const txt = ORES.filter(k => gain[k.id]).map(k => `${k.name}×${gain[k.id]}`).join(' ');
     const best = Math.max(...items.map(it => it.bonus));
-    if (!confirm(`${items.length === 1 ? boosterName(items[0]) : `ブースター ${items.length}個`} を分解しますか？\n得られる鉱石：${txt}${best >= BONUS_TIERS[2].min ? `\n\n※ +${best} の高い+値のものが含まれています。` : ''}\n（元に戻せません）`)) return;
+    const what = items.length === 1 ? boosterName(items[0]) : T('G081' /* ブースター {n}個 */, { n: items.length });
+    const warn = best >= BONUS_TIERS[2].min ? T('G082' /* ※ +{best} の高い+値のものが含まれています。 */, { best }) : '';
+    if (!confirm(T('G083' /* {what} を分解しますか？ 得られる鉱石：{txt}{w… */, { what, txt, warn }))) return;
     const set = new Set(items.map(it => it.uid));
     save.stock = save.stock.filter(it => !set.has(it.uid));
     for (const u of set) this.stockSel.delete(u);
@@ -355,18 +362,18 @@ const Garage = {
     const st = computeStats(Game.save.build, null, Game.save.upgrades);
     const row = (k, v, f, warn) => `<tr class="${warn ? 'warn' : ''}"><th>${k}</th><td>${v}</td><td class="bar"><i style="width:${Math.round(clamp(f, 0, 1) * 100)}%"></i></td></tr>`;
     document.getElementById('stats').innerHTML = `<table>
-      ${row('全高', '2.5 m', 1)}
-      ${row('総耐久 HP', st.hp, st.hp / 1300)}
-      ${row('防御', fmtNum(st.def), st.def / 25)}
-      ${row('総出力', Math.round(st.power), st.power / 190)}
-      ${row('重量 / 積載', `${st.weight} / ${st.cap}${st.over ? '  過積載！' : ''}`, st.weight / st.cap, st.over)}
-      ${row('最高速度', st.speed.toFixed(1) + ' m/s', st.speed / 18)}
-      ${row('旋回速度', Math.round(st.turn * 57.3) + ' °/s', st.turn / 5.5)}
-      ${st.jump ? row('ジャンプ', `${st.jump.dist} m / 再使用 ${fmtNum(st.jump.cd)} s`, st.jump.dist / 12) : ''}
-      ${row('左腕 DPS', st.armL.dps.toFixed(1), st.armL.dps / 100)}
-      ${row('右腕 DPS', st.armR.dps.toFixed(1), st.armR.dps / 100)}
-      ${row('センサー', fmtNum(st.sensor) + ' m', st.sensor / 75)}
-      ${row('回路盤', `${st.grid}×${st.grid} / ${fmtNum(st.clock)}Hz`, st.clock / 20)}
+      ${row(T('G084' /* 全高 */), '2.5 m', 1)}
+      ${row(T('G085' /* 総耐久 HP */), st.hp, st.hp / 1300)}
+      ${row(T('G034' /* 防御 */), fmtNum(st.def), st.def / 25)}
+      ${row(T('G086' /* 総出力 */), Math.round(st.power), st.power / 190)}
+      ${row(T('G087' /* 重量 / 積載 */), `${st.weight} / ${st.cap}${st.over ? T('G088' /* 過積載！ */) : ''}`, st.weight / st.cap, st.over)}
+      ${row(T('G089' /* 最高速度 */), st.speed.toFixed(1) + ' m/s', st.speed / 18)}
+      ${row(T('G090' /* 旋回速度 */), Math.round(st.turn * 57.3) + ' °/s', st.turn / 5.5)}
+      ${st.jump ? row(T('G049' /* ジャンプ */), T('G091' /* {dist} m / 再使用 {cd} s */, { dist: st.jump.dist, cd: fmtNum(st.jump.cd) }), st.jump.dist / 12) : ''}
+      ${row(T('G092' /* 左腕 DPS */), st.armL.dps.toFixed(1), st.armL.dps / 100)}
+      ${row(T('G093' /* 右腕 DPS */), st.armR.dps.toFixed(1), st.armR.dps / 100)}
+      ${row(T('G028' /* センサー */), fmtNum(st.sensor) + ' m', st.sensor / 75)}
+      ${row(T('G026' /* 回路盤 */), `${st.grid}×${st.grid} / ${fmtNum(st.clock)}Hz`, st.clock / 20)}
     </table>`;
   },
 
@@ -395,13 +402,13 @@ const Garage = {
     ctx.restore();
     ctx.fillStyle = 'rgba(255,230,190,0.6)';
     ctx.font = '12px sans-serif';
-    ctx.fillText('上面図（見下ろし）  1マス ≒ 0.4m', 10, H - 10);
+    ctx.fillText(T('G094' /* 上面図（見下ろし） 1マス ≒ 0.4m */), 10, H - 10);
   },
 
   // ------------------------------------------------------------ 強化
   renderUpgrade() {
     const save = Game.save, ore = save.ore;
-    document.getElementById('ore-bank').innerHTML = `<b>所持鉱石</b>${oreHTML(ore)}`;
+    document.getElementById('ore-bank').innerHTML = `<b>${T('G095' /* 所持鉱石 */)}</b>${oreHTML(ore, null, true)}`;
     const el = document.getElementById('upgrade');
     if (!el) return;
     const secs = Object.entries(UPGRADES).map(([cat, U]) => {
@@ -418,18 +425,18 @@ const Garage = {
         // Lv6〜 の目盛りは色を変える（弾数+1・ジャンプ解放の段階）
         for (let i = 0; i < UPGRADE_MAX; i++) pips += `<i class="${i < lv ? 'on' : ''}${i >= 5 ? ' ex' : ''}"></i>`;
         return `<tr class="${eq ? 'eq' : ''}">
-          <td class="nm">${p.name}${eq ? '<span class="tag">装着中</span>' : ''}</td>
+          <td class="nm">${p.name}${eq ? `<span class="tag">${T('G059' /* 装着中 */)}</span>` : ''}</td>
           <td class="pips">${pips}<small>Lv${lv}</small></td>
           <td class="val">${name} ${fmtNum(cur)}${unit}${max ? '' : ` → <b>${fmtNum(next)}${nunit}</b>`}${note ? `<small class="note">${note}</small>` : ''}</td>
-          <td class="cost">${max ? '<span class="maxed">最大強化</span>' : oreHTML(cost, ore)}</td>
-          <td><button class="up-btn ${ok ? 'primary' : ''}" data-id="${p.id}" data-cat="${cat}" ${ok ? '' : 'disabled'}>${max ? 'MAX' : '強化'}</button></td>
+          <td class="cost">${max ? `<span class="maxed">${T('G096' /* 最大強化 */)}</span>` : oreHTML(cost, ore)}</td>
+          <td><button class="up-btn ${ok ? 'primary' : ''}" data-id="${p.id}" data-cat="${cat}" ${ok ? '' : 'disabled'}>${max ? 'MAX' : T('G097' /* 強化 */)}</button></td>
         </tr>`;
       }).join('');
       return `<section class="up-sec"><h3>${U.label}<small>${U.where} / ${U.per}</small></h3><table class="up-tbl">${rows}</table></section>`;
     }).join('');
-    el.innerHTML = `<h2>パーツ強化</h2>
-      <p class="muted">エネミーが落とす鉱石でパーツを強化します（各パーツ最大 Lv${UPGRADE_MAX}）。強化はパーツの種類ごとで、付け替えても強化はそのパーツに残ります（ブースターの効果は強化とは別に上乗せされます）。<br>
-      ${ORES.map(k => `<span class="ore"><i style="background:${k.color}"></i>${k.name}</span>${k.desc}`).join('　')}</p>${secs}`;
+    el.innerHTML = `<h2>${T('G098' /* パーツ強化 */)}</h2>
+      <p class="muted">${T('G099' /* エネミーが落とす鉱石でパーツを強化します（各パーツ最大 Lv… */, { max: UPGRADE_MAX })}<br>
+      ${ORES.map(k => `<span class="ore"><i style="background:${k.color}"></i>${k.name}</span>${k.desc}`).join(T('G100' /*  */))}</p>${secs}`;
     el.querySelectorAll('.up-btn').forEach(btn => {
       btn.onclick = () => {
         const id = btn.dataset.id, U = UPGRADES[btn.dataset.cat];
@@ -449,9 +456,9 @@ const Garage = {
   // ------------------------------------------------------------ 回路
   buildPalette() {
     const el = document.getElementById('palette');
-    let html = `<div class="pgroup"><h4>ツール</h4>
-      <button class="pbtn tool" data-brush="select">✋ 選択・編集</button>
-      <button class="pbtn tool" data-brush="erase">⌫ 消しゴム</button></div>`;
+    let html = `<div class="pgroup"><h4>${T('G101' /* ツール */)}</h4>
+      <button class="pbtn tool" data-brush="select">✋ ${T('G102' /* 選択・編集 */)}</button>
+      <button class="pbtn tool" data-brush="erase">⌫ ${T('G103' /* 消しゴム */)}</button></div>`;
     for (const g of TILE_GROUPS) {
       html += `<div class="pgroup"><h4>${g.name}</h4>`;
       for (const [k, d] of Object.entries(TILE_DEFS)) {
@@ -478,9 +485,9 @@ const Garage = {
     document.querySelectorAll('#palette .pbtn').forEach(b => b.classList.toggle('on', b.dataset.brush === this.brush));
     const def = TILE_DEFS[this.brush];
     document.getElementById('brush-info').textContent =
-      this.brush === 'select' ? '選択モード：タイルをクリックで編集' :
-      this.brush === 'erase' ? '消しゴム：クリックでタイルを削除' :
-      `配置モード：「${def.name}」をクリックで配置`;
+      this.brush === 'select' ? T('G104' /* 選択モード：タイルをクリックで編集 */) :
+      this.brush === 'erase' ? T('G105' /* 消しゴム：クリックでタイルを削除 */) :
+      T('G106' /* 配置モード：「{name}」をクリックで配置 */, { name: def.name });
   },
 
   tileHTML(tile) {
@@ -497,7 +504,7 @@ const Garage = {
     const grid = st.grid;
     const prog = Game.save.program;
     document.getElementById('circuit-info').innerHTML =
-      `頭部A <b>${partLabel(st.parts.headCpu)}</b>：使用可能 ${grid}×${grid} マス / 処理速度 ${fmtNum(st.clock)} タイル毎秒 / センサー ${fmtNum(st.sensor)}m`;
+      T('G107' /* 頭部A {name}：使用可能 {grid}×{grid} … */, { name: partLabel(st.parts.headCpu), grid, clock: fmtNum(st.clock), sensor: fmtNum(st.sensor) });
     const el = document.getElementById('circuit-grid');
     const orphans = new Set(orphanTiles(prog, grid));
     let html = '';
@@ -509,16 +516,16 @@ const Garage = {
         const sel = this.sel && this.sel.x === x && this.sel.y === y;
         const drag = tile && tile.t !== 'start' && !off;
         html += `<div class="cell ${off ? 'off' : ''} ${sel ? 'sel' : ''} ${orphans.has(i) ? 'orphan' : ''}" data-x="${x}" data-y="${y}"` +
-          `${drag ? ' draggable="true"' : ''}${orphans.has(i) ? ' title="未接続：STARTからつながっていないため実行されません"' : ''}>${tile ? this.tileHTML(tile) : ''}</div>`;
+          `${drag ? ' draggable="true"' : ''}${orphans.has(i) ? ` title="${T('G108' /* 未接続：STARTからつながっていないため実行されません */)}"` : ''}>${tile ? this.tileHTML(tile) : ''}</div>`;
       }
     }
     el.innerHTML = html;
     const ub = document.getElementById('btn-undo');
     ub.disabled = !this.undoStack.length;
-    ub.textContent = `↶ 元に戻す（${this.undoStack.length}）`;
+    ub.textContent = T('G109' /* ↶ 元に戻す（{n}） */, { n: this.undoStack.length });
     const ob = document.getElementById('btn-orphans');
     ob.disabled = !orphans.size;
-    ob.textContent = `未接続タイルを消去（${orphans.size}）`;
+    ob.textContent = T('G110' /* 未接続タイルを消去（{n}） */, { n: orphans.size });
     el.querySelectorAll('.cell').forEach(c => {
       const x = +c.dataset.x, y = +c.dataset.y;
       c.onclick = () => this.cellClick(x, y);
@@ -602,8 +609,7 @@ const Garage = {
     this.pendingTab = next;
     const n = this.orphans().length;
     document.getElementById('orphan-body').innerHTML =
-      `<p>STARTからつながっていないタイルが <b>${n}個</b> あります（回路盤で薄く表示されているタイル）。<br>これらは戦闘中に一度も実行されません。</p>
-       <p class="muted">消去しても「元に戻す」で取り消せます。</p>`;
+      T('G111' /* STARTからつながっていないタイルが {n}個 あります（… */, { n });
     document.getElementById('orphan-dialog').classList.add('show');
   },
 
@@ -675,36 +681,25 @@ const Garage = {
     const el = document.getElementById('inspector');
     const tile = this.sel ? Game.save.program[this.sel.y * MAX_GRID + this.sel.x] : null;
     if (!tile) {
-      el.innerHTML = `<h3>タイル設定</h3><p class="muted">タイルを選択すると、ここでパラメータや矢印の向きを設定できます。</p>
-        <h4>回路のルール</h4><ul class="rules">
-        <li>STARTから矢印の方向へ1タイルずつ実行します。</li>
-        <li><b class="c-move">移動</b>タイルは動作が終わるまで次へ進みません。</li>
-        <li><b class="c-atk">攻撃</b>タイルは引き金を引いて（約0.6秒）すぐ次へ進みます。</li>
-        <li><b class="c-cond">判定</b>タイルは条件を満たすと<b class="yes">緑▲</b>へ、満たさないと<b class="no">赤▲</b>へ進みます。</li>
-        <li>空きマス・回路盤の外へ進むとSTARTに戻ります。</li>
-        <li>右クリック：矢印を回転 / Shift+右クリック：NO側の矢印を回転</li>
-        <li>ドラッグ：タイルを移動（移動先のタイルとは入れ替え）/ パレットからドラッグして配置</li>
-        <li>薄く表示されたタイルはSTARTからつながっておらず実行されません。「未接続タイルを消去」でまとめて消せます。</li>
-        <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> または「元に戻す」：直前の編集を取り消す</li>
-        </ul>`;
+      el.innerHTML = T('G112' /* タイル設定タイルを選択すると、ここでパラメータや矢印の向きを… */);
       return;
     }
     const def = TILE_DEFS[tile.t];
     const dirPick = (k, label, cls) => `<div class="dirrow"><span class="${cls}">${label}</span>` +
       [0, 1, 2, 3].map(d => `<button class="dbtn ${tile[k] === d ? 'on' : ''}" data-k="${k}" data-d="${d}">${DIR_ARROW[d]}</button>`).join('') + '</div>';
-    let html = `<h3>タイル設定 <small>(${this.sel.x + 1}, ${this.sel.y + 1})</small></h3>
+    let html = `<h3>${T('G113' /* タイル設定 */)} <small>(${this.sel.x + 1}, ${this.sel.y + 1})</small></h3>
       <div class="insp-name g-${def.group}">${def.kind === 'cond' ? '◇' : def.icon} ${def.name}</div>
-      <p class="muted">${{ start: '実行開始位置', cmd: 'コマンド（出口1つ）', cond: '判定（YES / NO の2出口）' }[def.kind]}</p>`;
+      <p class="muted">${{ start: T('G114' /* 実行開始位置 */), cmd: T('G115' /* コマンド（出口1つ） */), cond: T('G116' /* 判定（YES / NO の2出口） */) }[def.kind]}</p>`;
     if (def.params) {
-      html += `<label class="prm">パラメータ <select id="insp-p">${def.params.map((v, i) => `<option value="${i}" ${i === tile.p ? 'selected' : ''}>${v}${def.unit}</option>`).join('')}</select></label>`;
+      html += `<label class="prm">${T('G117' /* パラメータ */)} <select id="insp-p">${def.params.map((v, i) => `<option value="${i}" ${i === tile.p ? 'selected' : ''}>${v}${def.unit}</option>`).join('')}</select></label>`;
     }
-    html += dirPick('d', def.kind === 'cond' ? 'YES →' : '次へ →', def.kind === 'cond' ? 'yes' : '');
+    html += dirPick('d', def.kind === 'cond' ? 'YES →' : T('G118' /* 次へ → */), def.kind === 'cond' ? 'yes' : '');
     if (def.kind === 'cond') html += dirPick('n', 'NO →', 'no');
     if (tile.t === 'power') {
       const reg = partById('headReg', Game.save.build.headReg);
-      html += `<p class="muted">※頭部B「${reg.name}」の配分範囲（腕${Math.round(reg.min * 100)}〜${Math.round(reg.max * 100)}%）に制限されます。</p>`;
+      html += `<p class="muted">${T('G119' /* ※頭部B「{name}」の配分範囲（腕{min}〜{max}… */, { name: reg.name, min: Math.round(reg.min * 100), max: Math.round(reg.max * 100) })}</p>`;
     }
-    if (tile.t !== 'start') html += `<button id="insp-del" class="danger">このタイルを削除</button>`;
+    if (tile.t !== 'start') html += `<button id="insp-del" class="danger">${T('G120' /* このタイルを削除 */)}</button>`;
     el.innerHTML = html;
     const sel = document.getElementById('insp-p');
     if (sel) sel.onchange = () => this.editProgram(() => { tile.p = +sel.value; });
@@ -725,7 +720,7 @@ const Garage = {
     const reg = st.parts.headReg;
     const slider = document.getElementById('ratio');
     slider.value = Math.round(st.ratio * 100);
-    document.getElementById('reg-name').textContent = `${partLabel(reg)}（配分範囲：腕 ${Math.round(reg.min * 100)}〜${Math.round(reg.max * 100)}%  / 出力効率 ×${reg.eff.toFixed(2)}）`;
+    document.getElementById('reg-name').textContent = T('G121' /* {name}（配分範囲：腕 {min}〜{max}% / 出… */, { name: partLabel(reg), min: Math.round(reg.min * 100), max: Math.round(reg.max * 100), eff: reg.eff.toFixed(2) });
     document.getElementById('arm-pct').textContent = Math.round(st.ratio * 100) + '%';
     document.getElementById('leg-pct').textContent = Math.round((1 - st.ratio) * 100) + '%';
     document.getElementById('ratio-arm').style.width = (st.ratio * 100) + '%';
@@ -739,13 +734,13 @@ const Garage = {
       return v.toFixed(dig) + unit + s;
     };
     document.getElementById('output-table').innerHTML = `
-      <tr><th>総出力（胴体×頭部B）</th><td>${Math.round(st.power)}</td></tr>
-      <tr><th>攻撃倍率（腕）</th><td>×${cmp(st.armMult, mid.armMult, '', 2)}</td></tr>
-      <tr><th>機動倍率（脚）</th><td>×${cmp(st.legMult, mid.legMult, '', 2)}</td></tr>
-      <tr><th>最高速度</th><td>${cmp(st.speed, mid.speed, ' m/s')}</td></tr>
-      <tr><th>旋回速度</th><td>${Math.round(st.turn * 57.3)} °/s</td></tr>
-      <tr><th>左腕 DPS</th><td>${cmp(st.armL.dps, mid.armL.dps)}</td></tr>
-      <tr><th>右腕 DPS</th><td>${cmp(st.armR.dps, mid.armR.dps)}</td></tr>`;
+      <tr><th>${T('G122' /* 総出力（胴体×頭部B） */)}</th><td>${Math.round(st.power)}</td></tr>
+      <tr><th>${T('G123' /* 攻撃倍率（腕） */)}</th><td>×${cmp(st.armMult, mid.armMult, '', 2)}</td></tr>
+      <tr><th>${T('G124' /* 機動倍率（脚） */)}</th><td>×${cmp(st.legMult, mid.legMult, '', 2)}</td></tr>
+      <tr><th>${T('G089' /* 最高速度 */)}</th><td>${cmp(st.speed, mid.speed, ' m/s')}</td></tr>
+      <tr><th>${T('G090' /* 旋回速度 */)}</th><td>${Math.round(st.turn * 57.3)} °/s</td></tr>
+      <tr><th>${T('G092' /* 左腕 DPS */)}</th><td>${cmp(st.armL.dps, mid.armL.dps)}</td></tr>
+      <tr><th>${T('G093' /* 右腕 DPS */)}</th><td>${cmp(st.armR.dps, mid.armR.dps)}</td></tr>`;
   },
 
   // ------------------------------------------------------------ 出撃
@@ -753,12 +748,12 @@ const Garage = {
     const n = Game.save.enemyCount;
     const F = fieldById(Game.save.field), DS = F.districts;
     const reached = Game.save.reached, floor = Game.save.floor[F.id], fm = floorMul(floor);
-    document.getElementById('sortie-title').textContent = `出撃準備 — ${F.name} ${floorName(floor)}（全${DS.length}地区）`;
+    document.getElementById('sortie-title').textContent = T('G125' /* 出撃準備 — {name} {floor}（全{count}… */, { name: F.name, floor: floorName(floor), count: DS.length });
     const fs = document.getElementById('field-select');
     fs.innerHTML = FIELDS.map(f => `
       <button class="field-card ${f.id === F.id ? 'sel' : ''}" data-id="${f.id}">
         <canvas width="96" height="72"></canvas>
-        <span><b>${f.name}</b><small>全${FLOORS}層 × ${f.districts.length}地区（到達 ${floorName(reached[f.id])}）</small><em>${f.desc}</em></span>
+        <span><b>${f.name}</b><small>${T('G126' /* 全{floors}層 × {districts}地区（到達 … */, { floors: FLOORS, districts: f.districts.length, reached: floorName(reached[f.id]) })}</small><em>${f.desc}</em></span>
       </button>`).join('');
     fs.querySelectorAll('.field-card').forEach((b, i) => {
       drawFieldThumb(b.querySelector('canvas'), FIELDS[i]);
@@ -770,36 +765,33 @@ const Garage = {
     for (let f = 1; f <= FLOORS; f++) {
       const lock = f > reached[F.id];
       btns += `<button class="${f === floor ? 'sel' : ''}${lock ? ' lock' : ''}" data-f="${f}" ${lock ? 'disabled' : ''}
-        title="${lock ? '一つ上の層のボスを倒すと解放' : `耐久 ${fmtMul(floorMul(f).hp)} / 攻撃力 ${fmtMul(floorMul(f).dmg)}`}">${lock ? '🔒' : ''}${floorName(f)}</button>`;
+        title="${lock ? T('G127' /* 一つ上の層のボスを倒すと解放 */) : T('G128' /* 耐久 {hp} / 攻撃力 {dmg} */, { hp: fmtMul(floorMul(f).hp), dmg: fmtMul(floorMul(f).dmg) })}">${lock ? '🔒' : ''}${floorName(f)}</button>`;
     }
     fl.innerHTML = `<div class="floor-btns">${btns}</div>
-      <p>${floorName(floor)}のエネミー（ボス含む）：耐久 <b>${fmtMul(fm.hp)}</b> / 攻撃力 <b>${fmtMul(fm.dmg)}</b> / 鉱石ドロップ <b>${fmtMul(fm.ore)}</b>
-      <small>下の層ほど手強い。ボスを倒すと次の層が解放されます。</small></p>`;
+      <p>${T('G129' /* {floor}のエネミー（ボス含む）：耐久 {hp} / 攻… */, { floor: floorName(floor), hp: fmtMul(fm.hp), dmg: fmtMul(fm.dmg), ore: fmtMul(fm.ore) })}</p>`;
     fl.querySelectorAll('button:not([disabled])').forEach(b => {
       b.onclick = () => { Game.save.floor[F.id] = +b.dataset.f; Game.persist(); this.renderSortie(); };
     });
     document.getElementById('enemyCount').value = n;
-    document.getElementById('enemyCountVal').textContent = n + ' 体';
+    document.getElementById('enemyCountVal').textContent = T('G145' /* {n} 体 */, { n });
     const rows = DS.map((D, i) => {
       const comp = enemyComposition(n, D);
       const cnt = t => comp.filter(x => x === t).length;
-      return `<tr><td><b>${D.name}</b>「${D.sub}」</td><td>${cnt('scarab')}</td><td>${cnt('spitter')}</td><td>${cnt('troll')}</td><td>第1〜${i + 1}地区</td></tr>`;
+      return `<tr><td>${T('G130' /* {name}「{sub}」 */, { name: D.name, sub: D.sub })}</td><td>${cnt('scarab')}</td><td>${cnt('spitter')}</td><td>${cnt('troll')}</td><td>${T('G146' /* 第1〜{n}地区 */, { n: i + 1 })}</td></tr>`;
     }).join('');
     document.getElementById('composition').innerHTML = `
       <table class="district-tbl">
-        <thead><tr><th>地区</th><th>${ENEMY_DEFS.scarab.name}</th><th>${ENEMY_DEFS.spitter.name}</th><th>${ENEMY_DEFS.troll.name}</th><th>戦闘フィールド</th></tr></thead>
+        <thead><tr><th>${T('G131' /* 地区 */)}</th><th>${ENEMY_DEFS.scarab.name}</th><th>${ENEMY_DEFS.spitter.name}</th><th>${ENEMY_DEFS.troll.name}</th><th>${T('G132' /* 戦闘フィールド */)}</th></tr></thead>
         <tbody>${rows}
-          <tr class="boss"><td><b>BOSS</b> ${ENEMY_DEFS[F.boss].name}</td><td colspan="3">全地区掃討後に出現 / HP ${bossHp(ENEMY_DEFS[F.boss], n, floor)}</td><td>全地区</td></tr>
+          <tr class="boss"><td><b>BOSS</b> ${ENEMY_DEFS[F.boss].name}</td><td colspan="3">${T('G133' /* 全地区掃討後に出現 */)} / HP ${bossHp(ENEMY_DEFS[F.boss], n, floor)}</td><td>${T('G134' /* 全地区 */)}</td></tr>
         </tbody>
       </table>
-      <p class="muted">各地区を掃討するたびに「次に進みますか？」と確認されます。帰還すればそこまでの戦果で任務終了。HP・弾薬は地区をまたいで持ち越します。<br>
-      スカラベ：小型・高速の近接群体 / スピッター：距離を取って酸を吐く / トロール：鈍重だが高耐久・高打撃<br>
-      <b style="color:#ffd84a">レア個体</b>：一般エネミーが ${Math.round(RARE.chance * 100)}% の確率で金色に輝く「${RARE.prefix}個体」として現れる（大地の脈動中は ${RARE.surgeMul}倍）。耐久 ${RARE.hp}倍と手強いが、倒すと効果 +${BONUS_MIN}〜+${BONUS_MAX} のブースター（特定のパーツ専用の強化モジュール）を落とす。</p>`;
+      <p class="muted">${T('G135' /* 各地区を掃討するたびに「次に進みますか？」と確認されます。帰… */, { chance: Math.round(RARE.chance * 100), prefix: RARE.prefix, surge: RARE.surgeMul, hp: RARE.hp, min: BONUS_MIN, max: BONUS_MAX })}</p>`;
     const st = computeStats(Game.save.build, null, Game.save.upgrades);
     const prog = Game.save.program;
     const warns = [];
-    if (st.over) warns.push(`過積載です（${st.weight} / ${st.cap}）。速度と旋回が大きく低下します。`);
-    if (st.parts.armL.type === 'none' && st.parts.armR.type === 'none') warns.push('両腕とも武装がありません。');
+    if (st.over) warns.push(T('G136' /* 過積載です（{weight} / {cap}）。速度と旋回が… */, { weight: st.weight, cap: st.cap }));
+    if (st.parts.armL.type === 'none' && st.parts.armR.type === 'none') warns.push(T('G137' /* 両腕とも武装がありません。 */));
     let fire = false, used = 0;
     for (let y = 0; y < st.grid; y++) for (let x = 0; x < st.grid; x++) {
       const t = prog[y * MAX_GRID + x];
@@ -807,11 +799,11 @@ const Garage = {
       used++;
       if (t.t.startsWith('fire_')) fire = true;
     }
-    if (!fire) warns.push('回路に攻撃タイルがありません（回路制御では攻撃できません）。');
+    if (!fire) warns.push(T('G138' /* 回路に攻撃タイルがありません（回路制御では攻撃できません）。 */));
     const hidden = prog.filter((t, i) => t && ((i % MAX_GRID) >= st.grid || Math.floor(i / MAX_GRID) >= st.grid)).length;
-    if (hidden) warns.push(`回路盤の外に ${hidden} 個のタイルがあります（現在の頭部Aでは実行されません）。`);
+    if (hidden) warns.push(T('G139' /* 回路盤の外に {n} 個のタイルがあります（現在の頭部Aでは… */, { n: hidden }));
     document.getElementById('sortie-check').innerHTML =
-      `<p>回路：${used} タイル使用 / ${st.grid}×${st.grid}</p>` +
-      (warns.length ? warns.map(w => `<p class="warn">⚠ ${w}</p>`).join('') : '<p class="ok">✔ 出撃準備完了</p>');
+      T('G140' /* 回路：{used} タイル使用 / {grid}×{grid… */, { used, grid: st.grid }) +
+      (warns.length ? warns.map(w => `<p class="warn">⚠ ${w}</p>`).join('') : `<p class="ok">✔ ${T('G141' /* 出撃準備完了 */)}</p>`);
   },
 };

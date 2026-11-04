@@ -203,7 +203,7 @@ function drawCircuit(ctx, prog, grid, x0, y0, cs, opts = {}) {
       ctx.font = `bold ${Math.max(8, Math.floor(cs * 0.36))}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const label = def.kind === 'cond' ? def.short.slice(0, 3) : def.icon;
+      const label = def.kind === 'cond' ? def.mini : def.icon;
       ctx.fillText(label, px + cs / 2, py + cs / 2);
       drawArrowMini(ctx, px, py, cs, tile.d, def.kind === 'cond' ? '#5dff8a' : '#e8f0ea');
       if (def.kind === 'cond') drawArrowMini(ctx, px, py, cs, tile.n, '#ff5a4a');

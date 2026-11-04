@@ -110,8 +110,8 @@ function updateSpider(w, e, dt) {
     e.chain = 0;
     bossSet(e, 'rage', 2);
     w.shake = 0.8;
-    w.banner = { title: `${e.def.name} 晶化暴走`, sub: '全身の結晶が共鳴 ― 行動パターンが変化した！', t: 3 };
-    addLog(w, 'ボス 形態変化：全身の結晶が青白く共鳴している！ 行動パターン変化', '#7ad8ff');
+    w.banner = { title: T('B062' /* {name} 晶化暴走 */, { name: e.def.name }), sub: T('B063' /* 全身の結晶が共鳴 ― 行動パターンが変化した！ */), t: 3 };
+    addLog(w, T('B064' /* ボス 形態変化：全身の結晶が青白く共鳴している！ 行動パター… */), '#7ad8ff');
     Sound.play('screech');
     Sound.play('quake');
   }
@@ -242,7 +242,7 @@ function updateSpider(w, e, dt) {
       if (e.st <= 0) {
         spiderRain(w, p2 ? 7 : 5);
         if (p2) e.rainAgain = 1.6;
-        addLog(w, '天井の結晶が崩れ落ちてくる！', '#9fdcff');
+        addLog(w, T('B065' /* 天井の結晶が崩れ落ちてくる！ */), '#9fdcff');
         bossSet(e, 'chase', p2 ? 1.2 : 1.6);
       }
       break;
@@ -274,7 +274,7 @@ function updateSpider(w, e, dt) {
             m.cd = 1;
             w.fx.push({ type: 'gib', x: m.x, y: m.y, vx: 0, vy: 0, life: 0.5, max: 0.5, size: 0.6, color: '#d8e8ff' });
           }
-          addLog(w, 'ボスが眷属を孵化させた（+6体）', '#ffb070');
+          addLog(w, T('B066' /* ボスが眷属を孵化させた（+6体） */), '#ffb070');
           Sound.play('summon', { x: e.x, y: e.y });
         }
         bossSet(e, 'chase', 2);

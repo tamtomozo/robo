@@ -7,6 +7,7 @@ const Game = {
   save: null,
 
   init() {
+    I18N.apply();   // 英語なら HTML の文章を差し替える（プロローグの高さを測る toTitle より前に）
     this.save = this.load();
     Sound.init();
     Garage.init();
@@ -27,7 +28,7 @@ const Game = {
     inner.style.animationDuration = ((inner.offsetHeight + crawl.offsetHeight) / 42) + 's';
     const start = (e) => {
       if (e.type === 'keydown' && (e.repeat || ['Shift', 'Control', 'Alt', 'Meta'].includes(e.key))) return;
-      if (e.type === 'keydown' && document.activeElement && document.activeElement.closest('#sound-ctl')) return;
+      if (e.type === 'keydown' && document.activeElement && document.activeElement.closest('#sound-ctl, #lang-ctl')) return;
       if (e.type === 'keydown') e.preventDefault();
       scr.removeEventListener('pointerdown', start);
       window.removeEventListener('keydown', start);

@@ -42,7 +42,7 @@ function setPlayerRatio(w, P, v) {
   P.st = computeStats(P.build, r, P.upgrades);
   P.arms.L.perf = P.st.armL;
   P.arms.R.perf = P.st.armR;
-  addLog(w, `出力配分：腕 ${Math.round(r * 100)}% / 脚 ${Math.round((1 - r) * 100)}%`, '#c9a0ff');
+  addLog(w, T('B002' /* 出力配分：腕 {arm}% / 脚 {leg}% */, { arm: Math.round(r * 100), leg: Math.round((1 - r) * 100) }), '#c9a0ff');
 }
 
 // ---------------------------------------------------------------------
@@ -155,8 +155,8 @@ function createWorld(save) {
     w.decor.push({ x, y, s: rand(0.5, 1.5), rot: rand(0, 6.283), type: pick(F.decor) });
   }
   makeVeins(w);
-  addLog(w, `戦闘モード起動。${F.name} ${floorName(floor)}へ降下完了。`, '#9fe0b0');
-  if (floor > 1) addLog(w, `深層の敵性生体：耐久 ${fmtMul(w.fm.hp)} / 攻撃力 ${fmtMul(w.fm.dmg)}`, '#ffb070');
+  addLog(w, T('B003' /* 戦闘モード起動。{name} {floor}へ降下完了。 */, { name: F.name, floor: floorName(floor) }), '#9fe0b0');
+  if (floor > 1) addLog(w, T('B004' /* 深層の敵性生体：耐久 {hp} / 攻撃力 {dmg} */, { hp: fmtMul(w.fm.hp), dmg: fmtMul(w.fm.dmg) }), '#ffb070');
   startDistrict(w);
   return w;
 }
@@ -174,9 +174,9 @@ function startDistrict(w) {
   w.reinLogged = false;
   while (w.queue.length && w.enemies.length < MAX_ACTIVE_ENEMIES) spawnEnemy(w, w.queue.pop(), null);
   w.phase = 'fight';
-  w.banner = { title: `${floorName(w.floor)} ${D.name}「${D.sub}」`, sub: `敵性生体反応 ${w.perDistrict}体`, t: 3 };
+  w.banner = { title: `${floorName(w.floor)} ${districtLabel(D)}`, sub: T('B005' /* 敵性生体反応 {perDistrict}体 */, { perDistrict: w.perDistrict }), t: 3 };
   Sound.play('radio');
-  addLog(w, `${D.name}「${D.sub}」：敵性生体反応 ${w.perDistrict}体 を確認。`, '#ffd24a');
+  addLog(w, T('B006' /* {district}：敵性生体反応 {perDistrict… */, { district: districtLabel(D), perDistrict: w.perDistrict }), '#ffd24a');
 }
 
 // 確認ダイアログで「進む」を選んだとき
@@ -186,14 +186,14 @@ function advanceDistrict(w) {
     w.district++;
     w.open = w.district + 1;
     w.stats.total += w.perDistrict;
-    addLog(w, `封鎖線を解除。${DS[w.district].name}へ進攻する。`, '#9fe0b0');
+    addLog(w, T('B007' /* 封鎖線を解除。{name}へ進攻する。 */, { name: DS[w.district].name }), '#9fe0b0');
     startDistrict(w);
   } else {
     w.open = DS.length;
     w.full = true;
     w.phase = 'warn';
     w.phaseT = 3;
-    addLog(w, `全地区 掃討完了。${w.field.bossWarn}`, '#ffd24a');
+    addLog(w, T('B008' /* 全地区 掃討完了。{bossWarn} */, { bossWarn: w.field.bossWarn }), '#ffd24a');
     Sound.stopBgm(1.5);
     Sound.play('siren');
   }
@@ -252,7 +252,7 @@ function updateSurge(w, dt) {
     if (ok) S.t -= dt;
     if (S.t <= 0) {
       S.state = 'rise';
-      addLog(w, '警告：地中から鼓動のような振動を検知……', '#ff7a5a');
+      addLog(w, T('B009' /* 警告：地中から鼓動のような振動を検知…… */), '#ff7a5a');
       Sound.play('quake');
     }
   } else if (S.state === 'rise') {
@@ -261,8 +261,8 @@ function updateSurge(w, dt) {
     else if (S.k >= 1) {
       S.state = 'active';
       S.t = rand(SURGE.dur[0], SURGE.dur[1]);
-      w.banner = { title: '大地脈動', sub: '赤く脈打つ大地に呼応し、敵性生体が活性化！（移動速度 2倍 / 撃破時の鉱石 2倍）', t: 3 };
-      addLog(w, '大地が脈動している。敵性生体の活性化を確認！', '#ff5a3a');
+      w.banner = { title: T('B010' /* 大地脈動 */), sub: T('B011' /* 赤く脈打つ大地に呼応し、敵性生体が活性化！（移動速度 2倍 … */), t: 3 };
+      addLog(w, T('B012' /* 大地が脈動している。敵性生体の活性化を確認！ */), '#ff5a3a');
       Sound.play('roar');
     }
   } else if (S.state === 'active') {
@@ -273,7 +273,7 @@ function updateSurge(w, dt) {
     if (S.k <= 0) {
       S.state = 'idle';
       S.t = rand(SURGE.gap[0], SURGE.gap[1]);
-      if (!w.result) addLog(w, '大地の脈動が鎮まった。', '#9fe0b0');
+      if (!w.result) addLog(w, T('B013' /* 大地の脈動が鎮まった。 */), '#9fe0b0');
     }
   }
   // 呼吸：脈動が強いほど速く。息を吸いきるたびに鼓動を鳴らす
@@ -316,7 +316,7 @@ function spawnEnemy(w, type, at) {
   w.enemies.push(e);
   if (rare) {
     w.stats.rareSeen++;
-    addLog(w, `レア個体を検知：${d.name}（撃破するとブースターを落とす）`, '#ffd84a');
+    addLog(w, T('B014' /* レア個体を検知：{name}（撃破するとブースターを落とす） */, { name: d.name }), '#ffd84a');
     Sound.play('rare');
   }
   return e;
@@ -355,7 +355,7 @@ function spawnBoss(w) {
   w.boss = e;
   w.stats.bossAt = w.time;
   w.shake = 1;
-  addLog(w, `ボス出現：${e.def.name}`, '#ff6a4a');
+  addLog(w, T('B015' /* ボス出現：{name} */, { name: e.def.name }), '#ff6a4a');
   Sound.play('quake');
   Sound.play(K.cry);
   Sound.playBgm('boss');
@@ -389,7 +389,7 @@ function updatePhase(w, dt) {
     if (w.reinT <= 0 && w.enemies.length < MAX_ACTIVE_ENEMIES) {
       spawnEnemy(w, w.queue.pop(), null);
       w.reinT = 0.6;
-      if (!w.reinLogged) { w.reinLogged = true; addLog(w, `増援接近：後続 ${w.queue.length + 1}体`, '#ffb070'); }
+      if (!w.reinLogged) { w.reinLogged = true; addLog(w, T('B016' /* 増援接近：後続 {n}体 */, { n: w.queue.length + 1 }), '#ffb070'); }
     }
   }
   if (w.phase === 'fight' && w.enemies.length === 0 && w.queue.length === 0) {
@@ -399,7 +399,7 @@ function updatePhase(w, dt) {
     w.phase = 'confirm';
     w.pshots = [];
     w.eshots = [];
-    addLog(w, `${D.name}「${D.sub}」 掃討完了。`, '#9fe0b0');
+    addLog(w, T('B017' /* {district} 掃討完了。 */, { district: districtLabel(D) }), '#9fe0b0');
     Sound.play('clear');
     collectAllOres(w);
   } else if (w.phase === 'warn') {
@@ -412,10 +412,10 @@ function endBattle(w, result) {
   if (w.result) return;
   w.result = result;
   w.endT = 0;
-  if (result === 'win') addLog(w, 'ボス撃破を確認。任務完了。', '#9fe0b0');
-  if (result === 'lose') addLog(w, '機体大破。通信途絶……', '#ff6a4a');
-  if (result === 'retreat') addLog(w, '撤退信号を受信。戦域を離脱する。', '#ffd24a');
-  if (result === 'return') addLog(w, `${w.stats.cleared}地区を掃討。基地への帰還を開始する。`, '#9fe0b0');
+  if (result === 'win') addLog(w, T('B018' /* ボス撃破を確認。任務完了。 */), '#9fe0b0');
+  if (result === 'lose') addLog(w, T('B019' /* 機体大破。通信途絶…… */), '#ff6a4a');
+  if (result === 'retreat') addLog(w, T('B020' /* 撤退信号を受信。戦域を離脱する。 */), '#ffd24a');
+  if (result === 'return') addLog(w, T('B021' /* {n}地区を掃討。基地への帰還を開始する。 */, { n: w.stats.cleared }), '#9fe0b0');
   Sound.stopBgm(result === 'lose' ? 0.3 : 1);
   Sound.play({ win: 'win', lose: 'lose', retreat: 'retreat', return: 'retreat' }[result]);
 }
@@ -551,7 +551,8 @@ function updateArm(w, P, arm, dt) {
         if (arm.ammo <= 0) {
           arm.reloading = arm.perf.reload;
           Sound.play('reload', { x: P.x, y: P.y });
-          addLog(w, `${arm.side === 'L' ? '左' : '右'}腕 弾切れ → リロード ${arm.perf.reload.toFixed(1)}秒`, '#9cd6d6');
+          const sec = arm.perf.reload.toFixed(1);
+          addLog(w, arm.side === 'L' ? T('B070' /* 左腕 弾切れ → リロード {sec}秒 */, { sec }) : T('B071' /* 右腕 弾切れ → リロード {sec}秒 */, { sec }), '#9cd6d6');
         }
       }
     }
@@ -705,7 +706,7 @@ function killEnemy(w, e) {
   const remain = w.enemies.filter(o => o.hp > 0 && !o.def.boss).length + w.queue.length;
   const killed = w.stats.kills.scarab + w.stats.kills.spitter + w.stats.kills.troll;
   if (w.phase === 'fight') {
-    if (remain > 0 && (remain <= 3 || killed % 10 === 0)) addLog(w, `撃破 ${killed} / 残敵 ${remain}体`);
+    if (remain > 0 && (remain <= 3 || killed % 10 === 0)) addLog(w, T('B022' /* 撃破 {killed} / 残敵 {remain}体 */, { killed, remain }));
   }
 }
 
@@ -801,7 +802,7 @@ function hurtPlayer(w, dmg) {
   for (const th of [75, 50, 25, 10]) {
     if (P.hpWarn > th && pct <= th) {
       P.hpWarn = th;
-      addLog(w, `警告：機体損傷 HP ${th}% 以下`, '#ff7a5a');
+      addLog(w, T('B023' /* 警告：機体損傷 HP {th}% 以下 */, { th }), '#ff7a5a');
       Sound.play('alarm');
     }
   }
@@ -995,8 +996,8 @@ function updateBoss(w, e, dt) {
     e.chain = 0;
     bossSet(e, 'rage', 2);
     w.shake = 0.8;
-    w.banner = { title: `${e.def.name} 激昂`, sub: '甲殻が赤熱 ― 行動パターンが変化した！', t: 3 };
-    addLog(w, 'ボス 形態変化：甲殻が赤熱している！ 行動パターン変化', '#ff6a4a');
+    w.banner = { title: T('B024' /* {name} 激昂 */, { name: e.def.name }), sub: T('B025' /* 甲殻が赤熱 ― 行動パターンが変化した！ */), t: 3 };
+    addLog(w, T('B026' /* ボス 形態変化：甲殻が赤熱している！ 行動パターン変化 */), '#ff6a4a');
     Sound.play('roar');
     Sound.play('quake');
   }
@@ -1179,7 +1180,7 @@ function updateBoss(w, e, dt) {
             m.cd = 1;
             w.fx.push({ type: 'dust', x: m.x, y: m.y, vx: 0, vy: 0, life: 0.8, max: 0.8, size: 1.2 });
           }
-          addLog(w, `ボスが眷属を呼び出した（+${n}体）`, '#ffb070');
+          addLog(w, T('B027' /* ボスが眷属を呼び出した（+{n}体） */, { n }), '#ffb070');
           Sound.play('summon', { x: e.x, y: e.y });
         }
         bossSet(e, 'chase', 2);
@@ -1253,7 +1254,7 @@ function bossPick(w, e, d) {
     case 'burrow':
       e.invuln = true;
       bossSet(e, 'dive', 0.8);
-      addLog(w, 'ボスが地中に潜った！', '#ffb070');
+      addLog(w, T('B028' /* ボスが地中に潜った！ */), '#ffb070');
       Sound.play('burrow', { x: e.x, y: e.y });
       break;
     case 'summon':
@@ -1365,7 +1366,7 @@ function dropPart(w, e) {
   const a = rand(0, Math.PI * 2);
   w.loot.push({ part, x: e.x, y: e.y, vx: Math.cos(a) * 3, vy: Math.sin(a) * 3, rot: rand(0, 6.283), t: 0, pull: 0 });
   w.stats.rareKills++;
-  addLog(w, `${e.def.name} 撃破 ― ブースターを落とした：${boosterName(part)}`, bonusTier(part.bonus).color);
+  addLog(w, T('B029' /* {name} 撃破 ― ブースターを落とした：{booste… */, { name: e.def.name, booster: boosterName(part) }), bonusTier(part.bonus).color);
 }
 
 function partLogText(part) {
@@ -1377,7 +1378,7 @@ function collectPart(w, o) {
   w.parts.push(o.part);
   w.partPulse = 0.6;
   Sound.play('partGet');
-  addLog(w, `ブースター回収：${partLogText(o.part)}（${bonusTier(o.part.bonus).name}）`, bonusTier(o.part.bonus).color);
+  addLog(w, T('B030' /* ブースター回収：{booster}（{tier}） */, { booster: partLogText(o.part), tier: bonusTier(o.part.bonus).name }), bonusTier(o.part.bonus).color);
   for (let i = 0; i < 6; i++) {
     w.fx.push({ type: 'gib', x: w.player.x, y: w.player.y, vx: rand(-4, 4), vy: rand(-4, 4), life: 0.35, max: 0.35, size: 0.2, color: bonusTier(o.part.bonus).color });
   }
@@ -1396,14 +1397,15 @@ function collectOre(w, o) {
 function collectAllOres(w) {
   if (w.loot.length) {
     for (const o of w.loot) w.parts.push(o.part);
-    addLog(w, `回収ドローン：残りのブースターを回収（${w.loot.map(o => partLogText(o.part)).join(' / ')}）`, '#ffd84a');
+    addLog(w, T('B031' /* 回収ドローン：残りのブースターを回収（{list}） */, { list: w.loot.map(o => partLogText(o.part)).join(' / ') }), '#ffd84a');
     w.loot = [];
   }
   if (!w.ores.length) return;
   const got = emptyOre();
   for (const o of w.ores) { got[o.kind]++; w.ore[o.kind]++; }
   w.ores = [];
-  addLog(w, `回収ドローン：残りの鉱石を回収（${ORES.filter(k => got[k.id]).map(k => `${k.name}×${got[k.id]}`).join(' ')}）`, '#c9e0ff');
+  const oreTxt = ORES.filter(k => got[k.id]).map(k => `${k.name}×${got[k.id]}`).join(' ');
+  addLog(w, T('B032' /* 回収ドローン：残りの鉱石を回収（{oreTxt}） */, { oreTxt }), '#c9e0ff');
 }
 
 // 戦闘終了時の鉱石の精算。帰還・勝利は全回収、撤退は拾った分のみ、大破は拾った分の半分を失う
@@ -2083,14 +2085,14 @@ function drawHUD(ctx, w, B, VW, VH) {
 
   // --- 機体ステータス ---
   const JP = P.st.jump, jh = JP ? 18 : 0;   // ジャンプが使える脚なら1行増やす
-  hudPanel(ctx, 12, 12, 310, 172 + jh, '機体ステータス  [頭部A/B テレメトリ]');
+  hudPanel(ctx, 12, 12, 310, 172 + jh, T('B033' /* 機体ステータス [頭部A/B テレメトリ] */));
   ctx.font = '12px sans-serif';
   ctx.fillStyle = '#e8f0ea';
   ctx.fillText(`HP ${Math.ceil(P.hp)} / ${P.maxHp}`, 20, 30);
   hudBar(ctx, 20, 46, 294, 10, P.hp / P.maxHp, P.hp / P.maxHp > 0.3 ? '#5dde7a' : '#ff5a4a');
   const r = P.st.ratio;
   ctx.fillStyle = '#e8f0ea';
-  ctx.fillText(`出力配分  腕 ${Math.round(r * 100)}%  /  脚 ${Math.round((1 - r) * 100)}%    総出力 ${Math.round(P.st.power)}`, 20, 62);
+  ctx.fillText(T('B034' /* 出力配分 腕 {arm}% / 脚 {leg}% 総出力 {… */, { arm: Math.round(r * 100), leg: Math.round((1 - r) * 100), power: Math.round(P.st.power) }), 20, 62);
   ctx.fillStyle = '#e0604a';
   ctx.fillRect(20, 78, 294 * r, 8);
   ctx.fillStyle = '#4a9ae0';
@@ -2098,12 +2100,12 @@ function drawHUD(ctx, w, B, VW, VH) {
   let y = 94;
   for (const arm of [P.arms.L, P.arms.R]) {
     ctx.fillStyle = '#e8f0ea';
-    const nm = `${arm.side === 'L' ? '左腕' : '右腕'}：${partLabel(arm.def)}`;
+    const nm = arm.side === 'L' ? T('B072' /* 左腕：{name} */, { name: partLabel(arm.def) }) : T('B073' /* 右腕：{name} */, { name: partLabel(arm.def) });
     ctx.fillText(nm, 20, y);
     if (arm.def.type === 'none') { /* なし */ }
     else if (arm.reloading > 0) {
       ctx.fillStyle = '#ffd24a';
-      ctx.fillText('リロード中', 240, y);
+      ctx.fillText(T('B035' /* リロード中 */), 240, y);
       hudBar(ctx, 20, y + 16, 294, 5, 1 - arm.reloading / arm.perf.reload, '#ffd24a');
     } else if (arm.def.mag > 0) {
       ctx.fillStyle = '#cde';
@@ -2116,23 +2118,27 @@ function drawHUD(ctx, w, B, VW, VH) {
     y += 28;
   }
   ctx.fillStyle = '#9fb5a5';
-  ctx.fillText(`速度 ${Math.hypot(P.vx, P.vy).toFixed(1)} m/s   制御：${B.manual ? '手動操作' : '回路プログラム'}`, 20, y);
+  ctx.fillText(T('B074' /* 速度 {speed} m/s 制御：{mode} */, {
+    speed: Math.hypot(P.vx, P.vy).toFixed(1), mode: B.manual ? T('B075' /* 手動操作 */) : T('B076' /* 回路プログラム */),
+  }), 20, y);
   if (JP) {
     y += 18;
     const air = P.air > 0;
     ctx.fillStyle = air ? '#8fe0ff' : P.jumpCd > 0 ? '#9fb5a5' : '#9fe0b0';
-    ctx.fillText(air ? 'ジャンプ：跳躍中（無敵）' : P.jumpCd > 0 ? `ジャンプ：再使用まで ${P.jumpCd.toFixed(1)}s`
-      : `ジャンプ：準備完了${B.manual ? ' [Shift]' : ''}`, 20, y);
+    ctx.fillText(air ? T('B036' /* ジャンプ：跳躍中（無敵） */)
+      : P.jumpCd > 0 ? T('B037' /* ジャンプ：再使用まで {cd}s */, { cd: P.jumpCd.toFixed(1) })
+      : T('B038' /* ジャンプ：準備完了{manual} */, { manual: B.manual ? ' [Shift]' : '' }), 20, y);
     hudBar(ctx, 200, y + 4, 114, 5, air ? 1 : 1 - P.jumpCd / JP.cd, '#8fe0ff');
   }
 
   // --- 回収鉱石 ---
-  hudPanel(ctx, 12, 190 + jh, 310, 44, `回収鉱石${w.ores.length ? `   （フィールドに ${w.ores.length}個）` : ''}`);
+  hudPanel(ctx, 12, 190 + jh, 310, 44, w.ores.length ? T('B078' /* 回収鉱石 （フィールドに {n}個） */, { n: w.ores.length }) : T('B077' /* 回収鉱石 */));
   if (w.parts.length || w.loot.length) {   // レアエネミーのブースター（右上に個数）
     ctx.textAlign = 'right';
     ctx.font = w.partPulse > 0 ? 'bold 13px sans-serif' : 'bold 12px sans-serif';
     ctx.fillStyle = w.partPulse > 0 ? '#fff' : '#ffd84a';
-    ctx.fillText(`ブースター ${w.parts.length}${w.loot.length ? `（+${w.loot.length}）` : ''}`, 314, 196 + jh);
+    ctx.fillText(w.loot.length ? T('B080' /* ブースター {n}（+{loot}） */, { n: w.parts.length, loot: w.loot.length })
+      : T('B079' /* ブースター {n} */, { n: w.parts.length }), 314, 196 + jh);
     ctx.textAlign = 'left';
   }
   ORES.forEach((k, i) => {
@@ -2147,7 +2153,7 @@ function drawHUD(ctx, w, B, VW, VH) {
     ctx.restore();
     ctx.font = pulse > 0 ? 'bold 13px sans-serif' : '12px sans-serif';
     ctx.fillStyle = pulse > 0 ? '#fff' : '#e8f0ea';
-    ctx.fillText(`${k.name} ${w.ore[k.id]}`, ox + 10, oy - 7);
+    ctx.fillText(`${k.short} ${w.ore[k.id]}`, ox + 10, oy - 7);
   });
   ctx.font = '12px sans-serif';
 
@@ -2158,16 +2164,16 @@ function drawHUD(ctx, w, B, VW, VH) {
   const DS = w.field.districts, D = DS[w.district];
   ctx.font = 'bold 14px sans-serif';
   ctx.fillStyle = '#f0c890';
-  if (!bossPhase) ctx.fillText(`${floorName(w.floor)}  ${D.name}「${D.sub}」  ${w.district + 1} / ${DS.length}`, VW / 2, 12);
+  if (!bossPhase) ctx.fillText(`${floorName(w.floor)}  ${districtLabel(D)}  ${w.district + 1} / ${DS.length}`, VW / 2, 12);
   ctx.font = 'bold 18px sans-serif';
   ctx.fillStyle = '#f2e6c8';
-  if (w.phase === 'fight') ctx.fillText(`残敵 ${remain} / ${w.perDistrict}`, VW / 2, 32);
-  else if (w.phase === 'confirm' || w.phase === 'done') ctx.fillText('掃討完了', VW / 2, 32);
-  else if (remain > 0) ctx.fillText(`眷属 ${remain}`, VW / 2, 60);
+  if (w.phase === 'fight') ctx.fillText(T('B039' /* 残敵 {remain} / {perDistrict} */, { remain, perDistrict: w.perDistrict }), VW / 2, 32);
+  else if (w.phase === 'confirm' || w.phase === 'done') ctx.fillText(T('B040' /* 掃討完了 */), VW / 2, 32);
+  else if (remain > 0) ctx.fillText(T('B041' /* 眷属 {remain} */, { remain }), VW / 2, 60);
   const bt = Math.floor(w.time);
   ctx.font = '12px sans-serif';
   ctx.fillStyle = '#cbbd9c';
-  ctx.fillText(`経過 ${String(Math.floor(bt / 60)).padStart(2, '0')}:${String(bt % 60).padStart(2, '0')}`, VW / 2, bossPhase ? 80 : 56);
+  ctx.fillText(`${T('B042' /* 経過 */)} ${String(Math.floor(bt / 60)).padStart(2, '0')}:${String(bt % 60).padStart(2, '0')}`, VW / 2, bossPhase ? 80 : 56);
   if (w.banner && !w.result) {
     const a = Math.min(1, w.banner.t, (3 - w.banner.t) * 3);
     ctx.globalAlpha = Math.max(0, a);
@@ -2188,7 +2194,7 @@ function drawHUD(ctx, w, B, VW, VH) {
     ctx.font = 'bold 14px sans-serif';
     ctx.fillStyle = '#ffb090';
     const bd = w.boss.def;
-    ctx.fillText(bd.name + (w.boss.phase2 ? `（${bd.phase2Name}）` : ''), VW / 2, 14);
+    ctx.fillText(bd.name + (w.boss.phase2 ? T('B043' /* （{phase2Name}） */, { phase2Name: bd.phase2Name }) : ''), VW / 2, 14);
     hudBar(ctx, bx, 34, bw, 14, w.boss.hp / w.boss.maxHp, bd.barColors[w.boss.phase2 ? 1 : 0], 'rgba(0,0,0,0.5)');
     ctx.strokeStyle = '#ffb090';
     ctx.strokeRect(bx + 0.5, 34.5, bw - 1, 13);
@@ -2202,7 +2208,7 @@ function drawHUD(ctx, w, B, VW, VH) {
     ctx.textBaseline = 'middle';
     ctx.fillText('WARNING', VW / 2, VH / 2 - 8);
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('巨大生体反応 接近中', VW / 2, VH / 2 + 30);
+    ctx.fillText(T('B044' /* 巨大生体反応 接近中 */), VW / 2, VH / 2 + 30);
     ctx.textBaseline = 'top';
   }
 
@@ -2240,7 +2246,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   const cs = Math.floor(200 / grid);
   const cw = cs * grid;
   const cx = VW - cw - 16, cy = VH - cw - 40;
-  hudPanel(ctx, cx - 8, cy - 26, cw + 16, cw + 34, `回路モニター ${grid}×${grid} @${fmtNum(P.st.clock)}Hz`);
+  hudPanel(ctx, cx - 8, cy - 26, cw + 16, cw + 34, T('B045' /* 回路モニター {grid}×{grid} @{clock}H… */, { grid, clock: fmtNum(P.st.clock) }));
   drawCircuit(ctx, w.program, grid, cx, cy, cs, { pc: B.manual ? null : { x: P.vm.x, y: P.vm.y } });
   if (B.manual) {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
@@ -2248,22 +2254,29 @@ function drawHUD(ctx, w, B, VW, VH) {
     ctx.fillStyle = '#ffd24a';
     ctx.textAlign = 'center';
     ctx.font = 'bold 14px sans-serif';
-    ctx.fillText('手動操作中', cx + cw / 2, cy + cw / 2 - 8);
+    ctx.fillText(T('B046' /* 手動操作中 */), cx + cw / 2, cy + cw / 2 - 8);
     ctx.textAlign = 'left';
   }
 
   // --- レポートログ ---
-  const lw = 420, lh = 150, lx = 12, ly = VH - lh - 40;
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'left';
+  const lines = w.log.slice(-8).map(l => {
+    const ts = Math.floor(l.t);
+    return { l, text: `[${String(Math.floor(ts / 60)).padStart(2, '0')}:${String(ts % 60).padStart(2, '0')}] ${l.msg}` };
+  });
+  // 長い行（英語など）がはみ出さないよう、一番長い行に合わせて広げる（420px〜画面幅の45%）
+  const widest = Math.max(0, ...lines.map(o => ctx.measureText(o.text).width));
+  const lw = Math.round(clamp(widest + 18, 420, Math.max(420, VW * 0.45))), lh = 150, lx = 12, ly = VH - lh - 40;
   hudPanel(ctx, lx, ly, lw, lh, 'REPORT');
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'left';
-  const lines = w.log.slice(-8);
-  lines.forEach((l, i) => {
+  ctx.textBaseline = 'top';
+  lines.forEach(({ l, text }, i) => {
     const age = w.time - l.t;
     ctx.globalAlpha = age < 8 ? 1 : 0.55;
     ctx.fillStyle = l.color;
-    const ts = Math.floor(l.t);
-    ctx.fillText(`[${String(Math.floor(ts / 60)).padStart(2, '0')}:${String(ts % 60).padStart(2, '0')}] ${l.msg}`, lx + 8, ly + 24 + i * 15);
+    ctx.fillText(text, lx + 8, ly + 24 + i * 15);
   });
   ctx.globalAlpha = 1;
 
@@ -2271,8 +2284,8 @@ function drawHUD(ctx, w, B, VW, VH) {
   ctx.font = '12px sans-serif';
   ctx.fillStyle = 'rgba(240,230,210,0.8)';
   ctx.textAlign = 'center';
-  ctx.fillText('[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [Esc]撤退', VW / 2, VH - 22);
-  if (B.manual) ctx.fillText(`手動操作：WASD 移動 / マウス 照準 / 左クリック 左腕 / 右クリック 右腕${P.st.jump ? ' / Shift ジャンプ' : ''}`, VW / 2, VH - 40);
+  ctx.fillText(T('B047' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
+  if (B.manual) ctx.fillText(P.st.jump ? T('B082' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */) : T('B081' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */), VW / 2, VH - 40);
   if (B.speed !== 1) {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = '#ffd24a';
@@ -2352,24 +2365,25 @@ const Battle = {
     const ammo = ['L', 'R'].map(s => {
       const a = P.arms[s];
       if (a.def.type === 'none') return null;
-      return `${s === 'L' ? '左腕' : '右腕'} ${a.def.mag ? (a.reloading > 0 ? 'リロード中' : `${a.ammo}/${a.def.mag}`) : '∞'}`;
+      const st = a.def.mag ? (a.reloading > 0 ? T('B048' /* リロード中 */) : `${a.ammo}/${a.def.mag}`) : '∞';
+      return s === 'L' ? T('B083' /* 左腕 {st} */, { st }) : T('B084' /* 右腕 {st} */, { st });
     }).filter(Boolean).join(' / ');
     let next;
     if (last) {
-      next = `<p class="next boss">次：<b>ボス戦 — ${ENEMY_DEFS[w.field.boss].name}</b><br>全地区（第1〜第${DS.length}地区）が戦闘フィールドになります。</p>`;
+      next = T('B049' /* 次：ボス戦 — {boss}全地区（第1〜第{count}地… */, { boss: ENEMY_DEFS[w.field.boss].name, count: DS.length });
     } else {
       const N = DS[w.district + 1];
-      next = `<p class="next">次：<b>${N.name}「${N.sub}」</b> 敵 ${w.perDistrict}体<br>第1〜第${w.district + 2}地区が戦闘フィールドになります。</p>`;
+      next = T('B050' /* 次：{district} 敵 {perDistrict}体第… */, { district: districtLabel(N), perDistrict: w.perDistrict, n: w.district + 2 });
     }
-    document.getElementById('confirm-title').textContent = `${D.name}「${D.sub}」 掃討完了`;
+    document.getElementById('confirm-title').textContent = T('B051' /* {district} 掃討完了 */, { district: districtLabel(D) });
     document.getElementById('confirm-body').innerHTML = `
-      <div class="hpline"><span>機体HP ${Math.ceil(P.hp)} / ${P.maxHp}（${hpPct}%）</span><i><b style="width:${hpPct}%"></b></i></div>
-      <p class="muted">${ammo}　※HP・弾薬は持ち越し（補給なし）</p>
-      <p class="ore-line">回収鉱石：${oreHTML(w.ore)}</p>
-      ${w.parts.length ? `<p class="ore-line">回収ブースター：${w.parts.map(p => partTagHTML(p)).join(' ')}</p>` : ''}
+      <div class="hpline"><span>${T('B052' /* 機体HP {hp} / {max}（{hpPct}%） */, { hp: Math.ceil(P.hp), max: P.maxHp, hpPct })}</span><i><b style="width:${hpPct}%"></b></i></div>
+      <p class="muted">${ammo}${T('B053' /* ※HP・弾薬は持ち越し（補給なし） */)}</p>
+      <p class="ore-line">${T('B054' /* 回収鉱石： */)}${oreHTML(w.ore)}</p>
+      ${w.parts.length ? `<p class="ore-line">${T('B055' /* 回収ブースター： */)}${w.parts.map(p => partTagHTML(p)).join(' ')}</p>` : ''}
       ${next}
-      <p class="q">${last ? 'ボス戦に進みますか？' : '次に進みますか？'}</p>`;
-    document.getElementById('confirm-yes').textContent = last ? 'ボス戦へ（Enter）' : '次の地区へ（Enter）';
+      <p class="q">${last ? T('B056' /* ボス戦に進みますか？ */) : T('B057' /* 次に進みますか？ */)}</p>`;
+    document.getElementById('confirm-yes').textContent = last ? T('B058' /* ボス戦へ（Enter） */) : T('B059' /* 次の地区へ（Enter） */);
     document.getElementById('confirm').classList.add('show');
     this.confirmOpen = true;
   },
@@ -2451,7 +2465,7 @@ const Battle = {
       case 'KeyM':
         Sound.play('ui');
         this.manual = !this.manual;
-        addLog(w, this.manual ? '制御切替：手動操作' : '制御切替：回路プログラム', '#ffd24a');
+        addLog(w, this.manual ? T('B060' /* 制御切替：手動操作 */) : T('B061' /* 制御切替：回路プログラム */), '#ffd24a');
         break;
       case 'KeyQ': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio - 0.05); break;
       case 'KeyE': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio + 0.05); break;

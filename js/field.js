@@ -22,10 +22,10 @@ function gateStyle(ctx, w) {
 function sealedLabel(ctx, D, x, y) {
   ctx.fillStyle = 'rgba(255,200,140,0.55)';
   ctx.font = 'bold 4.5px sans-serif';
-  ctx.fillText(`${D.name}「${D.sub}」`, x, y - 3);
+  ctx.fillText(districtLabel(D), x, y - 3);
   ctx.font = 'bold 3px sans-serif';
   ctx.fillStyle = 'rgba(255,150,80,0.55)';
-  ctx.fillText('封鎖中', x, y + 3);
+  ctx.fillText(T('B067' /* 封鎖中 */), x, y + 3);
 }
 
 // ミニマップの地区名の色
@@ -133,7 +133,7 @@ const STRIP_SHAPE = {
       }
       const sealed = i >= w.open && !w.full, done = i < w.stats.cleared;
       ctx.fillStyle = mapLabelColor(sealed, done);
-      ctx.fillText(`${D.name}${sealed ? '（封鎖）' : done ? '（掃討済）' : ''}`, mx + (i + 0.5) * F.dw * k, my + mmh + 3);
+      ctx.fillText(`${D.name}${sealed ? T('B068' /* （封鎖） */) : done ? T('B069' /* （掃討済） */) : ''}`, mx + (i + 0.5) * F.dw * k, my + mmh + 3);
     });
     ctx.textAlign = 'left';
     if (W < w.FW) {

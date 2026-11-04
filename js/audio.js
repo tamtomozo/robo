@@ -727,8 +727,8 @@ const Sound = {
     const el = document.createElement('div');
     el.id = 'sound-ctl';
     el.innerHTML = ['bgm', 'se'].map(k => `
-      <button data-k="${k}" title="${k === 'bgm' ? 'BGM' : '効果音'}のオン／オフ">${k === 'bgm' ? '♪ BGM' : '🔊 SE'}</button>
-      <input type="range" data-k="${k}" min="0" max="100" step="5" title="${k === 'bgm' ? 'BGM' : '効果音'}の音量">`).join('');
+      <button data-k="${k}" title="${k === 'bgm' ? T('C008' /* BGMのオン／オフ */) : T('C009' /* 効果音のオン／オフ */)}">${k === 'bgm' ? '♪ BGM' : '🔊 SE'}</button>
+      <input type="range" data-k="${k}" min="0" max="100" step="5" title="${k === 'bgm' ? T('C010' /* BGMの音量 */) : T('C011' /* 効果音の音量 */)}">`).join('');
     document.body.appendChild(el);
     const sync = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('off', this.mute[b.dataset.k]));
     el.querySelectorAll('button').forEach(b => {

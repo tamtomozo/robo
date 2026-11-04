@@ -1,0 +1,699 @@
+'use strict';
+// =====================================================================
+//  翻訳の定義（日本語 / English）
+//   ・キー「接頭語＋3桁の番号」：C 共通 / G ガレージ / B 戦闘 / R レポート。
+//     番号は接頭語ごとに順に振り、使わなくなった番号は欠番にする（使い回さない）
+//   ・キー「名前空間.id.項目」：パーツやエネミーなど data.js のデータ（id はデータの id）
+//   ・呼び出し：T('B015' /* ボス出現：{name} */, { name: e.def.name })
+//     コメントは ja の写し（tools/check-lang.js が確かめる。--fix で書き直す）
+//   ・{name} の所に値が入る。英語の単数・複数などは en に関数を書ける（値を受け取り文字列を返す）
+//   ・HTML は data-i18n="G001"（中身）/ data-i18n-title="G011"（title 属性）。
+//     index.html の中身は ja の写し（同じく tools/check-lang.js が確かめる）
+// =====================================================================
+
+const TEXT = {
+
+  // ---------------------------------------------------------------- C：タイトル・共通（画面をまたいで使う文）
+  C001: { ja: '荒 野 機 兵 戦 記', en: 'WASTELAND MECH CHRONICLES' },
+  C002: {
+    ja: `<p class="log">― 恒星間探査局　記録 第0号 ―</p>
+<p>人類は航路の果てで<br>ひとつの惑星を見つけた。</p>
+<p>赤錆色の大地。乾いた風。<br>大気の組成は、地球とほぼ同じ。</p>
+<p>――あまりにも、似すぎていた。</p>
+<p>先遣調査隊 十二名、降下。<br>七日目の交信を最後に、記録は途絶えている。</p>
+<p>回収された音声には<br>砂の下から響く、規則正しい音と<br>隊員の最後の言葉だけが残されていた。</p>
+<p class="warn">『……地面が、息をしている』</p>
+<p>以来、この星への有人降下は禁じられた。</p>
+<p>探索は、遠隔の機兵に委ねられる。<br>恐れを知らず、命令だけに従う鋼の体。<br>その頭脳に刻まれるのは<br>あなたが組んだ回路だけだ。</p>
+<p>任務は、未知の惑星の探索。<br>荒野を進み、地の底を暴き<br>この星が隠しているものを持ち帰ること。</p>
+<p>鉱石は、そこかしこに眠っている。<br>まるで<span class="warn">――誰かが撒いた餌のように。</span></p>
+<p>なお、先遣隊の最後の座標からは<br>今も、救難信号が届き続けている。</p>
+<p class="warn glitch">送信者は、確認されていない。</p>
+<p class="log">― 降下準備、完了 ―</p>`,
+    en: `<p class="log">― Interstellar Survey Bureau — Record No. 0 ―</p>
+<p>At the far end of the star lanes,<br>humanity found a single planet.</p>
+<p>Rust-red earth. Dry wind.<br>An atmosphere almost identical to Earth's.</p>
+<p>——It was far too similar.</p>
+<p>An advance survey team of twelve made the descent.<br>The record ends with their transmission on the seventh day.</p>
+<p>The recovered audio held only<br>a steady, rhythmic sound from beneath the sand<br>and the team's last words.</p>
+<p class="warn">"...The ground is breathing."</p>
+<p>Since then, crewed descents to this world have been forbidden.</p>
+<p>Exploration is left to remote mechs.<br>Bodies of steel that know no fear and obey only orders.<br>Etched into their minds<br>is nothing but the circuit you build.</p>
+<p>Your mission: explore the unknown planet.<br>Cross the wasteland, lay bare the depths,<br>and bring back whatever this world is hiding.</p>
+<p>Ore lies dormant everywhere.<br>Almost<span class="warn">——like bait someone scattered.</span></p>
+<p>And from the advance team's last coordinates,<br>a distress signal is still coming in.</p>
+<p class="warn glitch">The sender has not been identified.</p>
+<p class="log">― Descent preparations complete ―</p>`,
+  },
+  C003: { ja: 'クリック または キーを押してスタート', en: 'CLICK OR PRESS ANY KEY TO START' },
+  C004: { ja: '荒野機兵戦記', en: 'Wasteland Mech Chronicles' },
+  C005: { ja: '{name}用ブースター +{bonus}', en: '{name} Booster +{bonus}' },
+  C006: { ja: '用', en: ' ' },
+  C007: { ja: 'ブースター', en: 'Booster' },
+  C008: { ja: 'BGMのオン／オフ', en: 'BGM on/off' },
+  C009: { ja: '効果音のオン／オフ', en: 'Sound effects on/off' },
+  C010: { ja: 'BGMの音量', en: 'BGM volume' },
+  C011: { ja: '効果音の音量', en: 'Sound effects volume' },
+  C012: { ja: '<span class="ore none">なし</span>', en: '<span class="ore none">None</span>' },
+  C013: { ja: '第{f}層', en: 'Floor {f}' },
+  C014: { ja: '{name}「{sub}」', en: '{name} "{sub}"' },
+
+  // ---------------------------------------------------------------- G：ガレージ
+  G001: { ja: '① 組立', en: '① Assembly' },
+  G002: { ja: '② ブースター', en: '② Boosters' },
+  G003: { ja: '③ 強化', en: '③ Upgrade' },
+  G004: { ja: '④ 回路プログラム', en: '④ Circuit' },
+  G005: { ja: '⑤ 出力配分', en: '⑤ Output' },
+  G006: { ja: '⑥ 出撃', en: '⑥ Sortie' },
+  G007: { ja: '新しいバージョンがあります', en: 'A new version is available' },
+  G008: { ja: '再読み込み', en: 'Reload' },
+  G009: { ja: 'スケルトンジョイント <small>背面図・スロットをクリック</small>', en: 'Skeleton Joints <small>Rear view · click a slot</small>' },
+  G010: { ja: '骨格（スケルトンジョイント）を透過表示', en: 'See-through skeleton (joints)' },
+  G011: { ja: '直前の編集を取り消す（Ctrl+Z）', en: 'Undo the last edit (Ctrl+Z)' },
+  G012: { ja: 'STARTからつながっていないタイルをすべて消去', en: 'Delete every tile not connected to START' },
+  G013: { ja: '初期プログラムに戻す', en: 'Reset to default program' },
+  G014: { ja: '全消去', en: 'Clear all' },
+  G015: { ja: '頭部B：出力レギュレーター', en: 'Head B: Output Regulator' },
+  G016: { ja: '腕（攻撃）', en: 'Arms (Attack)' },
+  G017: { ja: '脚（機動）', en: 'Legs (Mobility)' },
+  G018: {
+    ja: `<p>胴体のジェネレーター出力を、腕と脚に配分します。腕に回すほど威力・連射・装填が向上し、脚に回すほど速度・旋回が向上します。（括弧内は 50% 配分との差）</p>
+<p>戦闘中も <kbd>Q</kbd> / <kbd>E</kbd> キー、または回路の「⚡出力」タイルで配分を切り替えられます。</p>`,
+    en: `<p>Splits the torso generator's output between arms and legs. More to the arms raises damage, fire rate and reload speed; more to the legs raises speed and turning. (Values in parentheses are the difference from a 50% split.)</p>
+<p>In battle you can also switch the split with the <kbd>Q</kbd> / <kbd>E</kbd> keys, or with the "⚡Output" circuit tile.</p>`,
+  },
+  G019: { ja: '1地区あたりのエネミー数', en: 'Enemies per district' },
+  G020: { ja: '出 撃', en: 'SORTIE' },
+  G021: {
+    ja: `<h4>戦闘中の操作</h4>
+<p>ロボットは<b>回路プログラム</b>に従って自律戦闘します。<kbd>Space</kbd> 一時停止 / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 速度 ×1・×2・×4 / <kbd>Q</kbd><kbd>E</kbd> 出力配分 / ホイール ズーム / <kbd>Esc</kbd> 撤退</p>
+<p><kbd>M</kbd> で手動操作に切替：<kbd>WASD</kbd> 移動・マウス照準・左クリック 左腕・右クリック 右腕・<kbd>Shift</kbd> ジャンプ（脚部 強化Lv6以上）</p>`,
+    en: `<h4>Battle Controls</h4>
+<p>The robot fights on its own, following its <b>circuit program</b>. <kbd>Space</kbd> pause / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> speed ×1·×2·×4 / <kbd>Q</kbd><kbd>E</kbd> output split / Wheel zoom / <kbd>Esc</kbd> retreat</p>
+<p><kbd>M</kbd> toggles manual control: <kbd>WASD</kbd> move · mouse aim · left click left arm · right click right arm · <kbd>Shift</kbd> jump (legs upgrade Lv6+)</p>`,
+  },
+  G022: { ja: '未接続のタイルがあります', en: 'There are unconnected tiles' },
+  G023: { ja: '回路に戻る（Esc）', en: 'Back to circuit (Esc)' },
+  G024: { ja: '残して移動', en: 'Keep and leave' },
+  G025: { ja: '消去して移動', en: 'Delete and leave' },
+  G026: { ja: '回路盤', en: 'Board' },
+  G027: { ja: '処理', en: 'Clock' },
+  G028: { ja: 'センサー', en: 'Sensor' },
+  G029: { ja: '耐久', en: 'HP' },
+  G030: { ja: '重量', en: 'Weight' },
+  G031: { ja: '配分範囲', en: 'Split range' },
+  G032: { ja: '腕{min}〜{max}%', en: 'Arms {min}–{max}%' },
+  G033: { ja: '出力効率', en: 'Efficiency' },
+  G034: { ja: '防御', en: 'Defense' },
+  G035: { ja: '出力', en: 'Output' },
+  G036: { ja: '威力', en: 'Damage' },
+  G037: { ja: ' ×{shots}発', en: ' ×{shots} shots' },
+  G038: { ja: '振り', en: 'Swings' },
+  G039: { ja: '連射', en: 'Rate' },
+  G040: { ja: '射程', en: 'Range' },
+  G041: { ja: '弾数', en: 'Mag' },
+  G042: { ja: '装填', en: 'Reload' },
+  G043: { ja: '爆風', en: 'Blast' },
+  G044: { ja: '速度', en: 'Speed' },
+  G045: { ja: '旋回', en: 'Turn' },
+  G046: { ja: '横移動', en: 'Strafe' },
+  G047: { ja: '積載', en: 'Load' },
+  G048: { ja: '防御+', en: 'Defense+' },
+  G049: { ja: 'ジャンプ', en: 'Jump' },
+  G050: { ja: '{dist}m / 待ち{cd}s', en: '{dist}m / cd {cd}s' },
+  G051: { ja: '回路を初期プログラムに戻しますか？（元に戻す で取り消せます）', en: 'Reset the circuit to the default program? (You can revert with Undo.)' },
+  G052: { ja: '回路をすべて消去しますか？（STARTは残ります。元に戻す で取り消せます）', en: 'Clear the whole circuit? (START stays. You can revert with Undo.)' },
+  G053: { ja: '{label}（{sub}）のパーツ', en: '{label} ({sub}) parts' },
+  G054: { ja: 'クリックで外す', en: 'Click to remove' },
+  G055: { ja: 'クリックで差し込む', en: 'Click to insert' },
+  G056: { ja: '差し込み中', en: 'Inserted' },
+  G057: { ja: '{label}に差し込み中', en: 'In {label}' },
+  G058: { ja: '強化', en: 'Upg.' },
+  G059: { ja: '装着中', en: 'Equipped' },
+  G060: { ja: 'ブースター', en: 'Boosters' },
+  G061: { ja: 'ブースター（1つ差し込める。クリックで差し込む / 外す）', en: 'Boosters (one can be inserted; click to insert / remove)' },
+  G062: { ja: '② ブースター', en: '② Boosters' },
+  G063: { ja: 'すべて', en: 'All' },
+  G064: { ja: '腕', en: 'Arms' },
+  G065: { ja: '同じパーツ用', en: 'Same part' },
+  G066: { ja: '分解', en: 'Salvage' },
+  G067: { ja: '{n}個', en: '{n}' },
+  G068: {
+    ja: `レアエネミー（金色に輝く<b>輝晶個体</b>）が落とす、<b>特定のパーツ専用</b>の強化モジュールです。効果アップは <b>+{min}〜+{max}</b>（+N で主な性能が最大 N% 上がる）で、同じものを何個でも持てます。
+      「組立」タブで対象パーツに1つ差し込めて、いつでも付け替えられます（パーツの強化レベルとは別に効きます）。不要なブースターは分解すると鉱石になります（+値が高いほど多く取れる）。`,
+    en: `Upgrade modules <b>dedicated to a specific part</b>, dropped by rare enemies (the gold-glowing <b>Glimmering</b> ones). Each gives <b>+{min} to +{max}</b> (+N raises the part's main stats by up to N%), and you can hold any number of the same one.
+      Insert one into its part on the Assembly tab and swap it any time (it stacks on top of the part's upgrade level). Salvage unwanted boosters for ore (higher + values yield more).`,
+  },
+  G069: { ja: '並び順', en: 'Sort' },
+  G070: { ja: 'ボーナス順', en: 'Bonus' },
+  G071: { ja: '新しい順', en: 'Newest' },
+  G072: { ja: '種類順', en: 'Type' },
+  G073: { ja: 'ブースター', en: 'Booster' },
+  G074: { ja: '効果', en: 'Effect' },
+  G075: { ja: '分解で得る鉱石', en: 'Ore from salvage' },
+  G076: { ja: 'この部位のブースターはありません。', en: 'No boosters for this part type.' },
+  G077: { ja: 'まだブースターを持っていません。出撃してレアエネミーを倒しましょう。', en: 'You don\'t have any boosters yet. Sortie and defeat rare enemies.' },
+  G078: { ja: '選択を解除', en: 'Clear selection' },
+  G079: { ja: '選択 {n}個', en: 'Selected {n}' },
+  G080: { ja: '選択したブースターを分解', en: 'Salvage selected boosters' },
+  G081: { ja: 'ブースター {n}個', en: '{n} boosters' },
+  G082: {
+    ja: `
+
+※ +{best} の高い+値のものが含まれています。`,
+    en: `
+
+Note: this includes a high-value +{best} booster.`,
+  },
+  G083: {
+    ja: `{what} を分解しますか？
+得られる鉱石：{txt}{warn}
+（元に戻せません）`,
+    en: `Salvage {what}?
+Ore gained: {txt}{warn}
+(This cannot be undone.)`,
+  },
+  G084: { ja: '全高', en: 'Height' },
+  G085: { ja: '総耐久 HP', en: 'Total HP' },
+  G086: { ja: '総出力', en: 'Total output' },
+  G087: { ja: '重量 / 積載', en: 'Weight / Load' },
+  G088: { ja: '  過積載！', en: '  OVERLOADED!' },
+  G089: { ja: '最高速度', en: 'Top speed' },
+  G090: { ja: '旋回速度', en: 'Turn rate' },
+  G091: { ja: '{dist} m / 再使用 {cd} s', en: '{dist} m / cooldown {cd} s' },
+  G092: { ja: '左腕 DPS', en: 'Left arm DPS' },
+  G093: { ja: '右腕 DPS', en: 'Right arm DPS' },
+  G094: { ja: '上面図（見下ろし）  1マス ≒ 0.4m', en: 'Top-down view   1 square ≈ 0.4m' },
+  G095: { ja: '所持鉱石', en: 'Ore' },
+  G096: { ja: '最大強化', en: 'Maxed' },
+  G097: { ja: '強化', en: 'Upgrade' },
+  G098: { ja: 'パーツ強化', en: 'Part Upgrades' },
+  G099: {
+    ja: 'エネミーが落とす鉱石でパーツを強化します（各パーツ最大 Lv{max}）。強化はパーツの種類ごとで、付け替えても強化はそのパーツに残ります（ブースターの効果は強化とは別に上乗せされます）。',
+    en: 'Upgrade parts with the ore enemies drop (up to Lv{max} per part). Upgrades belong to each part model and stay with it when you swap parts (booster effects stack on top).',
+  },
+  G100: { ja: '　', en: ' &nbsp; ' },
+  G101: { ja: 'ツール', en: 'Tools' },
+  G102: { ja: '選択・編集', en: 'Select / Edit' },
+  G103: { ja: '消しゴム', en: 'Eraser' },
+  G104: { ja: '選択モード：タイルをクリックで編集', en: 'Select mode: click a tile to edit it' },
+  G105: { ja: '消しゴム：クリックでタイルを削除', en: 'Eraser: click a tile to delete it' },
+  G106: { ja: '配置モード：「{name}」をクリックで配置', en: 'Place mode: click to place "{name}"' },
+  G107: {
+    ja: '頭部A <b>{name}</b>：使用可能 {grid}×{grid} マス / 処理速度 {clock} タイル毎秒 / センサー {sensor}m',
+    en: 'Head A <b>{name}</b>: {grid}×{grid} usable cells / {clock} tiles per second / sensor {sensor}m',
+  },
+  G108: { ja: '未接続：STARTからつながっていないため実行されません', en: 'Unconnected: not reachable from START, so it never runs' },
+  G109: { ja: '↶ 元に戻す（{n}）', en: '↶ Undo ({n})' },
+  G110: { ja: '未接続タイルを消去（{n}）', en: 'Clear unconnected ({n})' },
+  G111: {
+    ja: `<p>STARTからつながっていないタイルが <b>{n}個</b> あります（回路盤で薄く表示されているタイル）。<br>これらは戦闘中に一度も実行されません。</p>
+       <p class="muted">消去しても「元に戻す」で取り消せます。</p>`,
+    en: ({ n }) => `<p>There ${n === 1 ? 'is' : 'are'} <b>${n}</b> tile${n === 1 ? '' : 's'} not connected to START (shown faded on the board).<br>${n === 1 ? 'It' : 'They'} will never run in battle.</p>
+       <p class="muted">Deleting can be reverted with Undo.</p>`,
+  },
+  G112: {
+    ja: `<h3>タイル設定</h3><p class="muted">タイルを選択すると、ここでパラメータや矢印の向きを設定できます。</p>
+        <h4>回路のルール</h4><ul class="rules">
+        <li>STARTから矢印の方向へ1タイルずつ実行します。</li>
+        <li><b class="c-move">移動</b>タイルは動作が終わるまで次へ進みません。</li>
+        <li><b class="c-atk">攻撃</b>タイルは引き金を引いて（約0.6秒）すぐ次へ進みます。</li>
+        <li><b class="c-cond">判定</b>タイルは条件を満たすと<b class="yes">緑▲</b>へ、満たさないと<b class="no">赤▲</b>へ進みます。</li>
+        <li>空きマス・回路盤の外へ進むとSTARTに戻ります。</li>
+        <li>右クリック：矢印を回転 / Shift+右クリック：NO側の矢印を回転</li>
+        <li>ドラッグ：タイルを移動（移動先のタイルとは入れ替え）/ パレットからドラッグして配置</li>
+        <li>薄く表示されたタイルはSTARTからつながっておらず実行されません。「未接続タイルを消去」でまとめて消せます。</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> または「元に戻す」：直前の編集を取り消す</li>
+        </ul>`,
+    en: `<h3>Tile Settings</h3><p class="muted">Select a tile to set its parameter and arrow directions here.</p>
+        <h4>Circuit Rules</h4><ul class="rules">
+        <li>Execution starts at START and follows the arrows one tile at a time.</li>
+        <li><b class="c-move">Move</b> tiles don't advance until the action finishes.</li>
+        <li><b class="c-atk">Attack</b> tiles pull the trigger (about 0.6 s) and move straight on.</li>
+        <li><b class="c-cond">Condition</b> tiles go to the <b class="yes">green ▲</b> if true, otherwise the <b class="no">red ▲</b>.</li>
+        <li>Stepping onto an empty cell or off the board returns to START.</li>
+        <li>Right-click: rotate the arrow / Shift+right-click: rotate the NO arrow</li>
+        <li>Drag: move a tile (swaps with any tile already there) / drag from the palette to place</li>
+        <li>Faded tiles aren't connected to START and never run. "Clear unconnected" removes them all.</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> or "Undo": revert the last edit</li>
+        </ul>`,
+  },
+  G113: { ja: 'タイル設定', en: 'Tile Settings' },
+  G114: { ja: '実行開始位置', en: 'Execution start' },
+  G115: { ja: 'コマンド（出口1つ）', en: 'Command (one exit)' },
+  G116: { ja: '判定（YES / NO の2出口）', en: 'Condition (two exits: YES / NO)' },
+  G117: { ja: 'パラメータ', en: 'Parameter' },
+  G118: { ja: '次へ →', en: 'Next →' },
+  G119: { ja: '※頭部B「{name}」の配分範囲（腕{min}〜{max}%）に制限されます。', en: 'Note: limited to the split range of Head B "{name}" (arms {min}–{max}%).' },
+  G120: { ja: 'このタイルを削除', en: 'Delete this tile' },
+  G121: { ja: '{name}（配分範囲：腕 {min}〜{max}%  / 出力効率 ×{eff}）', en: '{name} (split range: arms {min}–{max}% / efficiency ×{eff})' },
+  G122: { ja: '総出力（胴体×頭部B）', en: 'Total output (torso × Head B)' },
+  G123: { ja: '攻撃倍率（腕）', en: 'Attack multiplier (arms)' },
+  G124: { ja: '機動倍率（脚）', en: 'Mobility multiplier (legs)' },
+  G125: { ja: '出撃準備 — {name} {floor}（全{count}地区）', en: 'Sortie Prep — {name} {floor} ({count} districts)' },
+  G126: { ja: '全{floors}層 × {districts}地区（到達 {reached}）', en: '{floors} floors × {districts} districts (reached {reached})' },
+  G127: { ja: '一つ上の層のボスを倒すと解放', en: 'Defeat the boss of the floor above to unlock' },
+  G128: { ja: '耐久 {hp} / 攻撃力 {dmg}', en: 'HP {hp} / Attack {dmg}' },
+  G129: {
+    ja: `{floor}のエネミー（ボス含む）：耐久 <b>{hp}</b> / 攻撃力 <b>{dmg}</b> / 鉱石ドロップ <b>{ore}</b>
+      <small>下の層ほど手強い。ボスを倒すと次の層が解放されます。</small>`,
+    en: `{floor} enemies (incl. boss): HP <b>{hp}</b> / Attack <b>{dmg}</b> / Ore drops <b>{ore}</b>
+      <small>Deeper floors are tougher. Defeat the boss to unlock the next floor.</small>`,
+  },
+  G130: { ja: '<b>{name}</b>「{sub}」', en: '<b>{name}</b> "{sub}"' },
+  G131: { ja: '地区', en: 'District' },
+  G132: { ja: '戦闘フィールド', en: 'Battlefield' },
+  G133: { ja: '全地区掃討後に出現', en: 'Appears after all districts are cleared' },
+  G134: { ja: '全地区', en: 'All districts' },
+  G135: {
+    ja: `各地区を掃討するたびに「次に進みますか？」と確認されます。帰還すればそこまでの戦果で任務終了。HP・弾薬は地区をまたいで持ち越します。<br>
+      スカラベ：小型・高速の近接群体 / スピッター：距離を取って酸を吐く / トロール：鈍重だが高耐久・高打撃<br>
+      <b style="color:#ffd84a">レア個体</b>：一般エネミーが {chance}% の確率で金色に輝く「{prefix}個体」として現れる（大地の脈動中は {surge}倍）。耐久 {hp}倍と手強いが、倒すと効果 +{min}〜+{max} のブースター（特定のパーツ専用の強化モジュール）を落とす。`,
+    en: ({ chance, prefix, surge, hp, min, max }) => `After each district is cleared you'll be asked whether to continue. Returning to base ends the mission with what you've earned so far. HP and ammo carry over between districts.<br>
+      Scarab: small, fast melee swarmers / Spitter: keeps its distance and spits acid / Troll: slow, but tough and hits hard<br>
+      <b style="color:#ffd84a">Rare enemies</b>: any regular enemy has a ${chance}% chance to appear as a gold-glowing "${prefix.trim()}" variant (×${surge} during an Earth Pulse). They have ${hp}× HP, but drop a +${min} to +${max} booster (an upgrade module for one specific part).`,
+  },
+  G136: { ja: '過積載です（{weight} / {cap}）。速度と旋回が大きく低下します。', en: 'Overloaded ({weight} / {cap}). Speed and turning are heavily reduced.' },
+  G137: { ja: '両腕とも武装がありません。', en: 'Neither arm has a weapon.' },
+  G138: { ja: '回路に攻撃タイルがありません（回路制御では攻撃できません）。', en: 'The circuit has no attack tiles (the robot cannot attack under circuit control).' },
+  G139: {
+    ja: '回路盤の外に {n} 個のタイルがあります（現在の頭部Aでは実行されません）。',
+    en: ({ n }) => `${n} tile${n === 1 ? ' is' : 's are'} outside the circuit board (they won't run with the current Head A).`,
+  },
+  G140: { ja: '<p>回路：{used} タイル使用 / {grid}×{grid}</p>', en: '<p>Circuit: {used} tiles used / {grid}×{grid}</p>' },
+  G141: { ja: '出撃準備完了', en: 'Ready for sortie' },
+  G142: { ja: '{name}以下', en: '{name} & below' },
+  G143: { ja: '{what}（+{max}以下）を選択', en: 'Select {what} (+{max} or less)' },
+  G144: { ja: '+{min}〜', en: ({ lo, hi }) => (lo === hi ? `+${lo}` : `+${lo}–${hi}`) },
+  G145: { ja: '{n} 体', en: '{n}' },
+  G146: { ja: '第1〜{n}地区', en: ({ n }) => (n > 1 ? `Districts 1–${n}` : 'District 1') },
+
+  // ---------------------------------------------------------------- B：戦闘（ログ・HUD・地区掃討後の確認）
+  B001: { ja: '基地に帰還（Esc）', en: 'Return to base (Esc)' },
+  B002: { ja: '出力配分：腕 {arm}% / 脚 {leg}%', en: 'Output split: arms {arm}% / legs {leg}%' },
+  B003: { ja: '戦闘モード起動。{name} {floor}へ降下完了。', en: 'Combat mode online. Landed in {name}, {floor}.' },
+  B004: { ja: '深層の敵性生体：耐久 {hp} / 攻撃力 {dmg}', en: 'Deep-floor hostiles: HP {hp} / Attack {dmg}' },
+  B005: { ja: '敵性生体反応 {perDistrict}体', en: 'Hostile life signs: {perDistrict}' },
+  B006: { ja: '{district}：敵性生体反応 {perDistrict}体 を確認。', en: '{district}: {perDistrict} hostile life signs detected.' },
+  B007: { ja: '封鎖線を解除。{name}へ進攻する。', en: 'Blockade lifted. Advancing into {name}.' },
+  B008: { ja: '全地区 掃討完了。{bossWarn}', en: 'All districts cleared. {bossWarn}' },
+  B009: { ja: '警告：地中から鼓動のような振動を検知……', en: 'Warning: heartbeat-like tremors detected underground...' },
+  B010: { ja: '大地脈動', en: 'EARTH PULSE' },
+  B011: { ja: '赤く脈打つ大地に呼応し、敵性生体が活性化！（移動速度 2倍 / 撃破時の鉱石 2倍）', en: 'Hostiles are energized by the red, pulsing ground! (Move speed ×2 / Ore from kills ×2)' },
+  B012: { ja: '大地が脈動している。敵性生体の活性化を確認！', en: 'The ground is pulsing. Hostiles are energized!' },
+  B013: { ja: '大地の脈動が鎮まった。', en: 'The earth pulse has subsided.' },
+  B014: { ja: 'レア個体を検知：{name}（撃破するとブースターを落とす）', en: 'Rare enemy detected: {name} (drops a booster when destroyed)' },
+  B015: { ja: 'ボス出現：{name}', en: 'Boss appeared: {name}' },
+  B016: { ja: '増援接近：後続 {n}体', en: 'Reinforcements incoming: {n} more' },
+  B017: { ja: '{district} 掃討完了。', en: '{district} cleared.' },
+  B018: { ja: 'ボス撃破を確認。任務完了。', en: 'Boss destroyed. Mission complete.' },
+  B019: { ja: '機体大破。通信途絶……', en: 'Machine destroyed. Signal lost...' },
+  B020: { ja: '撤退信号を受信。戦域を離脱する。', en: 'Retreat signal received. Leaving the combat zone.' },
+  B021: { ja: '{n}地区を掃討。基地への帰還を開始する。', en: ({ n }) => `${n} district${n === 1 ? '' : 's'} cleared. Returning to base.` },
+  B022: { ja: '撃破 {killed} / 残敵 {remain}体', en: 'Kills {killed} / {remain} left' },
+  B023: { ja: '警告：機体損傷 HP {th}% 以下', en: 'Warning: hull damage, HP ≤ {th}%' },
+  B024: { ja: '{name} 激昂', en: '{name} — ENRAGED' },
+  B025: { ja: '甲殻が赤熱 ― 行動パターンが変化した！', en: 'Its shell glows red-hot — behavior pattern changed!' },
+  B026: { ja: 'ボス 形態変化：甲殻が赤熱している！ 行動パターン変化', en: 'Boss transformed: its shell is glowing red-hot! Behavior changed.' },
+  B027: { ja: 'ボスが眷属を呼び出した（+{n}体）', en: 'The boss summoned its brood (+{n})' },
+  B028: { ja: 'ボスが地中に潜った！', en: 'The boss burrowed underground!' },
+  B029: { ja: '{name} 撃破 ― ブースターを落とした：{booster}', en: '{name} destroyed — dropped {booster}' },
+  B030: { ja: 'ブースター回収：{booster}（{tier}）', en: 'Booster recovered: {booster} ({tier})' },
+  B031: { ja: '回収ドローン：残りのブースターを回収（{list}）', en: 'Recovery drone: collected the remaining boosters ({list})' },
+  B032: { ja: '回収ドローン：残りの鉱石を回収（{oreTxt}）', en: 'Recovery drone: collected the remaining ore ({oreTxt})' },
+  B033: { ja: '機体ステータス  [頭部A/B テレメトリ]', en: 'MACHINE STATUS  [Head A/B telemetry]' },
+  B034: { ja: '出力配分  腕 {arm}%  /  脚 {leg}%    総出力 {power}', en: 'Output  arms {arm}%  /  legs {leg}%    total {power}' },
+  B035: { ja: 'リロード中', en: 'Reloading' },
+  B036: { ja: 'ジャンプ：跳躍中（無敵）', en: 'Jump: airborne (invincible)' },
+  B037: { ja: 'ジャンプ：再使用まで {cd}s', en: 'Jump: cooldown {cd}s' },
+  B038: { ja: 'ジャンプ：準備完了{manual}', en: 'Jump: ready{manual}' },
+  B039: { ja: '残敵 {remain} / {perDistrict}', en: 'Hostiles {remain} / {perDistrict}' },
+  B040: { ja: '掃討完了', en: 'CLEARED' },
+  B041: { ja: '眷属 {remain}', en: 'Brood {remain}' },
+  B042: { ja: '経過', en: 'Time' },
+  B043: { ja: '（{phase2Name}）', en: ' ({phase2Name})' },
+  B044: { ja: '巨大生体反応 接近中', en: 'MASSIVE LIFE SIGN APPROACHING' },
+  B045: { ja: '回路モニター {grid}×{grid} @{clock}Hz', en: 'CIRCUIT MONITOR {grid}×{grid} @{clock}Hz' },
+  B046: { ja: '手動操作中', en: 'MANUAL CONTROL' },
+  B047: {
+    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [Esc]撤退',
+    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Esc] Retreat',
+  },
+  B048: { ja: 'リロード中', en: 'reloading' },
+  B049: {
+    ja: '<p class="next boss">次：<b>ボス戦 — {boss}</b><br>全地区（第1〜第{count}地区）が戦闘フィールドになります。</p>',
+    en: '<p class="next boss">Next: <b>Boss fight — {boss}</b><br>All districts (1–{count}) become the battlefield.</p>',
+  },
+  B050: {
+    ja: '<p class="next">次：<b>{district}</b> 敵 {perDistrict}体<br>第1〜第{n}地区が戦闘フィールドになります。</p>',
+    en: '<p class="next">Next: <b>{district}</b> {perDistrict} enemies<br>Districts 1–{n} become the battlefield.</p>',
+  },
+  B051: { ja: '{district} 掃討完了', en: '{district} cleared' },
+  B052: { ja: '機体HP {hp} / {max}（{hpPct}%）', en: 'Hull HP {hp} / {max} ({hpPct}%)' },
+  B053: { ja: '　※HP・弾薬は持ち越し（補給なし）', en: ' &nbsp; Note: HP and ammo carry over (no resupply)' },
+  B054: { ja: '回収鉱石：', en: 'Ore collected: ' },
+  B055: { ja: '回収ブースター：', en: 'Boosters collected: ' },
+  B056: { ja: 'ボス戦に進みますか？', en: 'Proceed to the boss fight?' },
+  B057: { ja: '次に進みますか？', en: 'Proceed to the next district?' },
+  B058: { ja: 'ボス戦へ（Enter）', en: 'Fight the boss (Enter)' },
+  B059: { ja: '次の地区へ（Enter）', en: 'Next district (Enter)' },
+  B060: { ja: '制御切替：手動操作', en: 'Control: manual' },
+  B061: { ja: '制御切替：回路プログラム', en: 'Control: circuit program' },
+  B062: { ja: '{name} 晶化暴走', en: '{name} — CRYSTAL FRENZY' },
+  B063: { ja: '全身の結晶が共鳴 ― 行動パターンが変化した！', en: 'Every crystal on its body resonates — behavior pattern changed!' },
+  B064: { ja: 'ボス 形態変化：全身の結晶が青白く共鳴している！ 行動パターン変化', en: 'Boss transformed: its crystals glow pale blue! Behavior changed.' },
+  B065: { ja: '天井の結晶が崩れ落ちてくる！', en: 'Crystals are falling from the ceiling!' },
+  B066: { ja: 'ボスが眷属を孵化させた（+6体）', en: 'The boss hatched its brood (+6)' },
+  B067: { ja: '封鎖中', en: 'SEALED' },
+  B068: { ja: '（封鎖）', en: ' (sealed)' },
+  B069: { ja: '（掃討済）', en: ' (cleared)' },
+  B070: { ja: '左腕 弾切れ → リロード {sec}秒', en: 'Left arm empty → reloading {sec}s' },
+  B071: { ja: '右腕 弾切れ → リロード {sec}秒', en: 'Right arm empty → reloading {sec}s' },
+  B072: { ja: '左腕：{name}', en: 'L arm: {name}' },
+  B073: { ja: '右腕：{name}', en: 'R arm: {name}' },
+  B074: { ja: '速度 {speed} m/s   制御：{mode}', en: 'Speed {speed} m/s   Control: {mode}' },
+  B075: { ja: '手動操作', en: 'manual' },
+  B076: { ja: '回路プログラム', en: 'circuit program' },
+  B077: { ja: '回収鉱石', en: 'ORE COLLECTED' },
+  B078: { ja: '回収鉱石   （フィールドに {n}個）', en: 'ORE COLLECTED   ({n} on the field)' },
+  B079: { ja: 'ブースター {n}', en: 'Boosters {n}' },
+  B080: { ja: 'ブースター {n}（+{loot}）', en: 'Boosters {n} (+{loot})' },
+  B081: { ja: '手動操作：WASD 移動 / マウス 照準 / 左クリック 左腕 / 右クリック 右腕', en: 'Manual: WASD move / mouse aim / left click left arm / right click right arm' },
+  B082: {
+    ja: '手動操作：WASD 移動 / マウス 照準 / 左クリック 左腕 / 右クリック 右腕 / Shift ジャンプ',
+    en: 'Manual: WASD move / mouse aim / left click left arm / right click right arm / Shift jump',
+  },
+  B083: { ja: '左腕 {st}', en: 'L arm {st}' },
+  B084: { ja: '右腕 {st}', en: 'R arm {st}' },
+
+  // ---------------------------------------------------------------- R：戦闘レポート
+  R001: { ja: '任務完了 — {floor} 制圧・ボス撃破', en: 'Mission Complete — {floor} secured, boss destroyed' },
+  R002: { ja: '機体大破 — 任務失敗', en: 'Machine Destroyed — Mission Failed' },
+  R003: { ja: '撤退 — 任務中断', en: 'Retreat — Mission Aborted' },
+  R004: { ja: '基地へ帰還 — {n}地区 掃討完了', en: ({ n }) => `Returned to Base — ${n} district${n === 1 ? '' : 's'} cleared` },
+  R005: {
+    ja: '一度も実行されなかったタイルが {n} 個あります。矢印のつながりを確認してください。',
+    en: ({ n }) => `${n} tile${n === 1 ? ' was' : 's were'} never executed. Check how the arrows connect.`,
+  },
+  R006: {
+    ja: '被弾が多く撃破されました。胴体の防御強化、「HP残量」「敵弾接近」判定での回避行動が有効です。',
+    en: 'Destroyed after taking heavy fire. Try upgrading torso defense, or evading with the "HP" and "Enemy shot" condition tiles.',
+  },
+  R007: { ja: '過積載状態で出撃しています。脚部の積載量を見直してください。', en: 'You sortied overloaded. Review your legs\' load capacity.' },
+  R008: {
+    ja: '{name}の{floor}が解放されました。次の出撃は{floor}になります（出撃タブで層を選び直せます）。エネミーは耐久 {hp} / 攻撃力 {dmg} に強化されています。',
+    en: '{floor} of {name} is now unlocked and will be your next sortie (you can pick a different floor on the Sortie tab). Enemies there have HP {hp} / Attack {dmg}.',
+  },
+  R009: { ja: '{name}の最深部 {floor}を制圧しました。', en: 'You secured {floor}, the deepest level of {name}.' },
+  R010: { ja: '迅速な任務遂行です。敵数を増やして挑戦してみましょう。', en: 'A swift mission. Try raising the enemy count.' },
+  R011: { ja: '機体大破により、回収した鉱石の半分を失いました。', en: 'Lost half the collected ore when the machine was destroyed.' },
+  R012: {
+    ja: 'フィールドに残した鉱石 {n}個は回収できませんでした（地区を掃討すると回収ドローンが残りを回収します）。',
+    en: '{n} ore left on the field could not be recovered (clearing a district sends a drone to collect the rest).',
+  },
+  R013: {
+    ja: 'レア個体を {n}体 撃破しました。落としたブースターはガレージの「ブースター」タブで確認・分解でき、「組立」タブで対象パーツに差し込めます。',
+    en: ({ n }) => `You destroyed ${n} rare enem${n === 1 ? 'y' : 'ies'}. View or salvage the dropped boosters on the garage's Boosters tab, and insert them into their parts on the Assembly tab.`,
+  },
+  R014: { ja: 'レア個体を検知しましたが、撃破できませんでした。', en: 'A rare enemy was detected, but you did not destroy it.' },
+  R015: { ja: '機体大破により、回収したブースター {n}個を失いました。', en: ({ n }) => `Lost ${n} collected booster${n === 1 ? '' : 's'} when the machine was destroyed.` },
+  R016: { ja: 'フィールドに残したブースター {n}個は回収できませんでした。', en: ({ n }) => `${n} booster${n === 1 ? '' : 's'} left on the field could not be recovered.` },
+  R017: { ja: '持ち帰った鉱石は、ガレージの「強化」タブでパーツの強化に使えます。', en: 'Use the ore you brought back to upgrade parts on the garage\'s Upgrade tab.' },
+  R018: { ja: '特記事項なし。良好な戦闘データです。', en: 'Nothing to report. Good combat data.' },
+  R019: { ja: '掃討 {n} / {count} 地区 / 戦闘時間 {time} / 交戦した敵 {total}体', en: 'Cleared {n} / {count} districts / Battle time {time} / Enemies engaged {total}' },
+  R020: { ja: '撃破記録', en: 'Kills' },
+  R021: { ja: '撃破', en: 'Destroyed' },
+  R022: { ja: '未撃破', en: 'Survived' },
+  R023: { ja: '未出現', en: 'Not encountered' },
+  R024: { ja: '合計（一般）', en: 'Total (regular)' },
+  R025: { ja: '回収鉱石', en: 'Ore Collected' },
+  R026: { ja: '回収', en: 'Collected' },
+  R027: { ja: '大破で喪失', en: 'Lost' },
+  R028: { ja: '持ち帰り', en: 'Brought back' },
+  R029: { ja: '所持数', en: 'Owned' },
+  R030: { ja: '回収ブースター', en: 'Boosters Collected' },
+  R031: { ja: 'レア個体 {n} / {rareSeen}体 撃破', en: 'Rare enemies destroyed {n} / {rareSeen}' },
+  R032: { ja: '戦闘データ', en: 'Battle Data' },
+  R033: { ja: '与ダメージ', en: 'Damage dealt' },
+  R034: { ja: '被ダメージ', en: 'Damage taken' },
+  R035: { ja: '残りHP', en: 'HP left' },
+  R036: { ja: '移動距離', en: 'Distance moved' },
+  R037: { ja: '回路 実行ステップ数', en: 'Circuit steps executed' },
+  R038: { ja: '武装別', en: 'By Weapon' },
+  R039: { ja: '攻撃回数', en: 'Attacks' },
+  R040: { ja: '命中率', en: 'Accuracy' },
+  R041: { ja: '与ダメージ', en: 'Damage' },
+  R042: { ja: '左腕', en: 'L arm' },
+  R043: { ja: '右腕', en: 'R arm' },
+  R044: { ja: '回路 実行ヒートマップ', en: 'Circuit Execution Heatmap' },
+  R045: { ja: '明るいほど多く実行されたタイル', en: 'Brighter tiles ran more often' },
+  R046: { ja: '頭部ユニット所見', en: 'Head Unit Notes' },
+  R047: { ja: 'ガレージへ戻る', en: 'Back to Garage' },
+  R048: { ja: '同じ条件で再出撃', en: 'Sortie Again (same settings)' },
+  R049: { ja: '左腕は一度も攻撃していません。攻撃タイルの配置を確認してください。', en: 'The left arm never attacked. Check where the attack tiles are placed.' },
+  R050: { ja: '右腕は一度も攻撃していません。攻撃タイルの配置を確認してください。', en: 'The right arm never attacked. Check where the attack tiles are placed.' },
+  R051: {
+    ja: '左腕の命中率が低め（{acc}）。「前方に敵」の角度を狭める・距離判定を加えると改善します。',
+    en: 'The left arm\'s accuracy is low ({acc}). Narrowing the "Enemy ahead" angle or adding a distance check will help.',
+  },
+  R052: {
+    ja: '右腕の命中率が低め（{acc}）。「前方に敵」の角度を狭める・距離判定を加えると改善します。',
+    en: 'The right arm\'s accuracy is low ({acc}). Narrowing the "Enemy ahead" angle or adding a distance check will help.',
+  },
+  R053: { ja: '機体HP {pct}% で帰還しました。次は{name}以降が待っています。', en: 'Returned with {pct}% hull HP. {name} and beyond still await.' },
+  R054: { ja: '機体HP {pct}% で帰還しました。ボス戦に挑むには、さらに損傷を抑える必要があります。', en: 'Returned with {pct}% hull HP. To take on the boss, you need to keep damage lower.' },
+
+  // ---------------------------------------------------------------- データ：スロット（スケルトンジョイント）
+  'slot.headCpu.label': { ja: '頭部A', en: 'Head A' },
+  'slot.headCpu.sub': { ja: '回路ユニット', en: 'Circuit Unit' },
+  'slot.headReg.label': { ja: '頭部B', en: 'Head B' },
+  'slot.headReg.sub': { ja: '出力レギュレーター', en: 'Output Regulator' },
+  'slot.torso.label': { ja: '胴体', en: 'Torso' },
+  'slot.torso.sub': { ja: '防御', en: 'Defense' },
+  'slot.armL.label': { ja: '左腕', en: 'Left Arm' },
+  'slot.armL.sub': { ja: '攻撃', en: 'Attack' },
+  'slot.armR.label': { ja: '右腕', en: 'Right Arm' },
+  'slot.armR.sub': { ja: '攻撃', en: 'Attack' },
+  'slot.legs.label': { ja: '脚部', en: 'Legs' },
+  'slot.legs.sub': { ja: '機動', en: 'Mobility' },
+
+  // ---------------------------------------------------------------- データ：パーツ
+  'part.cpu_s.name': { ja: 'HC-S ロビン', en: 'HC-S Robin' },
+  'part.cpu_s.desc': { ja: '小型の回路ユニット。6×6の回路盤、処理速度は控えめ。', en: 'Compact circuit unit. 6×6 circuit board; modest processing speed.' },
+  'part.cpu_m.name': { ja: 'HC-M オウル', en: 'HC-M Owl' },
+  'part.cpu_m.desc': { ja: '標準的な回路ユニット。8×8の回路盤と広めのセンサー。', en: 'Standard circuit unit. 8×8 circuit board and a wider sensor.' },
+  'part.cpu_x.name': { ja: 'HC-X ファルコン', en: 'HC-X Falcon' },
+  'part.cpu_x.desc': { ja: '高性能回路ユニット。10×10の回路盤、高速処理、遠距離センサー。', en: 'High-end circuit unit. 10×10 circuit board, fast processing, long-range sensor.' },
+  'part.reg_b.name': { ja: 'OR-1 ベーシック', en: 'OR-1 Basic' },
+  'part.reg_b.desc': { ja: '基本型。配分は腕30〜70%の範囲でのみ調整可能。', en: 'Basic model. The split can only be set between 30–70% to the arms.' },
+  'part.reg_p.name': { ja: 'OR-3 プレシジョン', en: 'OR-3 Precision' },
+  'part.reg_p.desc': { ja: '精密制御型。配分範囲が広く、出力効率も少し高い。', en: 'Precision model. Wider split range and slightly higher output efficiency.' },
+  'part.reg_o.name': { ja: 'OR-X オーバードライブ', en: 'OR-X Overdrive' },
+  'part.reg_o.desc': { ja: 'リミッター解除型。0〜100%の極端な配分が可能で、出力効率も高い。', en: 'Limiter removed. Allows extreme 0–100% splits, with high output efficiency.' },
+  'part.t_light.name': { ja: 'TL-1 軽量フレーム', en: 'TL-1 Light Frame' },
+  'part.t_light.desc': { ja: '軽量な骨組み胴体。装甲は薄いが脚への負担が小さい。', en: 'Lightweight skeletal torso. Thin armor, but easy on the legs.' },
+  'part.t_std.name': { ja: 'TS-3 汎用ボディ', en: 'TS-3 Utility Body' },
+  'part.t_std.desc': { ja: 'バランスの取れた標準胴体。', en: 'A well-balanced standard torso.' },
+  'part.t_heavy.name': { ja: 'TH-9 重装甲ボディ', en: 'TH-9 Heavy Armor Body' },
+  'part.t_heavy.desc': { ja: '厚い装甲板で覆われた重胴体。積載量の多い脚が必要。', en: 'Heavy torso clad in thick armor plates. Needs legs with a high load capacity.' },
+  'part.t_gen.name': { ja: 'TG-5 ジェネレーター搭載', en: 'TG-5 Generator Body' },
+  'part.t_gen.desc': { ja: '大型ジェネレーターを内蔵。総出力が非常に高い。', en: 'Built-in large generator. Very high total output.' },
+  'part.gatling.name': { ja: 'GA-10 ガトリング', en: 'GA-10 Gatling' },
+  'part.gatling.desc': { ja: '高速連射の機関砲。群れの掃討向き。', en: 'Rapid-fire autocannon. Good for clearing swarms.' },
+  'part.cannon.name': { ja: 'HC-3 ヘビーキャノン', en: 'HC-3 Heavy Cannon' },
+  'part.cannon.desc': { ja: '榴弾砲。着弾地点で爆発し範囲ダメージ。', en: 'Howitzer. Shells explode on impact for area damage.' },
+  'part.missile.name': { ja: 'MP-4 ミサイルポッド', en: 'MP-4 Missile Pod' },
+  'part.missile.desc': {
+    ja: '誘導ミサイル。敵の群れを狙って飛び、近接信管で起爆して爆風で周囲をまとめて攻撃する。',
+    en: 'Guided missiles. They home in on enemy swarms and detonate by proximity fuse, blasting everything nearby.',
+  },
+  'part.flamer.name': { ja: 'FL-2 フレイムスロワー', en: 'FL-2 Flamethrower' },
+  'part.flamer.desc': { ja: '火炎放射。貫通する炎で密集した敵を焼き払う。', en: 'Flamethrower. Piercing flames burn through packed enemies.' },
+  'part.blade.name': { ja: 'BL-7 ヒートブレード', en: 'BL-7 Heat Blade' },
+  'part.blade.desc': { ja: '近接用の赤熱刃。前方の扇状範囲を薙ぎ払う。', en: 'Red-hot melee blade. Sweeps a fan-shaped area in front.' },
+  'part.none.name': { ja: '(未装着)', en: '(None)' },
+  'part.none.desc': { ja: 'ジョイントのみ。武装なしで軽量化。', en: 'Joint only. No weapon, saves weight.' },
+  'part.biped.name': { ja: 'LG-2 標準二脚', en: 'LG-2 Standard Biped' },
+  'part.biped.desc': { ja: '扱いやすい二脚。速度・積載ともに標準。', en: 'Easy-to-handle biped. Standard speed and load.' },
+  'part.rjoint.name': { ja: 'RJ-5 逆関節', en: 'RJ-5 Reverse Joint' },
+  'part.rjoint.desc': { ja: '跳ねるように走る逆関節脚。高速だが積載は少なめ。', en: 'Reverse-jointed legs that run in bounds. Fast, but low load capacity.' },
+  'part.tank.name': { ja: 'TR-8 キャタピラ', en: 'TR-8 Crawler' },
+  'part.tank.desc': { ja: '無限軌道。鈍足で横移動不可だが、重積載と追加防御。', en: 'Crawler tracks. Slow and cannot strafe, but carry heavy loads and add defense.' },
+  'part.hover.name': { ja: 'HV-1 ホバー', en: 'HV-1 Hover' },
+  'part.hover.desc': { ja: '浮上走行。最速だが慣性で滑る。', en: 'Hover drive. The fastest, but slides with inertia.' },
+  'part.spider.name': { ja: 'SP-6 多脚', en: 'SP-6 Multi-Leg' },
+  'part.spider.desc': { ja: '六本脚。全方向に同じ速さで動ける安定した脚。', en: 'Six legs. Stable, and equally fast in every direction.' },
+
+  // ---------------------------------------------------------------- データ：エネミー
+  'enemy.scarab.name': { ja: 'サンドスカラベ', en: 'Sand Scarab' },
+  'enemy.spitter.name': { ja: 'アシッドスピッター', en: 'Acid Spitter' },
+  'enemy.troll.name': { ja: 'ロックトロール', en: 'Rock Troll' },
+  'enemy.boss.name': { ja: '砂礫王グラヴォルム', en: 'Gravorm, the Gravel King' },
+  'enemy.boss.phase2Name': { ja: '赤熱形態', en: 'Red-Hot Form' },
+  'enemy.spider.name': { ja: '蒼晶蜘蛛ノクタラクネ', en: 'Noctarachne, the Azure Spider' },
+  'enemy.spider.phase2Name': { ja: '晶化暴走', en: 'Crystal Frenzy' },
+
+  // ---------------------------------------------------------------- データ：鉱石
+  'ore.iron.name': { ja: '鉄鉱石', en: 'Iron Ore' },
+  'ore.iron.short': { ja: '鉄鉱石', en: 'Iron' },
+  'ore.iron.desc': { ja: 'あらゆる強化の基本素材。どのエネミーも落とす。', en: 'The basic material for every upgrade. Dropped by all enemies.' },
+  'ore.crystal.name': { ja: '酸晶石', en: 'Acid Crystal' },
+  'ore.crystal.short': { ja: '酸晶石', en: 'Crystal' },
+  'ore.crystal.desc': { ja: 'スピッターの酸腺が結晶化したもの。弾頭と回路に使う。', en: 'A spitter\'s acid gland, crystallized. Used for warheads and circuits.' },
+  'ore.core.name': { ja: '岩核', en: 'Rock Core' },
+  'ore.core.short': { ja: '岩核', en: 'Core' },
+  'ore.core.desc': { ja: 'トロールの体内で圧縮された鉱核。装甲材になる。', en: 'An ore core compressed inside a troll. Used for armor.' },
+
+  // ---------------------------------------------------------------- データ：パーツ強化
+  'upgrade.arm.label': { ja: '攻撃力', en: 'Attack' },
+  'upgrade.arm.where': { ja: '腕パーツ', en: 'Arm parts' },
+  'upgrade.arm.per': {
+    ja: 'Lv1〜5：威力 +12%/段　Lv{lv}〜：弾数+1（2発同時。1発の威力はいったん下がり、Lv10で未強化の1.5倍）',
+    en: 'Lv1–5: damage +12% per level   Lv{lv}+: +1 shot (2 at once; per-shot damage dips at first, reaching 1.5× the base at Lv10)',
+  },
+  'upgrade.arm.stat': { ja: '威力', en: 'Damage' },
+  'upgrade.arm.shots': { ja: ' ×{shots}発', en: ' ×{shots} shots' },
+  'upgrade.arm.next': { ja: '次の強化で弾数+1', en: 'Next upgrade: +1 shot' },
+  'upgrade.torso.label': { ja: '防御力', en: 'Defense' },
+  'upgrade.torso.where': { ja: '胴体', en: 'Torso' },
+  'upgrade.torso.per': { ja: '1段階ごとに 防御 +2（被ダメージ軽減）', en: 'Defense +2 per level (reduces damage taken)' },
+  'upgrade.torso.stat': { ja: '防御', en: 'Defense' },
+  'upgrade.legs.label': { ja: '機動性', en: 'Mobility' },
+  'upgrade.legs.where': { ja: '脚部', en: 'Legs' },
+  'upgrade.legs.per': {
+    ja: '1段階ごとに 速度・旋回・加速 +6%　Lv{lv}〜：ジャンプ解放（跳躍中は無敵。レベルが上がるほど遠くへ・短い間隔で跳べる）',
+    en: 'Speed, turning and acceleration +6% per level   Lv{lv}+: unlocks Jump (invincible mid-air; higher levels jump farther and more often)',
+  },
+  'upgrade.legs.stat': { ja: '速度', en: 'Speed' },
+  'upgrade.legs.next': { ja: '次の強化でジャンプ解放', en: 'Next upgrade: unlocks Jump' },
+  'upgrade.legs.jumpSpec': { ja: '{dist}m / 待ち{cd}s', en: '{dist}m / cooldown {cd}s' },
+  'upgrade.legs.jump': { ja: 'ジャンプ', en: 'Jump' },
+  'upgrade.headCpu.label': { ja: '実行速度', en: 'Exec Speed' },
+  'upgrade.headCpu.where': { ja: '頭部A（回路ユニット）', en: 'Head A (circuit unit)' },
+  'upgrade.headCpu.per': { ja: '1段階ごとに 回路の処理速度 +20%', en: 'Circuit processing speed +20% per level' },
+  'upgrade.headCpu.stat': { ja: '処理', en: 'Clock' },
+
+  // ---------------------------------------------------------------- データ：レアエネミー
+  'rare.prefix': { ja: '輝晶', en: 'Glimmering ' },
+
+  // ---------------------------------------------------------------- データ：ブースターの等級
+  'tier.10.name': { ja: '極', en: 'Legendary' },
+  'tier.8.name': { ja: '秀', en: 'Epic' },
+  'tier.5.name': { ja: '優', en: 'Superior' },
+  'tier.3.name': { ja: '良', en: 'Fine' },
+  'tier.0.name': { ja: '並', en: 'Common' },
+
+  // ---------------------------------------------------------------- データ：ブースターが上げる性能
+  'stat.clock': { ja: '処理', en: 'Clock' },
+  'stat.sensor': { ja: 'センサー', en: 'Sensor' },
+  'stat.eff': { ja: '出力効率', en: 'Efficiency' },
+  'stat.hp': { ja: '耐久', en: 'HP' },
+  'stat.def': { ja: '防御', en: 'Defense' },
+  'stat.power': { ja: '出力', en: 'Output' },
+  'stat.dmg': { ja: '威力', en: 'Damage' },
+  'stat.speed': { ja: '速度', en: 'Speed' },
+  'stat.turn': { ja: '旋回', en: 'Turning' },
+  'stat.accel': { ja: '加速', en: 'Accel' },
+  'stat.cap': { ja: '積載', en: 'Load' },
+
+  // ---------------------------------------------------------------- データ：地区
+  'district.wasteland.1.name': { ja: '第1地区', en: 'District 1' },
+  'district.wasteland.1.sub': { ja: '赤錆の平原', en: 'Rust Plains' },
+  'district.wasteland.2.name': { ja: '第2地区', en: 'District 2' },
+  'district.wasteland.2.sub': { ja: '骨の渓谷', en: 'Bone Canyon' },
+  'district.wasteland.3.name': { ja: '第3地区', en: 'District 3' },
+  'district.wasteland.3.sub': { ja: '灼砂の窪地', en: 'Scorched Hollow' },
+  'district.cave.1.name': { ja: '第1地区', en: 'District 1' },
+  'district.cave.1.sub': { ja: '崩落の底', en: 'Rubble Floor' },
+  'district.cave.2.name': { ja: '第2地区', en: 'District 2' },
+  'district.cave.2.sub': { ja: '蒼晶の坑道', en: 'Azure Shafts' },
+  'district.cave.3.name': { ja: '第3地区', en: 'District 3' },
+  'district.cave.3.sub': { ja: '骨喰いの外縁', en: 'Bone-Eater Rim' },
+
+  // ---------------------------------------------------------------- データ：フィールド
+  'field.wasteland.name': { ja: '荒野 第7区画', en: 'Wasteland Sector 7' },
+  'field.wasteland.desc': {
+    ja: '見通しの良い荒野。横に並ぶ地区を順に制圧していく。ボス戦は全地区が戦場になる。',
+    en: 'Open wasteland with clear sightlines. Take the side-by-side districts one at a time. The boss fight spans every district.',
+  },
+  'field.wasteland.bossWarn': { ja: '大型の生体反応が地中を接近中！', en: 'A massive life sign is closing in underground!' },
+  'field.cave.name': { ja: '円形洞窟「奈落の大空洞」', en: 'Circular Cave "Abyssal Hollow"' },
+  'field.cave.bossWarn': { ja: '天井の暗闇から巨大な生体反応が降りてくる！', en: 'A giant life sign is descending from the darkness above!' },
+  'field.cave.desc': {
+    ja: '巨大な円形の地下空洞。中心に降下し、地区を掃討するたびに外側の輪へ戦場が広がる。全地区を掃討すると空洞全体でボス戦になる。',
+    en: 'A huge circular cavern. You drop into the center, and each district you clear widens the battlefield to the next outer ring. Clear them all to fight the boss across the whole cavern.',
+  },
+
+  // ---------------------------------------------------------------- データ：回路タイルの分類
+  'tilegroup.move.name': { ja: '移動', en: 'Move' },
+  'tilegroup.atk.name': { ja: '攻撃', en: 'Attack' },
+  'tilegroup.sys.name': { ja: '制御', en: 'Control' },
+  'tilegroup.cond.name': { ja: '判定', en: 'Condition' },
+
+  // ---------------------------------------------------------------- データ：回路タイル
+  'tile.start.name': { ja: 'START（実行開始位置）', en: 'START (where execution begins)' },
+  'tile.move_f.name': { ja: '前進', en: 'Forward' },
+  'tile.move_f.short': { ja: '前進', en: 'Forward' },
+  'tile.move_b.name': { ja: '後退', en: 'Back' },
+  'tile.move_b.short': { ja: '後退', en: 'Back' },
+  'tile.strafe_l.name': { ja: '左へ平行移動', en: 'Strafe left' },
+  'tile.strafe_l.short': { ja: '左移動', en: 'Strafe L' },
+  'tile.strafe_r.name': { ja: '右へ平行移動', en: 'Strafe right' },
+  'tile.strafe_r.short': { ja: '右移動', en: 'Strafe R' },
+  'tile.turn_l.name': { ja: '左旋回', en: 'Turn left' },
+  'tile.turn_l.short': { ja: '左旋回', en: 'Turn left' },
+  'tile.turn_r.name': { ja: '右旋回', en: 'Turn right' },
+  'tile.turn_r.short': { ja: '右旋回', en: 'Turn right' },
+  'tile.face.name': { ja: '最寄りの敵へ向く', en: 'Face the nearest enemy' },
+  'tile.face.short': { ja: '敵へ向く', en: 'Face foe' },
+  'tile.jump.name': { ja: 'ジャンプ（脚部 強化Lv{lv}以上。跳躍中は無敵）', en: 'Jump (legs upgrade Lv{lv}+; invincible mid-air)' },
+  'tile.jump.short': { ja: 'ジャンプ', en: 'Jump' },
+  'tile.jump.param.0': { ja: '前', en: 'Fwd' },
+  'tile.jump.param.1': { ja: '後', en: 'Back' },
+  'tile.jump.param.2': { ja: '左', en: 'Left' },
+  'tile.jump.param.3': { ja: '右', en: 'Right' },
+  'tile.jump.param.4': { ja: '敵から離脱', en: 'Evade' },
+  'tile.fire_l.name': { ja: '左腕で攻撃', en: 'Attack with left arm' },
+  'tile.fire_l.short': { ja: '左腕攻撃', en: 'Fire L' },
+  'tile.fire_r.name': { ja: '右腕で攻撃', en: 'Attack with right arm' },
+  'tile.fire_r.short': { ja: '右腕攻撃', en: 'Fire R' },
+  'tile.fire_both.name': { ja: '両腕で攻撃', en: 'Attack with both arms' },
+  'tile.fire_both.short': { ja: '両腕攻撃', en: 'Fire LR' },
+  'tile.power.name': { ja: '出力配分を変更（腕への割合）', en: 'Change output split (share to arms)' },
+  'tile.power.short': { ja: '出力', en: 'Output' },
+  'tile.wait.name': { ja: '待機', en: 'Wait' },
+  'tile.wait.short': { ja: '待機', en: 'Wait' },
+  'tile.c_near.name': { ja: '敵が○m以内にいるか', en: 'Enemy within ○m?' },
+  'tile.c_near.short': { ja: '敵≦', en: 'Foe≦' },
+  'tile.c_near.mini': { ja: '敵≦', en: 'E≦' },
+  'tile.c_front.name': { ja: '前方±○°に敵がいるか', en: 'Enemy within ±○° ahead?' },
+  'tile.c_front.short': { ja: '前方敵', en: 'Ahead?' },
+  'tile.c_front.mini': { ja: '前方敵', en: 'Fr?' },
+  'tile.c_left.name': { ja: '最寄りの敵は左側か', en: 'Is the nearest enemy to the left?' },
+  'tile.c_left.short': { ja: '敵は左', en: 'Foe L?' },
+  'tile.c_left.mini': { ja: '敵は左', en: 'L?' },
+  'tile.c_count.name': { ja: 'センサー内の敵が○体以上か', en: '○ or more enemies in sensor range?' },
+  'tile.c_count.short': { ja: '敵数≧', en: 'Foes≧' },
+  'tile.c_count.mini': { ja: '敵数≧', en: 'N≧' },
+  'tile.c_count.unit': { ja: '体', en: '' },
+  'tile.c_hp.name': { ja: 'HP残量が○%以下か', en: 'HP at or below ○%?' },
+  'tile.c_hp.mini': { ja: 'HP≦', en: 'HP≦' },
+  'tile.c_ready_l.name': { ja: '左腕が攻撃可能か（リロード中でない）', en: 'Left arm ready? (not reloading)' },
+  'tile.c_ready_l.short': { ja: '左腕OK', en: 'L ready' },
+  'tile.c_ready_l.mini': { ja: '左腕O', en: 'LOK' },
+  'tile.c_ready_r.name': { ja: '右腕が攻撃可能か（リロード中でない）', en: 'Right arm ready? (not reloading)' },
+  'tile.c_ready_r.short': { ja: '右腕OK', en: 'R ready' },
+  'tile.c_ready_r.mini': { ja: '右腕O', en: 'ROK' },
+  'tile.c_proj.name': { ja: '敵弾が○m以内に接近しているか', en: 'Enemy shot within ○m?' },
+  'tile.c_proj.short': { ja: '敵弾≦', en: 'Shot≦' },
+  'tile.c_proj.mini': { ja: '敵弾≦', en: 'S≦' },
+  'tile.c_jump.name': { ja: 'ジャンプ可能か（脚部 強化Lv6以上・再使用待ちでない）', en: 'Can jump? (legs upgrade Lv6+, not on cooldown)' },
+  'tile.c_jump.short': { ja: '跳躍OK', en: 'Jump ok' },
+  'tile.c_jump.mini': { ja: '跳躍O', en: 'J?' },
+  'tile.c_boss.name': { ja: 'ボスが出現しているか', en: 'Has the boss appeared?' },
+  'tile.c_boss.short': { ja: 'ボス?', en: 'Boss?' },
+  'tile.c_boss.mini': { ja: 'ボス?', en: 'B?' },
+  'tile.c_rand.name': { ja: 'ランダム（○%の確率でYES）', en: 'Random (YES with ○% chance)' },
+  'tile.c_rand.short': { ja: '確率', en: 'Chance' },
+  'tile.c_rand.mini': { ja: '確率', en: '%?' },
+};

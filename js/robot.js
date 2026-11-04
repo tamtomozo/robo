@@ -41,15 +41,16 @@ function partLabel(p) {
   return p.bonus ? `${p.name} +${p.bonus}` : p.name;
 }
 
-// ブースターの名前（「GA-10 ガトリング用ブースター +4」）
+// ブースターの名前（「GA-10 ガトリング用ブースター +4」 / 「GA-10 Gatling Booster +4」）
 function boosterName(item) {
-  return `${partById(item.cat, item.id).name}用ブースター +${item.bonus}`;
+  const n = partById(item.cat, item.id).name;
+  return T('C005' /* {name}用ブースター +{bonus} */, { name: n, bonus: item.bonus });
 }
 
 // ブースター { cat, id, bonus } を等級の色で表示する HTML（short = 対象パーツ名を省く）
 function partTagHTML(item, short) {
   const t = bonusTier(item.bonus);
-  return `<span class="ptag" style="--c:${t.color}" title="${bonusDesc(item.cat, item.bonus)}"><em>${t.name}</em>${short ? '' : partById(item.cat, item.id).name + '用'}ブースター <b>+${item.bonus}</b></span>`;
+  return `<span class="ptag" style="--c:${t.color}" title="${bonusDesc(item.cat, item.bonus)}"><em>${t.name}</em>${short ? '' : partById(item.cat, item.id).name + T('C006' /* 用 */)}${T('C007' /* ブースター */)} <b>+${item.bonus}</b></span>`;
 }
 
 // スロットのパーツに差し込んだブースター（無ければ null）
@@ -246,12 +247,12 @@ function drawLegs(ctx, L, s) {
   ctx.restore();
 }
 
-function drawTorso(ctx, T, s) {
+function drawTorso(ctx, torso, s) {
   ctx.save();
   ctx.translate(JOINTS.core.x, JOINTS.core.y);
   ctx.strokeStyle = PART_OUTLINE.color;
   ctx.lineWidth = PART_OUTLINE.width;
-  artOf('torso', T.id).draw(ctx, s);
+  artOf('torso', torso.id).draw(ctx, s);
   ctx.restore();
 }
 

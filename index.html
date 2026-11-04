@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- 版の番号。コミット時に .githooks/pre-commit が js・css の ?v= と version.json とあわせて書き換える -->
-<meta name="game-version" content="20261104-175120">
+<meta name="game-version" content="20261104-200554">
 <title>IRON WASTELAND — 荒野機兵戦記</title>
-<link rel="stylesheet" href="css/style.css?v=20261104-175120">
+<link rel="stylesheet" href="css/style.css?v=20261104-200554">
 </head>
 <body>
 
@@ -14,11 +14,11 @@
 <section id="screen-title" class="screen">
   <div class="title-box">
     <h1 class="title-logo">IRON<span>WASTELAND</span></h1>
-    <p class="title-sub">荒 野 機 兵 戦 記</p>
+    <p class="title-sub" data-i18n="C001">荒 野 機 兵 戦 記</p>
   </div>
   <!-- プロローグ（下から上へ流れてループする。速さは main.js の toTitle で文章の長さから決める） -->
   <div id="title-crawl" class="title-crawl">
-    <div class="crawl-inner">
+    <div class="crawl-inner" data-i18n="C002">
       <p class="log">― 恒星間探査局　記録 第0号 ―</p>
       <p>人類は航路の果てで<br>ひとつの惑星を見つけた。</p>
       <p>赤錆色の大地。乾いた風。<br>大気の組成は、地球とほぼ同じ。</p>
@@ -35,35 +35,37 @@
       <p class="log">― 降下準備、完了 ―</p>
     </div>
   </div>
-  <p class="title-start">クリック または キーを押してスタート</p>
+  <p class="title-start" data-i18n="C003">クリック または キーを押してスタート</p>
+  <!-- 言語の切り替え（i18n.js）。押すと保存して読み込み直す -->
+  <div id="lang-ctl"><button data-lang="ja">日本語</button><button data-lang="en">English</button></div>
 </section>
 
 <!-- ============================== ガレージ ============================== -->
 <section id="screen-garage" class="screen">
   <header class="topbar">
-    <div class="logo">IRON<span>WASTELAND</span><small>荒野機兵戦記</small></div>
+    <div class="logo">IRON<span>WASTELAND</span><small data-i18n="C004">荒野機兵戦記</small></div>
     <nav class="tabs">
-      <button data-tab="assembly" class="active">① 組立</button>
-      <button data-tab="stock">② ブースター</button>
-      <button data-tab="upgrade">③ 強化</button>
-      <button data-tab="circuit">④ 回路プログラム</button>
-      <button data-tab="output">⑤ 出力配分</button>
-      <button data-tab="sortie">⑥ 出撃</button>
+      <button data-tab="assembly" class="active" data-i18n="G001">① 組立</button>
+      <button data-tab="stock" data-i18n="G002">② ブースター</button>
+      <button data-tab="upgrade" data-i18n="G003">③ 強化</button>
+      <button data-tab="circuit" data-i18n="G004">④ 回路プログラム</button>
+      <button data-tab="output" data-i18n="G005">⑤ 出力配分</button>
+      <button data-tab="sortie" data-i18n="G006">⑥ 出撃</button>
     </nav>
     <div id="ore-bank" class="ore-bank"></div>
   </header>
   <!-- Web 版で新しい版が公開されたときのお知らせ（main.js の checkUpdate） -->
-  <div id="update-banner" class="update-banner">新しいバージョンがあります <button id="btn-reload" class="primary">再読み込み</button></div>
+  <div id="update-banner" class="update-banner"><span data-i18n="G007">新しいバージョンがあります</span> <button id="btn-reload" class="primary" data-i18n="G008">再読み込み</button></div>
 
   <!-- 組立 -->
   <div id="tab-assembly" class="tab active">
     <div class="col skel-col">
-      <h3>スケルトンジョイント <small>背面図・スロットをクリック</small></h3>
+      <h3 data-i18n="G009">スケルトンジョイント <small>背面図・スロットをクリック</small></h3>
       <div id="skeleton"></div>
     </div>
     <div class="col prev-col">
       <canvas id="preview" width="440" height="360"></canvas>
-      <label class="chk"><input type="checkbox" id="xray"> 骨格（スケルトンジョイント）を透過表示</label>
+      <label class="chk"><input type="checkbox" id="xray"> <span data-i18n="G010">骨格（スケルトンジョイント）を透過表示</span></label>
       <div id="stats"></div>
     </div>
     <div class="col parts-col">
@@ -90,10 +92,10 @@
       <div id="brush-info"></div>
       <div id="circuit-grid"></div>
       <div class="circuit-btns">
-        <button id="btn-undo" title="直前の編集を取り消す（Ctrl+Z）">↶ 元に戻す</button>
-        <button id="btn-orphans" title="STARTからつながっていないタイルをすべて消去">未接続タイルを消去</button>
-        <button id="btn-prog-default">初期プログラムに戻す</button>
-        <button id="btn-prog-clear" class="danger">全消去</button>
+        <button id="btn-undo" title="直前の編集を取り消す（Ctrl+Z）" data-i18n-title="G011">↶ 元に戻す</button>
+        <button id="btn-orphans" title="STARTからつながっていないタイルをすべて消去" data-i18n-title="G012">未接続タイルを消去</button>
+        <button id="btn-prog-default" data-i18n="G013">初期プログラムに戻す</button>
+        <button id="btn-prog-clear" class="danger" data-i18n="G014">全消去</button>
       </div>
     </div>
     <div id="inspector" class="col"></div>
@@ -102,19 +104,19 @@
   <!-- 出力配分 -->
   <div id="tab-output" class="tab">
     <div class="output-panel">
-      <h2>頭部B：出力レギュレーター</h2>
+      <h2 data-i18n="G015">頭部B：出力レギュレーター</h2>
       <p id="reg-name"></p>
       <div class="ratio-row">
-        <div class="ratio-lab arm">腕（攻撃）<b id="arm-pct">50%</b></div>
+        <div class="ratio-lab arm"><span data-i18n="G016">腕（攻撃）</span><b id="arm-pct">50%</b></div>
         <input type="range" id="ratio" min="0" max="100" step="5">
-        <div class="ratio-lab leg">脚（機動）<b id="leg-pct">50%</b></div>
+        <div class="ratio-lab leg"><span data-i18n="G017">脚（機動）</span><b id="leg-pct">50%</b></div>
       </div>
       <div class="ratio-bar">
         <div id="ratio-arm"></div><div id="ratio-leg"></div>
         <i id="lim-l"></i><i id="lim-r"></i>
       </div>
       <table id="output-table"></table>
-      <div class="note">
+      <div class="note" data-i18n="G018">
         <p>胴体のジェネレーター出力を、腕と脚に配分します。腕に回すほど威力・連射・装填が向上し、脚に回すほど速度・旋回が向上します。（括弧内は 50% 配分との差）</p>
         <p>戦闘中も <kbd>Q</kbd> / <kbd>E</kbd> キー、または回路の「⚡出力」タイルで配分を切り替えられます。</p>
       </div>
@@ -128,14 +130,14 @@
       <div id="field-select" class="field-select"></div>
       <div id="floor-select" class="floor-select"></div>
       <div class="cnt-row">
-        <label for="enemyCount">1地区あたりのエネミー数</label>
+        <label for="enemyCount" data-i18n="G019">1地区あたりのエネミー数</label>
         <input type="range" id="enemyCount" min="1" max="100" step="1">
         <b id="enemyCountVal"></b>
       </div>
       <div id="composition"></div>
       <div id="sortie-check"></div>
-      <button id="btn-sortie" class="big primary">出 撃</button>
-      <div class="help">
+      <button id="btn-sortie" class="big primary" data-i18n="G020">出 撃</button>
+      <div class="help" data-i18n="G021">
         <h4>戦闘中の操作</h4>
         <p>ロボットは<b>回路プログラム</b>に従って自律戦闘します。<kbd>Space</kbd> 一時停止 / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 速度 ×1・×2・×4 / <kbd>Q</kbd><kbd>E</kbd> 出力配分 / ホイール ズーム / <kbd>Esc</kbd> 撤退</p>
         <p><kbd>M</kbd> で手動操作に切替：<kbd>WASD</kbd> 移動・マウス照準・左クリック 左腕・右クリック 右腕・<kbd>Shift</kbd> ジャンプ（脚部 強化Lv6以上）</p>
@@ -145,12 +147,12 @@
   <!-- 回路タブを抜けるときの確認 -->
   <div id="orphan-dialog" class="dialog">
     <div class="dialog-box">
-      <h2>未接続のタイルがあります</h2>
+      <h2 data-i18n="G022">未接続のタイルがあります</h2>
       <div id="orphan-body"></div>
       <div class="dialog-btns">
-        <button id="orphan-stay">回路に戻る（Esc）</button>
-        <button id="orphan-keep">残して移動</button>
-        <button id="orphan-clear" class="primary">消去して移動</button>
+        <button id="orphan-stay" data-i18n="G023">回路に戻る（Esc）</button>
+        <button id="orphan-keep" data-i18n="G024">残して移動</button>
+        <button id="orphan-clear" class="primary" data-i18n="G025">消去して移動</button>
       </div>
     </div>
   </div>
@@ -164,7 +166,7 @@
       <h2 id="confirm-title"></h2>
       <div id="confirm-body"></div>
       <div class="dialog-btns">
-        <button id="confirm-no">基地に帰還（Esc）</button>
+        <button id="confirm-no" data-i18n="B001">基地に帰還（Esc）</button>
         <button id="confirm-yes" class="primary">次の地区へ（Enter）</button>
       </div>
     </div>
@@ -176,17 +178,19 @@
   <div id="report"></div>
 </section>
 
-<script src="js/data.js?v=20261104-175120"></script>
-<script src="js/audio.js?v=20261104-175120"></script>
-<script src="js/field.js?v=20261104-175120"></script>
-<script src="js/robot.js?v=20261104-175120"></script>
-<script src="js/parts-art.js?v=20261104-175120"></script>
-<script src="js/enemy-art.js?v=20261104-175120"></script>
-<script src="js/circuit.js?v=20261104-175120"></script>
-<script src="js/battle.js?v=20261104-175120"></script>
-<script src="js/boss-spider.js?v=20261104-175120"></script>
-<script src="js/garage.js?v=20261104-175120"></script>
-<script src="js/report.js?v=20261104-175120"></script>
-<script src="js/main.js?v=20261104-175120"></script>
+<script src="js/lang.js?v=20261104-200554"></script>
+<script src="js/i18n.js?v=20261104-200554"></script>
+<script src="js/data.js?v=20261104-200554"></script>
+<script src="js/audio.js?v=20261104-200554"></script>
+<script src="js/field.js?v=20261104-200554"></script>
+<script src="js/robot.js?v=20261104-200554"></script>
+<script src="js/parts-art.js?v=20261104-200554"></script>
+<script src="js/enemy-art.js?v=20261104-200554"></script>
+<script src="js/circuit.js?v=20261104-200554"></script>
+<script src="js/battle.js?v=20261104-200554"></script>
+<script src="js/boss-spider.js?v=20261104-200554"></script>
+<script src="js/garage.js?v=20261104-200554"></script>
+<script src="js/report.js?v=20261104-200554"></script>
+<script src="js/main.js?v=20261104-200554"></script>
 </body>
 </html>

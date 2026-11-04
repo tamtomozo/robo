@@ -89,6 +89,15 @@ h3 small { color: #a89a80; font-weight: normal; font-size: 12px; margin-left: 6p
 }
 @keyframes title-blink { 50% { opacity: 0.2; } }
 
+/* 言語の切り替え（i18n.js） */
+#lang-ctl { position: absolute; top: 14px; right: 14px; z-index: 2; display: flex; gap: 4px; cursor: default; }
+#lang-ctl button { padding: 3px 12px; font-size: 13px; background: rgba(20,16,11,0.75); color: #a89a80; }
+#lang-ctl button.sel { border-color: #e08a3a; color: #ffd8a0; background: #4a3420; }
+/* 英語は字数が多いので、日本語向けの広い字間をつめる */
+html[lang=en] .title-sub { letter-spacing: 6px; font-size: 18px; }
+html[lang=en] .crawl-inner { letter-spacing: 0.5px; font-size: 23px; }
+html[lang=en] .crawl-inner .log { letter-spacing: 3px; }
+
 /* ===================== ガレージ ===================== */
 #screen-garage {
   background: radial-gradient(ellipse at 50% 0%, #3a2c1c 0%, #1a1510 70%);
@@ -102,7 +111,10 @@ h3 small { color: #a89a80; font-weight: normal; font-size: 12px; margin-left: 6p
 .logo span { color: #e08a3a; margin-left: 4px; }
 .logo small { display: block; font-size: 11px; letter-spacing: 6px; color: #a89a80; font-weight: normal; }
 .tabs { display: flex; gap: 6px; }
-.tabs button { padding: 8px 18px; background: #2a241b; border-color: #4a3e2c; }
+.tabs button { padding: 8px 18px; background: #2a241b; border-color: #4a3e2c; white-space: nowrap; }
+/* 英語はタブ名やロゴの副題が長いので、余白と字間をつめる */
+html[lang=en] .tabs button { padding: 8px 14px; }
+html[lang=en] .logo small { letter-spacing: 1.5px; }
 .tabs button.active { background: #6b4a24; border-color: #e08a3a; color: #fff; }
 
 .tab { display: none; padding: 16px 20px; gap: 16px; }
