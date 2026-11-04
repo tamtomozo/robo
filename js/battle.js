@@ -62,9 +62,15 @@ function jumpAngle(w, P, p) {
   return P.a + [0, Math.PI, -Math.PI / 2, Math.PI / 2][p];
 }
 
+// 機体の向きに対する方向ごとの飛び幅の割合（前は 100%）。斜めはその間で変わる
+const JUMP_SIDE = 0.6;   // 真横
+const JUMP_BACK = 0.4;   // 真後ろ
+
 function startJump(w, P, ang) {
   if (w.result || !canJump(P)) return false;
-  const J = P.st.jump, v = J.dist / J.dur;
+  const c = Math.cos(ang - P.a);   // 1 = 前 / 0 = 真横 / -1 = 真後ろ
+  const k = c >= 0 ? JUMP_SIDE + (1 - JUMP_SIDE) * c : JUMP_SIDE + (JUMP_SIDE - JUMP_BACK) * c;
+  const J = P.st.jump, v = J.dist * k / J.dur;
   P.air = P.airMax = J.dur;
   P.jvx = Math.cos(ang) * v;
   P.jvy = Math.sin(ang) * v;
