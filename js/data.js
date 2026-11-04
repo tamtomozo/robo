@@ -190,7 +190,7 @@ const UPGRADES = {
 //  レアエネミー（一般エネミーがまれに「輝晶個体」として出現し、倒すとパーツを落とす）
 // ---------------------------------------------------------------------
 const RARE = {
-  chance: 0.03,      // 一般エネミー1体がレアになる確率（大地の脈動中は surgeMul 倍）
+  chance: 0.01,      // 一般エネミー1体がレアになる確率（大地の脈動中は surgeMul 倍）
   surgeMul: 2,
   hp: 4, speed: 1.2, dmg: 1.3,   // 元の種類に対する倍率
   ore: 3,            // 鉱石ドロップの倍率
@@ -199,8 +199,16 @@ const RARE = {
 
 // ドロップしたパーツの性能ボーナス（+0〜+10）。値が低いほど出やすい
 const BONUS_MAX = 10;
+// +0〜+10 それぞれの出やすさ（合計100 = %）。+5以上は合わせて14%
+const BONUS_WEIGHTS = [22, 20, 17, 15, 12, 5, 3.5, 2.5, 1.5, 1, 0.5];
 function rollBonus() {
-  return Math.floor((BONUS_MAX + 1) * Math.pow(Math.random(), 2));
+  const total = BONUS_WEIGHTS.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let b = 0; b < BONUS_WEIGHTS.length; b++) {
+    r -= BONUS_WEIGHTS[b];
+    if (r < 0) return b;
+  }
+  return 0;
 }
 
 // ボーナスの等級（色分け）
