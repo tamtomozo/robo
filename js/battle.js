@@ -106,7 +106,7 @@ function createWorld(save) {
     phase: 'fight', phaseT: 0, boss: null, log: [], result: null, endT: 0, shake: 0, banner: null,
     program: save.program,
     ores: [], ore: emptyOre(), orePulse: {}, oreResult: null,   // 落ちている鉱石 / 回収した鉱石
-    loot: [], parts: [], partPulse: 0,   // 落ちているパーツ（レアエネミーのドロップ） / 回収したパーツ
+    loot: [], parts: [], partPulse: 0,   // 落ちているブースター（レアエネミーのドロップ） / 回収したブースター
     veins: [], surge: { state: 'idle', t: rand(35, 55), k: 0, ph: 0 },   // 大地の脈動（地面の亀裂 / 状態）
     stats: {
       kills: { scarab: 0, spitter: 0, troll: 0, boss: 0 }, dmgDealt: 0, dmgTaken: 0,
@@ -306,7 +306,7 @@ function spawnEnemy(w, type, at) {
   w.enemies.push(e);
   if (rare) {
     w.stats.rareSeen++;
-    addLog(w, `レア個体を検知：${d.name}（撃破するとパーツを落とす）`, '#ffd84a');
+    addLog(w, `レア個体を検知：${d.name}（撃破するとブースターを落とす）`, '#ffd84a');
     Sound.play('rare');
   }
   return e;
@@ -1343,18 +1343,17 @@ function updateOres(w, dt) {
   w.partPulse = Math.max(0, w.partPulse - dt);
 }
 
-// レアエネミーが落とすパーツ（光る容器。鉱石と同じく近づくと吸い寄せられる）
+// レアエネミーが落とすブースター（光る容器。鉱石と同じく近づくと吸い寄せられる）
 function dropPart(w, e) {
   const part = randomDropPart();
   const a = rand(0, Math.PI * 2);
   w.loot.push({ part, x: e.x, y: e.y, vx: Math.cos(a) * 3, vy: Math.sin(a) * 3, rot: rand(0, 6.283), t: 0, pull: 0 });
   w.stats.rareKills++;
-  const p = partById(part.cat, part.id), tier = bonusTier(part.bonus);
-  addLog(w, `${e.def.name} 撃破 ― パーツを落とした：${p.name} +${part.bonus}`, tier.color);
+  addLog(w, `${e.def.name} 撃破 ― ブースターを落とした：${boosterName(part)}`, bonusTier(part.bonus).color);
 }
 
 function partLogText(part) {
-  return `${partById(part.cat, part.id).name} +${part.bonus}`;
+  return boosterName(part);
 }
 
 function collectPart(w, o) {
@@ -1362,7 +1361,7 @@ function collectPart(w, o) {
   w.parts.push(o.part);
   w.partPulse = 0.6;
   Sound.play('partGet');
-  addLog(w, `パーツ回収：${partLogText(o.part)}（${bonusTier(o.part.bonus).name}）`, bonusTier(o.part.bonus).color);
+  addLog(w, `ブースター回収：${partLogText(o.part)}（${bonusTier(o.part.bonus).name}）`, bonusTier(o.part.bonus).color);
   for (let i = 0; i < 6; i++) {
     w.fx.push({ type: 'gib', x: w.player.x, y: w.player.y, vx: rand(-4, 4), vy: rand(-4, 4), life: 0.35, max: 0.35, size: 0.2, color: bonusTier(o.part.bonus).color });
   }
@@ -1381,7 +1380,7 @@ function collectOre(w, o) {
 function collectAllOres(w) {
   if (w.loot.length) {
     for (const o of w.loot) w.parts.push(o.part);
-    addLog(w, `回収ドローン：残りのパーツを回収（${w.loot.map(o => partLogText(o.part)).join(' / ')}）`, '#ffd84a');
+    addLog(w, `回収ドローン：残りのブースターを回収（${w.loot.map(o => partLogText(o.part)).join(' / ')}）`, '#ffd84a');
     w.loot = [];
   }
   if (!w.ores.length) return;
@@ -1402,7 +1401,7 @@ function finishOre(w) {
     lost[k.id] = w.result === 'lose' ? Math.floor(w.ore[k.id] / 2) : 0;
     gain[k.id] = w.ore[k.id] - lost[k.id];
   }
-  // パーツ：大破すると回収したうちの半分（切り捨て）をランダムに失う
+  // ブースター：大破すると回収したうちの半分（切り捨て）をランダムに失う
   const keep = w.parts.slice(), lostParts = [];
   if (w.result === 'lose') {
     for (let n = Math.floor(keep.length / 2); n > 0; n--) lostParts.push(keep.splice((Math.random() * keep.length) | 0, 1)[0]);
@@ -2113,11 +2112,11 @@ function drawHUD(ctx, w, B, VW, VH) {
 
   // --- 回収鉱石 ---
   hudPanel(ctx, 12, 190 + jh, 310, 44, `回収鉱石${w.ores.length ? `   （フィールドに ${w.ores.length}個）` : ''}`);
-  if (w.parts.length || w.loot.length) {   // レアエネミーのパーツ（右上に個数）
+  if (w.parts.length || w.loot.length) {   // レアエネミーのブースター（右上に個数）
     ctx.textAlign = 'right';
     ctx.font = w.partPulse > 0 ? 'bold 13px sans-serif' : 'bold 12px sans-serif';
     ctx.fillStyle = w.partPulse > 0 ? '#fff' : '#ffd84a';
-    ctx.fillText(`パーツ ${w.parts.length}${w.loot.length ? `（+${w.loot.length}）` : ''}`, 314, 196 + jh);
+    ctx.fillText(`ブースター ${w.parts.length}${w.loot.length ? `（+${w.loot.length}）` : ''}`, 314, 196 + jh);
     ctx.textAlign = 'left';
   }
   ORES.forEach((k, i) => {
@@ -2205,7 +2204,7 @@ function drawHUD(ctx, w, B, VW, VH) {
     const s = art.mapSize;
     ctx.fillRect(mx + e.x * k - s / 2, my + e.y * k - s / 2, s, s);
   }
-  // レア個体と落ちているパーツは点滅する金色の印
+  // レア個体と落ちているブースターは点滅する金色の印
   const blink = 0.5 + 0.5 * Math.sin(w.time * 6);
   ctx.strokeStyle = `rgba(255,216,74,${0.5 + 0.5 * blink})`;
   ctx.lineWidth = 1.5;
@@ -2351,7 +2350,7 @@ const Battle = {
       <div class="hpline"><span>機体HP ${Math.ceil(P.hp)} / ${P.maxHp}（${hpPct}%）</span><i><b style="width:${hpPct}%"></b></i></div>
       <p class="muted">${ammo}　※HP・弾薬は持ち越し（補給なし）</p>
       <p class="ore-line">回収鉱石：${oreHTML(w.ore)}</p>
-      ${w.parts.length ? `<p class="ore-line">回収パーツ：${w.parts.map(partTagHTML).join(' ')}</p>` : ''}
+      ${w.parts.length ? `<p class="ore-line">回収ブースター：${w.parts.map(p => partTagHTML(p)).join(' ')}</p>` : ''}
       ${next}
       <p class="q">${last ? 'ボス戦に進みますか？' : '次に進みますか？'}</p>`;
     document.getElementById('confirm-yes').textContent = last ? 'ボス戦へ（Enter）' : '次の地区へ（Enter）';

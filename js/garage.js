@@ -135,7 +135,7 @@ const Garage = {
       this.askOrphans(name);
       return;
     }
-    // 倉庫を見終えたら NEW の印を消す
+    // ブースタータブを見終えたら NEW の印を消す
     if (this.curTab === 'stock' && name !== 'stock' && Game.save.stock.some(it => it.isNew)) {
       for (const it of Game.save.stock) delete it.isNew;
       Game.persist();
@@ -180,58 +180,70 @@ const Garage = {
     document.getElementById('parts-title').textContent = `${s.label}（${s.sub}）のパーツ`;
     const el = document.getElementById('parts-list');
     const g = slotGear(b, s.key);
-    const other = s.cat === 'arm' ? (s.key === 'armL' ? 'armR' : 'armL') : null;
-    const og = other && slotGear(b, other);
+    const slotName = k => SLOTS.find(x => x.key === k).label;
     el.innerHTML = PARTS[s.cat].map(p0 => {
       const lv = upgradeLevel(Game.save.upgrades, p0.id);
-      const p = upgradedPart(s.cat, p0, lv);
-      const eq = b[s.key] === p.id && !g;
-      // 倉庫にある同じパーツ（ドロップ品）。ボーナスの高い順
+      const eq = b[s.key] === p0.id;
+      // 装着中なら、差し込んだブースターを反映した性能を表示する
+      const p = upgradedPart(s.cat, bonusPart(s.cat, p0, eq && g ? g.bonus : 0), lv);
+      // このパーツ専用のブースター（+値の高い順）
       const own = Game.save.stock.filter(it => it.cat === s.cat && it.id === p0.id).sort((x, y) => y.bonus - x.bonus);
       const inst = own.map(it => {
-        const ieq = g && g.uid === it.uid, oth = og && og.uid === it.uid;
-        const q = upgradedPart(s.cat, bonusPart(s.cat, p0, it.bonus), lv);
-        return `<div class="inst ${ieq ? 'eq' : ''}" data-uid="${it.uid}" title="${statChips(s.cat, q).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')}">
-          ${partTagHTML(it)}<small>${bonusDesc(s.cat, it.bonus)}</small>
-          ${ieq ? '<span class="tag">装着中</span>' : oth ? `<span class="tag other">${other === 'armL' ? '左腕' : '右腕'}に装着中</span>` : ''}${it.isNew ? '<span class="new">NEW</span>' : ''}</div>`;
+        const here = g && g.uid === it.uid;
+        const at = SLOTS.find(x => x.key !== s.key && slotGear(b, x.key) && b.gear[x.key].uid === it.uid);
+        return `<div class="inst ${here ? 'eq' : ''}" data-uid="${it.uid}" title="${here ? 'クリックで外す' : 'クリックで差し込む'}">
+          ${partTagHTML(it, true)}<small>${bonusDesc(s.cat, it.bonus)}</small>
+          ${here ? '<span class="tag">差し込み中</span>' : at ? `<span class="tag other">${at.label}に差し込み中</span>` : ''}${it.isNew ? '<span class="new">NEW</span>' : ''}</div>`;
       }).join('');
-      return `<div class="part ${eq ? 'eq' : ''}" data-id="${p.id}">
-        <div class="pname">${p.name}${p.lv ? `<span class="lv">強化 Lv${p.lv}</span>` : ''}${eq ? '<span class="tag">装着中</span>' : ''}${own.length ? `<span class="own">ドロップ品 ×${own.length}</span>` : ''}</div>
+      return `<div class="part ${eq ? 'eq' : ''}" data-id="${p0.id}">
+        <div class="pname">${partLabel(p)}${p.lv ? `<span class="lv">強化 Lv${p.lv}</span>` : ''}${eq ? '<span class="tag">装着中</span>' : ''}${own.length ? `<span class="own">ブースター ×${own.length}</span>` : ''}</div>
         <div class="pstat">${statChips(s.cat, p)}</div>
         <div class="pdesc">${p.desc}</div>
-        ${inst ? `<div class="insts">${inst}</div>` : ''}</div>`;
+        ${inst ? `<div class="insts"><div class="insts-h">ブースター（1つ差し込める。クリックで差し込む / 外す）</div>${inst}</div>` : ''}</div>`;
     }).join('');
     el.querySelectorAll('.part').forEach(d => {
-      d.onclick = () => this.equip(s.key, d.dataset.id, null);
+      d.onclick = () => this.equip(s.key, d.dataset.id);
     });
     el.querySelectorAll('.inst').forEach(d => {
       d.onclick = (e) => {
         e.stopPropagation();
-        this.equip(s.key, null, Game.save.stock.find(it => it.uid === +d.dataset.uid));
+        this.setBooster(s.key, Game.save.stock.find(it => it.uid === +d.dataset.uid));
       };
     });
   },
 
-  // スロットにパーツを装着する。id = 標準パーツ / item = 倉庫のドロップパーツ
-  equip(key, id, item) {
+  // スロットにパーツを装着する（別のパーツに替えたら、差し込んでいたブースターは外れる）
+  equip(key, id) {
     const b = Game.save.build;
     b.gear = b.gear || {};
-    if (item) {
-      // 反対の腕に付いていたら外す（そちらは同じ種類の標準パーツに戻す）
-      for (const k of Object.keys(b.gear)) if (k !== key && b.gear[k] && b.gear[k].uid === item.uid) delete b.gear[k];
-      b[key] = item.id;
-      b.gear[key] = { uid: item.uid, id: item.id, bonus: item.bonus };
-    } else {
-      b[key] = id;
-      delete b.gear[key];
-    }
+    if (b[key] !== id) delete b.gear[key];
+    b[key] = id;
     Sound.play('equip');
     if (key === 'headReg') b.armRatio = clampRatio(partById('headReg', b.headReg), b.armRatio);
     Game.persist();
     this.renderAll();
   },
 
-  // ------------------------------------------------------------ 倉庫（ドロップパーツの一覧・分解）
+  // スロットにブースターを差し込む（そのパーツが未装着なら装着もする）。差し込み中のものを選ぶと外す
+  setBooster(key, item) {
+    if (!item) return;
+    const b = Game.save.build;
+    b.gear = b.gear || {};
+    if (b.gear[key] && b.gear[key].uid === item.uid) {
+      delete b.gear[key];
+    } else {
+      // 別のスロット（反対の腕など）に差していたら抜く
+      for (const k of Object.keys(b.gear)) if (b.gear[k] && b.gear[k].uid === item.uid) delete b.gear[k];
+      b[key] = item.id;
+      b.gear[key] = { uid: item.uid, id: item.id, bonus: item.bonus };
+      if (key === 'headReg') b.armRatio = clampRatio(partById('headReg', b.headReg), b.armRatio);
+    }
+    Sound.play('equip');
+    Game.persist();
+    this.renderAll();
+  },
+
+  // ------------------------------------------------------------ ブースター（所持品の一覧・分解）
   stockCat: 'all',
   stockSort: 'bonus',
   stockSel: new Set(),
@@ -248,7 +260,7 @@ const Garage = {
     const save = Game.save, eqd = this.equippedUids();
     const nNew = save.stock.filter(it => it.isNew).length;
     const tb = document.querySelector('.tabs button[data-tab="stock"]');
-    if (tb) tb.innerHTML = `② 倉庫${nNew ? `<span class="new">${nNew}</span>` : ''}`;
+    if (tb) tb.innerHTML = `② ブースター${nNew ? `<span class="new">${nNew}</span>` : ''}`;
     for (const u of [...this.stockSel]) if (!save.stock.some(it => it.uid === u) || eqd.has(u)) this.stockSel.delete(u);
     const cats = [['all', 'すべて'], ...SLOTS.filter(s => s.key !== 'armR').map(s => [s.cat, s.cat === 'arm' ? '腕' : s.label])];
     const catOrder = SLOTS.map(s => s.cat);
@@ -268,32 +280,32 @@ const Garage = {
       const slot = SLOTS.find(s => slotGear(save.build, s.key) && save.build.gear[s.key].uid === it.uid);
       return `<tr class="${eq ? 'eq' : ''}${sel ? ' sel' : ''}" data-uid="${it.uid}">
         <td><input type="checkbox" ${sel ? 'checked' : ''} ${eq ? 'disabled' : ''}></td>
-        <td class="nm">${partTagHTML(it)}${it.isNew ? '<span class="new">NEW</span>' : ''}${dup[it.id] > 1 ? `<small class="dup">同種 ×${dup[it.id]}</small>` : ''}</td>
+        <td class="nm">${partTagHTML(it)}${it.isNew ? '<span class="new">NEW</span>' : ''}${dup[it.id] > 1 ? `<small class="dup">同じパーツ用 ×${dup[it.id]}</small>` : ''}</td>
         <td class="bd">${bonusDesc(it.cat, it.bonus)}</td>
         <td class="cost">${oreHTML(salvageOre(it))}</td>
-        <td>${eq ? `<span class="tag">${slot.label}に装着中</span>` : `<button class="salv" data-uid="${it.uid}">分解</button>`}</td></tr>`;
+        <td>${eq ? `<span class="tag">${slot.label}に差し込み中</span>` : `<button class="salv" data-uid="${it.uid}">分解</button>`}</td></tr>`;
     }).join('');
-    // 「並」「良以下」「優以下」をまとめて選ぶボタン（装着中は除く）
+    // 「並」「良以下」「優以下」をまとめて選ぶボタン（差し込み中は除く）
     const asc = BONUS_TIERS.slice().reverse();
     const tierBtns = asc.slice(0, 3).map((t, i) => {
       const max = asc[i + 1].min - 1;
       return `<button class="salv-tier" data-max="${max}" style="--c:${t.color}">${i ? `${t.name}以下` : t.name}（+${max}以下）を選択</button>`;
     }).join('');
-    el.innerHTML = `<h2>パーツ倉庫 <small>${save.stock.length}個</small></h2>
-      <p class="muted">レアエネミー（金色に輝く<b>輝晶個体</b>）が落としたパーツです。性能ボーナスは <b>+0〜+${BONUS_MAX}</b>（+N は主な性能が最大 N% 上がる）で、同じ種類のパーツを何個でも持てます。
-      「組立」タブで装着でき、強化レベルはパーツの種類ごとに共通です。不要なパーツは分解すると鉱石になります（ボーナスが高いほど多く取れる）。<br>
+    el.innerHTML = `<h2>ブースター <small>${save.stock.length}個</small></h2>
+      <p class="muted">レアエネミー（金色に輝く<b>輝晶個体</b>）が落とす、<b>特定のパーツ専用</b>の強化モジュールです。効果アップは <b>+${BONUS_MIN}〜+${BONUS_MAX}</b>（+N で主な性能が最大 N% 上がる）で、同じものを何個でも持てます。
+      「組立」タブで対象パーツに1つ差し込めて、いつでも付け替えられます（パーツの強化レベルとは別に効きます）。不要なブースターは分解すると鉱石になります（+値が高いほど多く取れる）。<br>
       ${BONUS_TIERS.map(t => `<span class="ptag" style="--c:${t.color}"><em>${t.name}</em>+${t.min}〜</span>`).join(' ')}</p>
       <div class="stock-bar">
         <div class="seg">${cats.map(([k, n]) => `<button class="scat ${this.stockCat === k ? 'on' : ''}" data-cat="${k}">${n}</button>`).join('')}</div>
         <div class="seg">並び順 ${[['bonus', 'ボーナス順'], ['new', '新しい順'], ['kind', '種類順']].map(([k, n]) => `<button class="ssort ${this.stockSort === k ? 'on' : ''}" data-sort="${k}">${n}</button>`).join('')}</div>
       </div>
       ${list.length ? `<table class="stock-tbl">
-        <thead><tr><th><input type="checkbox" id="stock-all"></th><th>パーツ</th><th>性能ボーナス</th><th>分解で得る鉱石</th><th></th></tr></thead>
-        <tbody>${rows}</tbody></table>` : `<p class="empty">${save.stock.length ? 'この部位のパーツはありません。' : 'まだパーツを持っていません。出撃してレアエネミーを倒しましょう。'}</p>`}
+        <thead><tr><th><input type="checkbox" id="stock-all"></th><th>ブースター</th><th>効果</th><th>分解で得る鉱石</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table>` : `<p class="empty">${save.stock.length ? 'この部位のブースターはありません。' : 'まだブースターを持っていません。出撃してレアエネミーを倒しましょう。'}</p>`}
       <div class="stock-foot">
         ${tierBtns}<button id="salv-clear" ${this.stockSel.size ? '' : 'disabled'}>選択を解除</button>
         <span class="sum">選択 ${this.stockSel.size}個 → ${oreHTML(sum)}</span>
-        <button id="salv-sel" class="danger" ${this.stockSel.size ? '' : 'disabled'}>選択したパーツを分解</button>
+        <button id="salv-sel" class="danger" ${this.stockSel.size ? '' : 'disabled'}>選択したブースターを分解</button>
       </div>`;
     el.querySelectorAll('.scat').forEach(btn => { btn.onclick = () => { this.stockCat = btn.dataset.cat; this.renderStock(); }; });
     el.querySelectorAll('.ssort').forEach(btn => { btn.onclick = () => { this.stockSort = btn.dataset.sort; this.renderStock(); }; });
@@ -320,7 +332,7 @@ const Garage = {
     document.getElementById('salv-sel').onclick = () => this.salvage([...this.stockSel]);
   },
 
-  // パーツを分解して鉱石にする（装着中のパーツは分解できない）
+  // ブースターを分解して鉱石にする（差し込み中のものは分解できない）
   salvage(uids) {
     const save = Game.save, eqd = this.equippedUids();
     const items = save.stock.filter(it => uids.includes(it.uid) && !eqd.has(it.uid));
@@ -329,7 +341,7 @@ const Garage = {
     for (const it of items) { const o = salvageOre(it); for (const k of ORES) gain[k.id] += o[k.id]; }
     const txt = ORES.filter(k => gain[k.id]).map(k => `${k.name}×${gain[k.id]}`).join(' ');
     const best = Math.max(...items.map(it => it.bonus));
-    if (!confirm(`${items.length === 1 ? partLabel(bonusPart(items[0].cat, partById(items[0].cat, items[0].id), items[0].bonus)) : `パーツ ${items.length}個`} を分解しますか？\n得られる鉱石：${txt}${best >= BONUS_TIERS[2].min ? `\n\n※ +${best} の高ボーナス品が含まれています。` : ''}\n（元に戻せません）`)) return;
+    if (!confirm(`${items.length === 1 ? boosterName(items[0]) : `ブースター ${items.length}個`} を分解しますか？\n得られる鉱石：${txt}${best >= BONUS_TIERS[2].min ? `\n\n※ +${best} の高い+値のものが含まれています。` : ''}\n（元に戻せません）`)) return;
     const set = new Set(items.map(it => it.uid));
     save.stock = save.stock.filter(it => !set.has(it.uid));
     for (const u of set) this.stockSel.delete(u);
@@ -416,7 +428,7 @@ const Garage = {
       return `<section class="up-sec"><h3>${U.label}<small>${U.where} / ${U.per}</small></h3><table class="up-tbl">${rows}</table></section>`;
     }).join('');
     el.innerHTML = `<h2>パーツ強化</h2>
-      <p class="muted">エネミーが落とす鉱石でパーツを強化します（各パーツ最大 Lv${UPGRADE_MAX}）。強化はパーツの種類ごとで、付け替えても強化はそのパーツに残ります（同じ種類のドロップパーツにも同じ強化が効きます）。<br>
+      <p class="muted">エネミーが落とす鉱石でパーツを強化します（各パーツ最大 Lv${UPGRADE_MAX}）。強化はパーツの種類ごとで、付け替えても強化はそのパーツに残ります（ブースターの効果は強化とは別に上乗せされます）。<br>
       ${ORES.map(k => `<span class="ore"><i style="background:${k.color}"></i>${k.name}</span>${k.desc}`).join('　')}</p>${secs}`;
     el.querySelectorAll('.up-btn').forEach(btn => {
       btn.onclick = () => {
@@ -767,7 +779,7 @@ const Garage = {
       </table>
       <p class="muted">各地区を掃討するたびに「次に進みますか？」と確認されます。帰還すればそこまでの戦果で任務終了。HP・弾薬は地区をまたいで持ち越します。<br>
       スカラベ：小型・高速の近接群体 / スピッター：距離を取って酸を吐く / トロール：鈍重だが高耐久・高打撃<br>
-      <b style="color:#ffd84a">レア個体</b>：一般エネミーが ${Math.round(RARE.chance * 100)}% の確率で金色に輝く「${RARE.prefix}個体」として現れる（大地の脈動中は ${RARE.surgeMul}倍）。耐久 ${RARE.hp}倍と手強いが、倒すと性能ボーナス +0〜+${BONUS_MAX} のパーツを落とす。</p>`;
+      <b style="color:#ffd84a">レア個体</b>：一般エネミーが ${Math.round(RARE.chance * 100)}% の確率で金色に輝く「${RARE.prefix}個体」として現れる（大地の脈動中は ${RARE.surgeMul}倍）。耐久 ${RARE.hp}倍と手強いが、倒すと効果 +${BONUS_MIN}〜+${BONUS_MAX} のブースター（特定のパーツ専用の強化モジュール）を落とす。</p>`;
     const st = computeStats(Game.save.build, null, Game.save.upgrades);
     const prog = Game.save.program;
     const warns = [];

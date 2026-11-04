@@ -44,9 +44,9 @@ const Game = {
       if (s && s.build && Array.isArray(s.program) && s.program.length === MAX_GRID * MAX_GRID) {
         const d = defaultSave();
         const stock = Array.isArray(s.stock) ? s.stock.filter(it => it && PARTS[it.cat] && PARTS[it.cat].some(p => p.id === it.id)) : [];
-        for (const it of stock) it.bonus = Math.min(BONUS_MAX, it.bonus | 0);   // 上限を下げる前のパーツは上限に丸める
+        for (const it of stock) it.bonus = clamp(it.bonus | 0, BONUS_MIN, BONUS_MAX);   // 範囲を変える前のものは範囲内に丸める
         const build = Object.assign(d.build, s.build);
-        // 装着中のドロップパーツが倉庫に無ければ（分解済みなど）標準パーツ扱いに戻す
+        // 差し込んだブースターが手元に無ければ（分解済みなど）外す
         const gear = {};
         for (const [k, g] of Object.entries(build.gear || {})) {
           const it = g && stock.find(x => x.uid === g.uid);
@@ -74,7 +74,7 @@ const Game = {
     this.persist();
   },
 
-  // 戦闘で持ち帰ったパーツを倉庫に加える（uid を振る）
+  // 戦闘で持ち帰ったブースターを所持品に加える（uid を振る）
   addParts(list) {
     const now = Date.now();
     for (const p of list) this.save.stock.push({ uid: this.save.nextUid++, cat: p.cat, id: p.id, bonus: p.bonus, got: now, isNew: true });

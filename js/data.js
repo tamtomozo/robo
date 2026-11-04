@@ -187,7 +187,8 @@ const UPGRADES = {
 };
 
 // ---------------------------------------------------------------------
-//  レアエネミー（一般エネミーがまれに「輝晶個体」として出現し、倒すとパーツを落とす）
+//  レアエネミー（一般エネミーがまれに「輝晶個体」として出現し、倒すとブースターを落とす）
+//  ブースター＝特定のパーツ専用の性能強化モジュール。パーツに1つ差し込め、いつでも付け替えられる
 // ---------------------------------------------------------------------
 const RARE = {
   chance: 0.01,      // 一般エネミー1体がレアになる確率（大地の脈動中は surgeMul 倍）
@@ -197,10 +198,10 @@ const RARE = {
   prefix: '輝晶',    // 表示名の頭に付ける（例：輝晶サンドスカラベ）
 };
 
-// ドロップしたパーツの性能ボーナス（+0〜+10）。値が低いほど出やすい
-const BONUS_MAX = 10;
-// +0〜+10 それぞれの出やすさ（合計100 = %）。+5以上は合わせて14%
-const BONUS_WEIGHTS = [22, 20, 17, 15, 12, 5, 3.5, 2.5, 1.5, 1, 0.5];
+// ブースターの効果アップ（+1〜+10）。値が低いほど出やすい
+const BONUS_MIN = 1, BONUS_MAX = 10;
+// +0〜+10 それぞれの出やすさ（合計100 = %。+0 は出ない）。+5以上は合わせて14%
+const BONUS_WEIGHTS = [0, 30, 25, 18, 13, 5, 3.5, 2.5, 1.5, 1, 0.5];
 function rollBonus() {
   const total = BONUS_WEIGHTS.reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
@@ -208,7 +209,7 @@ function rollBonus() {
     r -= BONUS_WEIGHTS[b];
     if (r < 0) return b;
   }
-  return 0;
+  return BONUS_MIN;
 }
 
 // ボーナスの等級（色分け）
@@ -216,14 +217,14 @@ const BONUS_TIERS = [
   { min: 10, name: '極', color: '#ffd84a' },
   { min: 8,  name: '秀', color: '#e07aff' },
   { min: 5,  name: '優', color: '#5ab0ff' },
-  { min: 2,  name: '良', color: '#7dff9a' },
+  { min: 3,  name: '良', color: '#7dff9a' },
   { min: 0,  name: '並', color: '#c8c0b0' },
 ];
 function bonusTier(b) {
   return BONUS_TIERS.find(t => b >= t.min);
 }
 
-// ボーナス +N が上げる性能と、その効き方（係数 × N%）
+// ブースター +N が上げる性能と、その効き方（係数 × N%）
 const BONUS_STATS = {
   headCpu: { clock: 1, sensor: 0.5, hp: 1 },
   headReg: { eff: 0.3, hp: 1 },
@@ -241,7 +242,7 @@ function bonusDesc(cat, b) {
 }
 function fmtPct(v) { return Number.isInteger(v) ? String(v) : v.toFixed(1); }
 
-// パーツを分解して得られる鉱石（ボーナスが高いほど多い。+10 で3倍）
+// ブースターを分解して得られる鉱石（+値が高いほど多い。+10 で3倍）
 const SALVAGE = {
   headCpu: { crystal: 3, core: 1 },
   headReg: { iron: 3, crystal: 2, core: 1 },
@@ -255,7 +256,7 @@ function salvageOre(item) {
   return o;
 }
 
-// ドロップするパーツの種類（未装着は除く）
+// ドロップするブースターの対象パーツ（未装着は除く）
 function randomDropPart() {
   const all = [];
   for (const cat of Object.keys(PARTS)) for (const p of PARTS[cat]) if (p.type !== 'none') all.push({ cat, id: p.id });
@@ -393,14 +394,14 @@ function defaultProgram() {
 
 function defaultSave() {
   return {
-    // gear = スロット → 装着中のドロップパーツ { uid, id, bonus }（標準パーツを付けているスロットは無し）
+    // gear = スロット → 差し込んだブースター { uid, id(対象パーツ), bonus }（無いスロットは無し）
     build: { headCpu: 'cpu_m', headReg: 'reg_b', torso: 't_std', armL: 'gatling', armR: 'cannon', legs: 'biped', armRatio: 0.5, gear: {} },
     program: defaultProgram(),
     enemyCount: 20,
     field: 'wasteland',   // 出撃するフィールド（FIELDS の id）
     ore: emptyOre(),   // 所持している鉱石
     upgrades: {},      // パーツ id → 強化レベル
-    stock: [],         // レアエネミーが落としたパーツ { uid, cat, id, bonus, got }（同じパーツを何個でも持てる）
+    stock: [],         // レアエネミーが落としたブースター { uid, cat, id(対象パーツ), bonus, got }（同じものを何個でも持てる）
     nextUid: 1,
   };
 }

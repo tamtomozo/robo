@@ -25,7 +25,7 @@ function upgradedPart(cat, p, lv) {
   return q;
 }
 
-// ドロップパーツの性能ボーナス（+N）を反映した写し。強化はこのあとに重ねる
+// ブースター（+N）を反映した写し。強化はこのあとに重ねる
 function bonusPart(cat, p, bonus) {
   if (!bonus || p.type === 'none') return p;
   const q = Object.assign({}, p, { bonus });
@@ -41,13 +41,18 @@ function partLabel(p) {
   return p.bonus ? `${p.name} +${p.bonus}` : p.name;
 }
 
-// ドロップパーツ { cat, id, bonus } を等級の色で表示する HTML
-function partTagHTML(item) {
-  const t = bonusTier(item.bonus);
-  return `<span class="ptag" style="--c:${t.color}" title="${bonusDesc(item.cat, item.bonus)}"><em>${t.name}</em>${partById(item.cat, item.id).name} <b>+${item.bonus}</b></span>`;
+// ブースターの名前（「GA-10 ガトリング用ブースター +4」）
+function boosterName(item) {
+  return `${partById(item.cat, item.id).name}用ブースター +${item.bonus}`;
 }
 
-// スロットに装着中のドロップパーツ（標準パーツなら null）
+// ブースター { cat, id, bonus } を等級の色で表示する HTML（short = 対象パーツ名を省く）
+function partTagHTML(item, short) {
+  const t = bonusTier(item.bonus);
+  return `<span class="ptag" style="--c:${t.color}" title="${bonusDesc(item.cat, item.bonus)}"><em>${t.name}</em>${short ? '' : partById(item.cat, item.id).name + '用'}ブースター <b>+${item.bonus}</b></span>`;
+}
+
+// スロットのパーツに差し込んだブースター（無ければ null）
 function slotGear(build, key) {
   const g = build.gear && build.gear[key];
   return g && g.id === build[key] ? g : null;

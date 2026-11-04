@@ -172,6 +172,7 @@ h3 small { color: #a89a80; font-weight: normal; font-size: 12px; margin-left: 6p
 .inst:hover { border-color: #a08458; background: rgba(0,0,0,0.25); }
 .inst.eq { border-color: #e08a3a; background: rgba(90,55,20,0.6); }
 .inst small { font-size: 11px; color: #b8aa8e; }
+.insts-h { font-size: 11px; color: #a89a80; }
 .inst .tag { margin-left: auto; }
 
 /* 倉庫 */
