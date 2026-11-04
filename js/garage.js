@@ -329,7 +329,7 @@ const Garage = {
     for (const it of items) { const o = salvageOre(it); for (const k of ORES) gain[k.id] += o[k.id]; }
     const txt = ORES.filter(k => gain[k.id]).map(k => `${k.name}×${gain[k.id]}`).join(' ');
     const best = Math.max(...items.map(it => it.bonus));
-    if (!confirm(`${items.length === 1 ? partLabel(bonusPart(items[0].cat, partById(items[0].cat, items[0].id), items[0].bonus)) : `パーツ ${items.length}個`} を分解しますか？\n得られる鉱石：${txt}${best >= 25 ? `\n\n※ +${best} の高ボーナス品が含まれています。` : ''}\n（元に戻せません）`)) return;
+    if (!confirm(`${items.length === 1 ? partLabel(bonusPart(items[0].cat, partById(items[0].cat, items[0].id), items[0].bonus)) : `パーツ ${items.length}個`} を分解しますか？\n得られる鉱石：${txt}${best >= BONUS_TIERS[2].min ? `\n\n※ +${best} の高ボーナス品が含まれています。` : ''}\n（元に戻せません）`)) return;
     const set = new Set(items.map(it => it.uid));
     save.stock = save.stock.filter(it => !set.has(it.uid));
     for (const u of set) this.stockSel.delete(u);

@@ -197,18 +197,18 @@ const RARE = {
   prefix: '輝晶',    // 表示名の頭に付ける（例：輝晶サンドスカラベ）
 };
 
-// ドロップしたパーツの性能ボーナス（+0〜+50）。値が低いほど出やすい
-const BONUS_MAX = 50;
+// ドロップしたパーツの性能ボーナス（+0〜+10）。値が低いほど出やすい
+const BONUS_MAX = 10;
 function rollBonus() {
   return Math.floor((BONUS_MAX + 1) * Math.pow(Math.random(), 2));
 }
 
 // ボーナスの等級（色分け）
 const BONUS_TIERS = [
-  { min: 50, name: '極', color: '#ffd84a' },
-  { min: 40, name: '秀', color: '#e07aff' },
-  { min: 25, name: '優', color: '#5ab0ff' },
-  { min: 10, name: '良', color: '#7dff9a' },
+  { min: 10, name: '極', color: '#ffd84a' },
+  { min: 8,  name: '秀', color: '#e07aff' },
+  { min: 5,  name: '優', color: '#5ab0ff' },
+  { min: 2,  name: '良', color: '#7dff9a' },
   { min: 0,  name: '並', color: '#c8c0b0' },
 ];
 function bonusTier(b) {
@@ -233,7 +233,7 @@ function bonusDesc(cat, b) {
 }
 function fmtPct(v) { return Number.isInteger(v) ? String(v) : v.toFixed(1); }
 
-// パーツを分解して得られる鉱石（ボーナスが高いほど多い。+50 で3倍）
+// パーツを分解して得られる鉱石（ボーナスが高いほど多い。+10 で3倍）
 const SALVAGE = {
   headCpu: { crystal: 3, core: 1 },
   headReg: { iron: 3, crystal: 2, core: 1 },
@@ -242,7 +242,7 @@ const SALVAGE = {
   legs:    { iron: 9 },
 };
 function salvageOre(item) {
-  const k = 1 + item.bonus / 25, o = emptyOre();
+  const k = 1 + 2 * item.bonus / BONUS_MAX, o = emptyOre();
   for (const [id, n] of Object.entries(SALVAGE[item.cat])) o[id] = Math.round(n * k);
   return o;
 }

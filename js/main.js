@@ -44,11 +44,13 @@ const Game = {
       if (s && s.build && Array.isArray(s.program) && s.program.length === MAX_GRID * MAX_GRID) {
         const d = defaultSave();
         const stock = Array.isArray(s.stock) ? s.stock.filter(it => it && PARTS[it.cat] && PARTS[it.cat].some(p => p.id === it.id)) : [];
+        for (const it of stock) it.bonus = Math.min(BONUS_MAX, it.bonus | 0);   // 上限を下げる前のパーツは上限に丸める
         const build = Object.assign(d.build, s.build);
         // 装着中のドロップパーツが倉庫に無ければ（分解済みなど）標準パーツ扱いに戻す
         const gear = {};
         for (const [k, g] of Object.entries(build.gear || {})) {
-          if (g && build[k] === g.id && stock.some(it => it.uid === g.uid)) gear[k] = g;
+          const it = g && stock.find(x => x.uid === g.uid);
+          if (it && build[k] === g.id) gear[k] = { uid: it.uid, id: it.id, bonus: it.bonus };
         }
         build.gear = gear;
         return {
