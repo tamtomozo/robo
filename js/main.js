@@ -53,9 +53,15 @@ const Game = {
           if (it && build[k] === g.id) gear[k] = { uid: it.uid, id: it.id, bonus: it.bonus };
         }
         build.gear = gear;
+        // 階層：解放済みの層と出撃する層（階層の無い頃のセーブは第1層から）
+        const reached = d.reached, floor = d.floor;
+        for (const f of FIELDS) {
+          reached[f.id] = clamp((s.reached && s.reached[f.id]) | 0, 1, FLOORS);
+          floor[f.id] = clamp((s.floor && s.floor[f.id]) | 0, 1, reached[f.id]);
+        }
         return {
           build, program: s.program, enemyCount: s.enemyCount || d.enemyCount,
-          field: fieldById(s.field).id,
+          field: fieldById(s.field).id, floor, reached,
           ore: Object.assign(d.ore, s.ore), upgrades: Object.assign(d.upgrades, s.upgrades),
           stock, nextUid: Math.max(s.nextUid || 1, ...stock.map(it => it.uid + 1)),
         };
@@ -79,6 +85,16 @@ const Game = {
     const now = Date.now();
     for (const p of list) this.save.stock.push({ uid: this.save.nextUid++, cat: p.cat, id: p.id, bonus: p.bonus, got: now, isNew: true });
     this.persist();
+  },
+
+  // ボスを倒した層の次の層を解放する（初めて解放したら次の出撃先にする）。解放した層を返す
+  unlockFloor(fieldId, floor) {
+    const next = Math.min(FLOORS, floor + 1);
+    if (next <= this.save.reached[fieldId]) return 0;
+    this.save.reached[fieldId] = next;
+    this.save.floor[fieldId] = next;
+    this.persist();
+    return next;
   },
 
   show(name) {

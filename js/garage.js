@@ -752,16 +752,31 @@ const Garage = {
   renderSortie() {
     const n = Game.save.enemyCount;
     const F = fieldById(Game.save.field), DS = F.districts;
-    document.getElementById('sortie-title').textContent = `出撃準備 — ${F.name}（全${DS.length}地区）`;
+    const reached = Game.save.reached, floor = Game.save.floor[F.id], fm = floorMul(floor);
+    document.getElementById('sortie-title').textContent = `出撃準備 — ${F.name} ${floorName(floor)}（全${DS.length}地区）`;
     const fs = document.getElementById('field-select');
     fs.innerHTML = FIELDS.map(f => `
       <button class="field-card ${f.id === F.id ? 'sel' : ''}" data-id="${f.id}">
         <canvas width="96" height="72"></canvas>
-        <span><b>${f.name}</b><small>全${f.districts.length}地区</small><em>${f.desc}</em></span>
+        <span><b>${f.name}</b><small>全${FLOORS}層 × ${f.districts.length}地区（到達 ${floorName(reached[f.id])}）</small><em>${f.desc}</em></span>
       </button>`).join('');
     fs.querySelectorAll('.field-card').forEach((b, i) => {
       drawFieldThumb(b.querySelector('canvas'), FIELDS[i]);
       b.onclick = () => { Game.save.field = b.dataset.id; Game.persist(); this.renderSortie(); };
+    });
+    // 層の選択：ボスを倒すと次の層が解放される
+    const fl = document.getElementById('floor-select');
+    let btns = '';
+    for (let f = 1; f <= FLOORS; f++) {
+      const lock = f > reached[F.id];
+      btns += `<button class="${f === floor ? 'sel' : ''}${lock ? ' lock' : ''}" data-f="${f}" ${lock ? 'disabled' : ''}
+        title="${lock ? '一つ上の層のボスを倒すと解放' : `耐久 ${fmtMul(floorMul(f).hp)} / 攻撃力 ${fmtMul(floorMul(f).dmg)}`}">${lock ? '🔒' : ''}${floorName(f)}</button>`;
+    }
+    fl.innerHTML = `<div class="floor-btns">${btns}</div>
+      <p>${floorName(floor)}のエネミー（ボス含む）：耐久 <b>${fmtMul(fm.hp)}</b> / 攻撃力 <b>${fmtMul(fm.dmg)}</b> / 鉱石ドロップ <b>${fmtMul(fm.ore)}</b>
+      <small>下の層ほど手強い。ボスを倒すと次の層が解放されます。</small></p>`;
+    fl.querySelectorAll('button:not([disabled])').forEach(b => {
+      b.onclick = () => { Game.save.floor[F.id] = +b.dataset.f; Game.persist(); this.renderSortie(); };
     });
     document.getElementById('enemyCount').value = n;
     document.getElementById('enemyCountVal').textContent = n + ' 体';
@@ -774,7 +789,7 @@ const Garage = {
       <table class="district-tbl">
         <thead><tr><th>地区</th><th>${ENEMY_DEFS.scarab.name}</th><th>${ENEMY_DEFS.spitter.name}</th><th>${ENEMY_DEFS.troll.name}</th><th>戦闘フィールド</th></tr></thead>
         <tbody>${rows}
-          <tr class="boss"><td><b>BOSS</b> ${ENEMY_DEFS[F.boss].name}</td><td colspan="3">全地区掃討後に出現 / HP ${ENEMY_DEFS[F.boss].hp + 25 * n}</td><td>全地区</td></tr>
+          <tr class="boss"><td><b>BOSS</b> ${ENEMY_DEFS[F.boss].name}</td><td colspan="3">全地区掃討後に出現 / HP ${bossHp(ENEMY_DEFS[F.boss], n, floor)}</td><td>全地区</td></tr>
         </tbody>
       </table>
       <p class="muted">各地区を掃討するたびに「次に進みますか？」と確認されます。帰還すればそこまでの戦果で任務終了。HP・弾薬は地区をまたいで持ち越します。<br>

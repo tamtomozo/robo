@@ -99,8 +99,10 @@ function createWorld(save) {
   // field = 出撃するフィールド、geo = その形の処理（field.js）。FW × H = フィールド全体の大きさ
   const F = fieldById(save.field), geo = FIELD_SHAPES[F.shape];
   const { FW, H } = geo.size(F);
+  const floor = clamp(save.floor[F.id] | 0, 1, FLOORS);
   const w = {
-    field: F, geo, FW, H, district: 0, open: 1, full: false, perDistrict: save.enemyCount,
+    field: F, floor, fm: floorMul(floor),   // 出撃した層 / その層のエネミー強化倍率（耐久・攻撃・鉱石）
+    geo, FW, H, district: 0, open: 1, full: false, perDistrict: save.enemyCount,
     time: 0, enemies: [], pshots: [], eshots: [], fx: [], scorch: [], rocks: [], decor: [],
     webs: [], hazards: [],   // 蜘蛛の巣（機体が減速する）/ 落下予告の出ている攻撃（boss-spider.js）
     phase: 'fight', phaseT: 0, boss: null, log: [], result: null, endT: 0, shake: 0, banner: null,
@@ -147,7 +149,8 @@ function createWorld(save) {
     w.decor.push({ x, y, s: rand(0.5, 1.5), rot: rand(0, 6.283), type: pick(F.decor) });
   }
   makeVeins(w);
-  addLog(w, `戦闘モード起動。${F.name}へ降下完了。`, '#9fe0b0');
+  addLog(w, `戦闘モード起動。${F.name} ${floorName(floor)}へ降下完了。`, '#9fe0b0');
+  if (floor > 1) addLog(w, `深層の敵性生体：耐久 ${fmtMul(w.fm.hp)} / 攻撃力 ${fmtMul(w.fm.dmg)}`, '#ffb070');
   startDistrict(w);
   return w;
 }
@@ -165,7 +168,7 @@ function startDistrict(w) {
   w.reinLogged = false;
   while (w.queue.length && w.enemies.length < MAX_ACTIVE_ENEMIES) spawnEnemy(w, w.queue.pop(), null);
   w.phase = 'fight';
-  w.banner = { title: `${D.name}「${D.sub}」`, sub: `敵性生体反応 ${w.perDistrict}体`, t: 3 };
+  w.banner = { title: `${floorName(w.floor)} ${D.name}「${D.sub}」`, sub: `敵性生体反応 ${w.perDistrict}体`, t: 3 };
   Sound.play('radio');
   addLog(w, `${D.name}「${D.sub}」：敵性生体反応 ${w.perDistrict}体 を確認。`, '#ffd24a');
 }
@@ -299,10 +302,11 @@ function spawnEnemy(w, type, at) {
   const rare = !def.boss && !at && Math.random() < RARE.chance * (w.surge.k > 0.5 ? RARE.surgeMul : 1);
   const d = rare ? rareDef(def) : def;
   const e = {
-    type, def: d, rare, x, y, vx: 0, vy: 0, a: 0, r: d.r, hp: d.hp, maxHp: d.hp,
+    type, def: d, rare, x, y, vx: 0, vy: 0, a: 0, r: d.r, hp: 0, maxHp: 0,
     cd: rand(0, def.cd), flash: 0, anim: rand(0, 10), strafeDir: Math.random() < 0.5 ? -1 : 1, lunge: 0,
     cx: x, cy: y, chkT: rand(1, 1.5), unstuck: 0,
   };
+  e.hp = e.maxHp = Math.round(d.hp * w.fm.hp);   // 下の層ほど耐久が高い
   w.enemies.push(e);
   if (rare) {
     w.stats.rareSeen++;
@@ -319,6 +323,11 @@ function rareDef(def) {
   });
 }
 
+// ボスの耐久（エネミー数と層で決まる）
+function bossHp(def, perDistrict, floor) {
+  return Math.round((def.hp + 25 * perDistrict) * floorMul(floor).hp);
+}
+
 function spawnBoss(w) {
   const P = w.player;
   // 機体から離れた、フィールドの内側の位置に出現（見つからなければ近づける）
@@ -332,7 +341,7 @@ function spawnBoss(w) {
   const K = BOSS_KINDS[w.field.boss];
   const e = spawnEnemy(w, w.field.boss, { x, y });
   w.geo.clamp(w, e);
-  e.hp = e.maxHp = e.def.hp + 25 * w.perDistrict;
+  e.hp = e.maxHp = bossHp(e.def, w.perDistrict, w.floor);
   bossSet(e, 'emerge', K.emergeT);
   e.invuln = true;
   e.phase2 = false;
@@ -776,7 +785,7 @@ function updatePlayerShots(w, dt) {
 function hurtPlayer(w, dmg) {
   const P = w.player;
   if (w.result || P.air > 0) return;   // ジャンプ中は無敵
-  const real = dmg * (1 + SURGE.dmg * w.surge.k) * 100 / (100 + P.st.def * 4);   // 脈動中は被ダメージ増
+  const real = dmg * w.fm.dmg * (1 + SURGE.dmg * w.surge.k) * 100 / (100 + P.st.def * 4);   // 下の層ほど・脈動中は被ダメージ増
   P.hp -= real;
   P.hit = 0.12;
   Sound.play('hurt');
@@ -1301,9 +1310,10 @@ function dropOre(w, e) {
   const drop = ORE_DROPS[e.type];
   if (!drop) return;
   const big = e.def.boss ? 2.5 : 1;
-  const mul = (!e.def.boss && w.surge.k > 0.5 ? 2 : 1) * (e.rare ? RARE.ore : 1);   // 脈動中に倒すと鉱石 2倍 / レアは RARE.ore 倍
+  const mul = (!e.def.boss && w.surge.k > 0.5 ? 2 : 1) * (e.rare ? RARE.ore : 1) * w.fm.ore;   // 脈動中に倒すと鉱石 2倍 / レアは RARE.ore 倍 / 下の層ほど多い
   for (const [kind, n] of Object.entries(drop)) {
-    for (let i = 0; i < n * mul; i++) {
+    const v = n * mul, cnt = Math.floor(v) + (Math.random() < v % 1 ? 1 : 0);   // 端数は確率で1個
+    for (let i = 0; i < cnt; i++) {
       const a = rand(0, Math.PI * 2), sp = rand(1.5, 5) * big;
       w.ores.push({
         kind, x: e.x + rand(-0.3, 0.3) * e.r, y: e.y + rand(-0.3, 0.3) * e.r,
@@ -2142,7 +2152,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   const DS = w.field.districts, D = DS[w.district];
   ctx.font = 'bold 14px sans-serif';
   ctx.fillStyle = '#f0c890';
-  if (!bossPhase) ctx.fillText(`${D.name}「${D.sub}」  ${w.district + 1} / ${DS.length}`, VW / 2, 12);
+  if (!bossPhase) ctx.fillText(`${floorName(w.floor)}  ${D.name}「${D.sub}」  ${w.district + 1} / ${DS.length}`, VW / 2, 12);
   ctx.font = 'bold 18px sans-serif';
   ctx.fillStyle = '#f2e6c8';
   if (w.phase === 'fight') ctx.fillText(`残敵 ${remain} / ${w.perDistrict}`, VW / 2, 32);
@@ -2509,6 +2519,7 @@ const Battle = {
       const res = finishOre(w);
       Game.addOre(res.gain);
       Game.addParts(res.parts);
+      if (w.result === 'win') w.unlocked = Game.unlockFloor(w.field.id, w.floor);
       Report.show(w);
       return;
     }

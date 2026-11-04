@@ -9,7 +9,7 @@ const Report = {
     Sound.playBgm('garage');
     const s = w.stats, P = w.player;
     const title = {
-      win: '任務完了 — 全地区制圧・ボス撃破', lose: '機体大破 — 任務失敗', retreat: '撤退 — 任務中断',
+      win: `任務完了 — ${floorName(w.floor)} 制圧・ボス撃破`, lose: '機体大破 — 任務失敗', retreat: '撤退 — 任務中断',
       return: `基地へ帰還 — ${s.cleared}地区 掃討完了`,
     }[w.result];
     const cls = { win: 'win', lose: 'lose', retreat: 'retreat', return: 'return' }[w.result];
@@ -42,6 +42,8 @@ const Report = {
       const pct = Math.round(P.hp / P.maxHp * 100);
       notes.push(`機体HP ${pct}% で帰還しました。${s.cleared < DS.length ? `次は${DS[s.cleared].name}以降が待っています。` : 'ボス戦に挑むには、さらに損傷を抑える必要があります。'}`);
     }
+    if (w.unlocked) notes.push(`${w.field.name}の${floorName(w.unlocked)}が解放されました。次の出撃は${floorName(w.unlocked)}になります（出撃タブで層を選び直せます）。エネミーは耐久 ${fmtMul(floorMul(w.unlocked).hp)} / 攻撃力 ${fmtMul(floorMul(w.unlocked).dmg)} に強化されています。`);
+    else if (w.result === 'win' && w.floor >= FLOORS) notes.push(`${w.field.name}の最深部 ${floorName(FLOORS)}を制圧しました。`);
     if (w.result === 'win' && w.time < 420) notes.push('迅速な任務遂行です。敵数を増やして挑戦してみましょう。');
     if (lostAny) notes.push('機体大破により、回収した鉱石の半分を失いました。');
     if (ore.field) notes.push(`フィールドに残した鉱石 ${ore.field}個は回収できませんでした（地区を掃討すると回収ドローンが残りを回収します）。`);
@@ -53,7 +55,7 @@ const Report = {
     if (!notes.length) notes.push('特記事項なし。良好な戦闘データです。');
 
     document.getElementById('report').innerHTML = `
-      <div class="rep-head ${cls}"><h1>${title}</h1><p>${w.field.name} / 掃討 ${s.cleared} / ${DS.length} 地区 / 戦闘時間 ${mmss(w.time)} / 交戦した敵 ${s.total}体</p>
+      <div class="rep-head ${cls}"><h1>${title}</h1><p>${w.field.name} ${floorName(w.floor)} / 掃討 ${s.cleared} / ${DS.length} 地区 / 戦闘時間 ${mmss(w.time)} / 交戦した敵 ${s.total}体</p>
         <div class="rep-districts">${DS.map((D, i) => {
           const st = i < s.cleared ? 'done' : i === w.district && w.result !== 'return' ? 'fail' : 'none';
           return `<span class="${st}">${D.name}「${D.sub}」${st === 'done' ? ' ✔' : st === 'fail' ? ' ✖' : ''}</span>`;

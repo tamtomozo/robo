@@ -304,6 +304,22 @@ function fieldById(id) {
   return FIELDS.find(f => f.id === id) || FIELDS[0];
 }
 
+// 階層：どのフィールドも第1〜第 FLOORS 層（各層は同じ3地区＋ボス）。
+// 下の層ほどエネミー（ボス含む）の耐久・攻撃力が上がり、落とす鉱石も増える。ボスを倒すと次の層が解放される
+const FLOORS = 8;
+const FLOOR_STEP = { hp: 0.3, dmg: 0.15, ore: 0.15 };   // 1層下がるごとの増加（第8層で 耐久×3.1 / 攻撃×2.05 / 鉱石×2.05）
+function floorMul(f) {
+  const k = clamp(f | 0, 1, FLOORS) - 1;
+  return { hp: 1 + FLOOR_STEP.hp * k, dmg: 1 + FLOOR_STEP.dmg * k, ore: 1 + FLOOR_STEP.ore * k };
+}
+function floorName(f) { return `第${f}層`; }
+function fmtMul(v) { return '×' + String(+v.toFixed(2)); }   // 倍率の表示（×1.45 など）
+function emptyFloors(v) {
+  const o = {};
+  for (const f of FIELDS) o[f.id] = v;
+  return o;
+}
+
 // 敵の構成（数と地区から決定的に決める。奥の地区ほど大型・射撃型が増える）
 function enemyComposition(n, D) {
   const list = [];
@@ -399,6 +415,8 @@ function defaultSave() {
     program: defaultProgram(),
     enemyCount: 20,
     field: 'wasteland',   // 出撃するフィールド（FIELDS の id）
+    floor: emptyFloors(1),     // フィールド id → 出撃する層
+    reached: emptyFloors(1),   // フィールド id → 解放済みの一番深い層
     ore: emptyOre(),   // 所持している鉱石
     upgrades: {},      // パーツ id → 強化レベル
     stock: [],         // レアエネミーが落としたブースター { uid, cat, id(対象パーツ), bonus, got }（同じものを何個でも持てる）

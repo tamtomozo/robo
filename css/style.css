@@ -420,6 +420,14 @@ table.rep tr.sum th, table.rep tr.sum td { color: #ffb050; font-weight: bold; }
 .field-card small { color: #a89a80; font-size: 11px; }
 .field-card em { font-style: normal; font-size: 11px; color: #cbbd9c; line-height: 1.5; }
 .field-card.sel { border-color: #e08a3a; background: #4a3420; box-shadow: 0 0 0 1px #e08a3a inset; }
+.floor-select { margin: 0 0 14px; font-size: 13px; color: #cfc4ac; }
+.floor-btns { display: flex; gap: 6px; margin-bottom: 6px; }
+.floor-btns button { flex: 1; padding: 6px 0; font-size: 13px; }
+.floor-btns button.sel { border-color: #e08a3a; background: #4a3420; color: #ffd8a0; box-shadow: 0 0 0 1px #e08a3a inset; }
+.floor-btns button.lock { opacity: 0.4; cursor: default; }
+.floor-select p { margin: 0; }
+.floor-select b { color: #ffb050; }
+.floor-select small { display: block; color: #a89a80; font-size: 11px; margin-top: 2px; }
 
 /* ===================== 更新のお知らせ ===================== */
 .update-banner {
