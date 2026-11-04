@@ -126,13 +126,34 @@ function oreHTML(ore, have) {
 //  パーツ強化（強化レベルはパーツごと。最大 UPGRADE_MAX）
 //  cost(L)：レベル L に上げるのに必要な鉱石 / apply(p, lv)：パーツ性能の写しを書き換える
 // ---------------------------------------------------------------------
-const UPGRADE_MAX = 5;
+const UPGRADE_MAX = 10;
+const UPGRADE_SHOT_LV = 6;   // 攻撃系：このレベルから弾数+1（1発の威力はいったん下がり、Lv10で未強化の1.5倍）
+const UPGRADE_JUMP_LV = 6;   // 機動系：このレベルからジャンプが使える
+
+// 腕の強化：1発あたりの威力の倍率と同時発射数
+function armUpgradeMult(lv) {
+  if (lv < UPGRADE_SHOT_LV) return 1 + 0.12 * lv;                  // Lv5 = ×1.6
+  return 0.9 + 0.6 * (lv - UPGRADE_SHOT_LV) / (UPGRADE_MAX - UPGRADE_SHOT_LV);   // Lv6 = ×0.9 → Lv10 = ×1.5
+}
+
+// 脚の強化で使えるジャンプの性能（dist = 跳躍距離 m / cd = 再使用までの待ち 秒 / dur = 滞空時間 秒）
+function jumpPerf(lv) {
+  if (lv < UPGRADE_JUMP_LV) return null;
+  const j = lv - UPGRADE_JUMP_LV;
+  return { dist: 8 + j, cd: 5 - 0.5 * j, dur: 0.55 + 0.02 * j };
+}
+
 const UPGRADES = {
   arm: {
-    label: '攻撃力', where: '腕パーツ', per: '1段階ごとに 威力 +12%',
+    label: '攻撃力', where: '腕パーツ',
+    per: `Lv1〜5：威力 +12%/段　Lv${UPGRADE_SHOT_LV}〜：弾数+1（2発同時。1発の威力はいったん下がり、Lv10で未強化の1.5倍）`,
     cost: L => ({ iron: 8 * L, crystal: 2 * L }),
-    apply(p, lv) { p.dmg *= 1 + 0.12 * lv; },
-    stat: p => ['威力', p.dmg, ''],
+    apply(p, lv) {
+      p.dmg *= armUpgradeMult(lv);
+      if (lv >= UPGRADE_SHOT_LV) p.shots = 2;
+    },
+    stat: p => ['威力', p.dmg, p.shots > 1 ? ` ×${p.shots}発` : ''],
+    note: (p, lv) => lv + 1 === UPGRADE_SHOT_LV ? '次の強化で弾数+1' : '',
   },
   torso: {
     label: '防御力', where: '胴体', per: '1段階ごとに 防御 +2（被ダメージ軽減）',
@@ -141,10 +162,21 @@ const UPGRADES = {
     stat: p => ['防御', p.def, ''],
   },
   legs: {
-    label: '機動性', where: '脚部', per: '1段階ごとに 速度・旋回・加速 +6%',
+    label: '機動性', where: '脚部',
+    per: `1段階ごとに 速度・旋回・加速 +6%　Lv${UPGRADE_JUMP_LV}〜：ジャンプ解放（跳躍中は無敵。レベルが上がるほど遠くへ・短い間隔で跳べる）`,
     cost: L => ({ iron: 12 * L }),
-    apply(p, lv) { const k = 1 + 0.06 * lv; p.speed *= k; p.turn *= k; p.accel *= k; },
+    apply(p, lv) {
+      const k = 1 + 0.06 * lv; p.speed *= k; p.turn *= k; p.accel *= k;
+      p.jump = jumpPerf(lv);
+    },
     stat: p => ['速度', p.speed, 'm/s'],
+    note: (p, lv) => {
+      if (lv + 1 === UPGRADE_JUMP_LV) return '次の強化でジャンプ解放';
+      const a = jumpPerf(lv), b = jumpPerf(lv + 1);
+      if (!a) return '';
+      const t = j => `${j.dist}m / 待ち${fmtNum(j.cd)}s`;
+      return `ジャンプ ${t(a)}${b && lv < UPGRADE_MAX ? ` → ${t(b)}` : ''}`;
+    },
   },
   headCpu: {
     label: '実行速度', where: '頭部A（回路ユニット）', per: '1段階ごとに 回路の処理速度 +20%',
@@ -225,6 +257,8 @@ const TILE_DEFS = {
   turn_l:    { kind: 'cmd', group: 'move', name: '左旋回', short: '左旋回', icon: '↺' },
   turn_r:    { kind: 'cmd', group: 'move', name: '右旋回', short: '右旋回', icon: '↻' },
   face:      { kind: 'cmd', group: 'move', name: '最寄りの敵へ向く', short: '敵へ向く', icon: '◎' },
+  jump:      { kind: 'cmd', group: 'move', name: `ジャンプ（脚部 強化Lv${UPGRADE_JUMP_LV}以上。跳躍中は無敵）`, short: 'ジャンプ', icon: '⤴',
+               params: ['前', '後', '左', '右', '敵から離脱'], unit: '', dp: 1 },
   fire_l:    { kind: 'cmd', group: 'atk', name: '左腕で攻撃', short: '左腕攻撃', icon: 'L' },
   fire_r:    { kind: 'cmd', group: 'atk', name: '右腕で攻撃', short: '右腕攻撃', icon: 'R' },
   fire_both: { kind: 'cmd', group: 'atk', name: '両腕で攻撃', short: '両腕攻撃', icon: 'LR' },
@@ -244,6 +278,7 @@ const TILE_DEFS = {
   c_ready_r: { kind: 'cond', group: 'cond', name: '右腕が攻撃可能か（リロード中でない）', short: '右腕OK', icon: '◇' },
   c_proj:    { kind: 'cond', group: 'cond', name: '敵弾が○m以内に接近しているか', short: '敵弾≦', icon: '◇',
                params: [4, 8, 12], unit: 'm', dp: 1 },
+  c_jump:    { kind: 'cond', group: 'cond', name: 'ジャンプ可能か（脚部 強化Lv6以上・再使用待ちでない）', short: '跳躍OK', icon: '◇' },
   c_boss:    { kind: 'cond', group: 'cond', name: 'ボスが出現しているか', short: 'ボス?', icon: '◇' },
   c_rand:    { kind: 'cond', group: 'cond', name: 'ランダム（○%の確率でYES）', short: '確率', icon: '◇',
                params: [25, 50, 75], unit: '%', dp: 1 },

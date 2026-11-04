@@ -18,7 +18,8 @@ function addLog(w, msg, color = '#cfe8d6') {
 //  生成
 // ---------------------------------------------------------------------
 function makeArm(perf, side) {
-  return { side, def: perf.def, perf, ammo: perf.def.mag, cd: 0, reloading: 0, trigger: 0, recoil: 0, flash: 0 };
+  // echo = 強化 Lv6〜 の近接武器が2撃目を振るまでの残り時間
+  return { side, def: perf.def, perf, ammo: perf.def.mag, cd: 0, reloading: 0, trigger: 0, recoil: 0, flash: 0, echo: 0 };
 }
 
 function createPlayer(save) {
@@ -27,6 +28,7 @@ function createPlayer(save) {
     x: 0, y: 0, a: -Math.PI / 2, vx: 0, vy: 0, r: 1.2,
     build: save.build, upgrades: save.upgrades, st, hp: st.hp, maxHp: st.hp,
     action: null, walk: 0, hit: 0, dead: false, hpWarn: 100,
+    air: 0, airMax: 0, jvx: 0, jvy: 0, jumpCd: 0,   // ジャンプ：残り滞空時間 / 跳躍速度 / 再使用までの待ち
     arms: { L: makeArm(st.armL, 'L'), R: makeArm(st.armR, 'R') },
     vm: new CircuitVM(save.program, st.grid, st.clock),
   };
@@ -41,6 +43,52 @@ function setPlayerRatio(w, P, v) {
   P.arms.L.perf = P.st.armL;
   P.arms.R.perf = P.st.armR;
   addLog(w, `出力配分：腕 ${Math.round(r * 100)}% / 脚 ${Math.round((1 - r) * 100)}%`, '#c9a0ff');
+}
+
+// ---------------------------------------------------------------------
+//  ジャンプ（脚部 強化Lv6〜）：滞空中は被弾せず、岩も飛び越えられる
+// ---------------------------------------------------------------------
+function canJump(P) {
+  return !!P.st.jump && P.jumpCd <= 0 && !(P.air > 0);
+}
+
+// 回路タイルのパラメータ（前/後/左/右/敵から離脱）から跳ぶ方向を決める
+function jumpAngle(w, P, p) {
+  if (p === 4) {
+    const n = nearestEnemy(w, P, P.st.sensor);
+    if (n) return Math.atan2(P.y - n.e.y, P.x - n.e.x);
+    p = 1;
+  }
+  return P.a + [0, Math.PI, -Math.PI / 2, Math.PI / 2][p];
+}
+
+function startJump(w, P, ang) {
+  if (w.result || !canJump(P)) return false;
+  const J = P.st.jump, v = J.dist / J.dur;
+  P.air = P.airMax = J.dur;
+  P.jvx = Math.cos(ang) * v;
+  P.jvy = Math.sin(ang) * v;
+  P.jumpCd = J.cd;
+  Sound.play('jump', { x: P.x, y: P.y });
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * Math.PI * 2;
+    w.fx.push({ type: 'dust', x: P.x + Math.cos(a) * 0.8, y: P.y + Math.sin(a) * 0.8,
+      vx: Math.cos(a) * 3, vy: Math.sin(a) * 3, life: 0.6, max: 0.6, size: rand(0.5, 0.9) });
+  }
+  return true;
+}
+
+function landJump(w, P) {
+  P.air = 0;
+  P.vx = P.jvx * 0.25;
+  P.vy = P.jvy * 0.25;
+  w.shake = Math.max(w.shake, 0.15);
+  Sound.play('land', { x: P.x, y: P.y });
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2;
+    w.fx.push({ type: 'dust', x: P.x + Math.cos(a), y: P.y + Math.sin(a),
+      vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, life: 0.7, max: 0.7, size: rand(0.6, 1.1) });
+  }
 }
 
 function insideRock(w, x, y, r) {
@@ -273,6 +321,7 @@ function clampField(w, o) {
 function updatePlayer(w, P, dt, inp) {
   const st = P.st;
   let thrust = 0, strafe = 0, turn = 0, faceTo = null, manualVel = null;
+  P.jumpCd = Math.max(0, P.jumpCd - dt);
 
   if (inp.manual) {
     P.action = null;
@@ -281,6 +330,7 @@ function updatePlayer(w, P, dt, inp) {
     const l = Math.hypot(mx, my);
     if (l > 0) { mx /= l; my /= l; }
     manualVel = [mx * st.speed, my * st.speed];
+    if (inp.jump) { inp.jump = false; startJump(w, P, l > 0 ? Math.atan2(my, mx) : P.a); }   // 移動キーの方向（なければ正面）へ
     if (inp.aim) faceTo = Math.atan2(inp.aim.y - P.y, inp.aim.x - P.x);
     if (inp.fireL) P.arms.L.trigger = Math.max(P.arms.L.trigger, 0.05);
     if (inp.fireR) P.arms.R.trigger = Math.max(P.arms.R.trigger, 0.05);
@@ -316,26 +366,38 @@ function updatePlayer(w, P, dt, inp) {
     dvx = (fx * thrust + rx * strafe * st.strafe) * st.speed;
     dvy = (fy * thrust + ry * strafe * st.strafe) * st.speed;
   }
-  if (w.webs.length && inWeb(w, P)) { dvx *= WEB_SLOW; dvy *= WEB_SLOW; }   // 蜘蛛の巣に脚を取られる
-  const k = Math.min(1, st.accel * dt);
-  P.vx += (dvx - P.vx) * k;
-  P.vy += (dvy - P.vy) * k;
+  const air = P.air > 0;
+  if (air) {
+    // 滞空中は跳躍の勢いのまま進む（移動入力・ノックバック・蜘蛛の巣の影響を受けない）
+    P.vx = P.jvx;
+    P.vy = P.jvy;
+  } else {
+    if (w.webs.length && inWeb(w, P)) { dvx *= WEB_SLOW; dvy *= WEB_SLOW; }   // 蜘蛛の巣に脚を取られる
+    const k = Math.min(1, st.accel * dt);
+    P.vx += (dvx - P.vx) * k;
+    P.vy += (dvy - P.vy) * k;
+  }
   P.x += P.vx * dt;
   P.y += P.vy * dt;
   const sp = Math.hypot(P.vx, P.vy);
-  P.walk += sp * dt;
   w.stats.distance += sp * dt;
-  // 歩幅ごとに足音
-  const stride = Math.floor(P.walk / 2.6);
-  if (stride !== P.stride) { P.stride = stride; Sound.play('step', { x: P.x, y: P.y, vol: 0.7 }); }
-  collideRocks(w, P);
+  if (air) {
+    P.air -= dt;
+    if (P.air <= 0) landJump(w, P);
+  } else {
+    P.walk += sp * dt;
+    // 歩幅ごとに足音
+    const stride = Math.floor(P.walk / 2.6);
+    if (stride !== P.stride) { P.stride = stride; Sound.play('step', { x: P.x, y: P.y, vol: 0.7 }); }
+  }
+  if (!(P.air > 0)) collideRocks(w, P);   // 滞空中は岩を飛び越える（着地時に重なっていれば押し出す）
   clampField(w, P);
   P.hit = Math.max(0, P.hit - dt);
 
   updateArm(w, P, P.arms.L, dt);
   updateArm(w, P, P.arms.R, dt);
 
-  if (sp > 2 && Math.random() < dt * sp * 0.7) {
+  if (!air && sp > 2 && Math.random() < dt * sp * 0.7) {
     w.fx.push({
       type: 'dust', x: P.x - Math.cos(P.a) * 0.8 + rand(-0.7, 0.7), y: P.y - Math.sin(P.a) * 0.8 + rand(-0.7, 0.7),
       vx: rand(-0.4, 0.4), vy: rand(-0.4, 0.4), life: 0.9, max: 0.9, size: rand(0.4, 0.8),
@@ -347,6 +409,17 @@ function updateArm(w, P, arm, dt) {
   arm.recoil = Math.max(0, arm.recoil - dt * 6);
   arm.flash = Math.max(0, arm.flash - dt);
   arm.cd -= dt;
+  if (arm.echo > 0) {
+    // 強化 Lv6〜 の近接武器：少し遅れて返す刀でもう一撃
+    arm.echo -= dt;
+    if (arm.echo <= 0) {
+      arm.echo = 0;
+      arm.recoil = 1;
+      w.stats.shots[arm.side]++;
+      Sound.play('melee', { x: P.x, y: P.y });
+      meleeSwing(w, P, arm, arm.perf.dmg);
+    }
+  }
   if (arm.reloading > 0) {
     arm.reloading -= dt;
     if (arm.reloading <= 0) { arm.reloading = 0; arm.ammo = arm.def.mag; Sound.play('reloaded', { x: P.x, y: P.y }); }
@@ -416,33 +489,44 @@ function fireArm(w, P, arm) {
   const J = JOINTS.shoulder, mz = armMuzzle(d);
   const mx = P.x + fx * mz + rx * s * J.y;
   const my = P.y + fy * mz + ry * s * J.y;
-  w.stats.shots[arm.side]++;
+  const n = d.shots || 1;   // 強化 Lv6〜 は1回の攻撃で2発
+  w.stats.shots[arm.side] += d.type === 'melee' ? 1 : n;
   arm.recoil = 1;
   arm.flash = 0.06;
   const dmg = arm.perf.dmg;
   Sound.play({ gun: 'gun', shell: 'shell', missile: 'missile', flame: 'flame', melee: 'melee' }[d.type], { x: mx, y: my });
-  if (d.type === 'melee') { meleeSwing(w, P, arm, dmg); return; }
-
-  const ang = (d.type === 'missile' ? P.a : aimAngle(w, P, mx, my, d.range)) + rand(-d.spread, d.spread);
-  const shot = {
-    kind: d.type, arm: arm.side, x: mx, y: my, ang, speed: d.speed,
-    // 前フレーム位置＝肩。最初の判定で肩〜砲口間の密着した敵にも当たる
-    px: P.x + fx * J.x + rx * s * J.y, py: P.y + fy * J.x + ry * s * J.y,
-    vx: Math.cos(ang) * d.speed, vy: Math.sin(ang) * d.speed,
-    dmg, life: d.range / d.speed, r: 0.25, splash: d.splash || 0, counted: false,
-  };
-  if (d.type === 'flame') {
-    shot.r = 0.4; shot.hitSet = new Set(); shot.max = shot.life;
-    shot.vx += P.vx; shot.vy += P.vy;
-  } else if (d.type === 'missile') {
-    shot.target = pickMissileTarget(w, P, d.range, shot.splash);
-    shot.turn = d.turn; shot.life *= 1.5; shot.smokeT = 0;
-    shot.r = d.fuse || shot.r;   // 近接信管：敵にこの距離まで近づいたら起爆
-  } else if (d.type === 'shell') {
-    shot.r = 0.35;
-    w.shake = Math.max(w.shake, 0.25);
+  if (d.type === 'melee') {
+    meleeSwing(w, P, arm, dmg);
+    if (n > 1) arm.echo = Math.min(0.15, 0.5 / arm.perf.rate);
+    return;
   }
-  w.pshots.push(shot);
+
+  const aim = d.type === 'missile' ? P.a : aimAngle(w, P, mx, my, d.range);
+  const fan = { missile: 0.35, flame: 0.12, shell: 0.05 }[d.type] || 0.035;   // 複数発のときの左右の開き(rad)
+  for (let i = 0; i < n; i++) {
+    const off = i - (n - 1) / 2;
+    const ox = rx * off * 0.35, oy = ry * off * 0.35;   // 砲口から左右に少しずらして並べて撃つ
+    const ang = aim + off * fan + rand(-d.spread, d.spread);
+    const shot = {
+      kind: d.type, arm: arm.side, x: mx + ox, y: my + oy, ang, speed: d.speed,
+      // 前フレーム位置＝肩。最初の判定で肩〜砲口間の密着した敵にも当たる
+      px: P.x + fx * J.x + rx * s * J.y + ox, py: P.y + fy * J.x + ry * s * J.y + oy,
+      vx: Math.cos(ang) * d.speed, vy: Math.sin(ang) * d.speed,
+      dmg, life: d.range / d.speed, r: 0.25, splash: d.splash || 0, counted: false,
+    };
+    if (d.type === 'flame') {
+      shot.r = 0.4; shot.hitSet = new Set(); shot.max = shot.life;
+      shot.vx += P.vx; shot.vy += P.vy;
+    } else if (d.type === 'missile') {
+      shot.target = pickMissileTarget(w, P, d.range, shot.splash);
+      shot.turn = d.turn; shot.life *= 1.5; shot.smokeT = 0;
+      shot.r = d.fuse || shot.r;   // 近接信管：敵にこの距離まで近づいたら起爆
+    } else if (d.type === 'shell') {
+      shot.r = 0.35;
+      w.shake = Math.max(w.shake, 0.25);
+    }
+    w.pshots.push(shot);
+  }
 }
 
 function meleeSwing(w, P, arm, dmg) {
@@ -588,7 +672,7 @@ function updatePlayerShots(w, dt) {
 
 function hurtPlayer(w, dmg) {
   const P = w.player;
-  if (w.result) return;
+  if (w.result || P.air > 0) return;   // ジャンプ中は無敵
   const real = dmg * 100 / (100 + P.st.def * 4);
   P.hp -= real;
   P.hit = 0.12;
@@ -1080,7 +1164,7 @@ function updateEnemyShots(w, dt) {
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     s.life -= dt;
-    if (!P.dead && Math.hypot(P.x - s.x, P.y - s.y) < P.r + s.r) {
+    if (!P.dead && !(P.air > 0) && Math.hypot(P.x - s.x, P.y - s.y) < P.r + s.r) {   // ジャンプ中は頭上を越える
       hurtPlayer(w, s.dmg);
       s.life = 0;
       if (s.web) { addWeb(w, P.x, P.y); s.web = false; }
@@ -1381,11 +1465,20 @@ function drawWorld(ctx, w, B, VW, VH) {
 
   // プレイヤー
   if (!P.dead) {
+    // ジャンプ中：地面に影を残し、機体は高さに応じて大きく描く
+    const lift = P.air > 0 ? Math.sin(Math.PI * (1 - P.air / P.airMax)) : 0;
+    if (lift > 0) {
+      ctx.fillStyle = `rgba(0,0,0,${0.25 - 0.1 * lift})`;
+      ctx.beginPath();
+      ctx.ellipse(P.x + 0.6 * lift, P.y + 1.4 * lift, 1.5 * (1 - 0.25 * lift), 1.4 * (1 - 0.25 * lift), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.save();
     ctx.translate(P.x, P.y);
     ctx.rotate(P.a);
+    if (lift > 0) ctx.scale(1 + 0.35 * lift, 1 + 0.35 * lift);
     drawRobot(ctx, P.st.parts, {
-      time: w.time, walk: P.walk, hit: P.hit, xray: B.xray,
+      time: w.time, walk: P.walk, hit: P.hit, xray: B.xray, noShadow: lift > 0,
       armL: { recoil: P.arms.L.recoil, flash: P.arms.L.flash },
       armR: { recoil: P.arms.R.recoil, flash: P.arms.R.flash },
     });
@@ -1703,7 +1796,8 @@ function drawHUD(ctx, w, B, VW, VH) {
   ctx.textAlign = 'left';
 
   // --- 機体ステータス ---
-  hudPanel(ctx, 12, 12, 310, 172, '機体ステータス  [頭部A/B テレメトリ]');
+  const JP = P.st.jump, jh = JP ? 18 : 0;   // ジャンプが使える脚なら1行増やす
+  hudPanel(ctx, 12, 12, 310, 172 + jh, '機体ステータス  [頭部A/B テレメトリ]');
   ctx.font = '12px sans-serif';
   ctx.fillStyle = '#e8f0ea';
   ctx.fillText(`HP ${Math.ceil(P.hp)} / ${P.maxHp}`, 20, 30);
@@ -1737,11 +1831,19 @@ function drawHUD(ctx, w, B, VW, VH) {
   }
   ctx.fillStyle = '#9fb5a5';
   ctx.fillText(`速度 ${Math.hypot(P.vx, P.vy).toFixed(1)} m/s   制御：${B.manual ? '手動操作' : '回路プログラム'}`, 20, y);
+  if (JP) {
+    y += 18;
+    const air = P.air > 0;
+    ctx.fillStyle = air ? '#8fe0ff' : P.jumpCd > 0 ? '#9fb5a5' : '#9fe0b0';
+    ctx.fillText(air ? 'ジャンプ：跳躍中（無敵）' : P.jumpCd > 0 ? `ジャンプ：再使用まで ${P.jumpCd.toFixed(1)}s`
+      : `ジャンプ：準備完了${B.manual ? ' [Shift]' : ''}`, 20, y);
+    hudBar(ctx, 200, y + 4, 114, 5, air ? 1 : 1 - P.jumpCd / JP.cd, '#8fe0ff');
+  }
 
   // --- 回収鉱石 ---
-  hudPanel(ctx, 12, 190, 310, 44, `回収鉱石${w.ores.length ? `   （フィールドに ${w.ores.length}個）` : ''}`);
+  hudPanel(ctx, 12, 190 + jh, 310, 44, `回収鉱石${w.ores.length ? `   （フィールドに ${w.ores.length}個）` : ''}`);
   ORES.forEach((k, i) => {
-    const ox = 22 + i * 100, oy = 216;
+    const ox = 22 + i * 100, oy = 216 + jh;
     const pulse = w.orePulse[k.id] || 0;
     ctx.fillStyle = k.color;
     ctx.save();
@@ -1867,7 +1969,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   ctx.fillStyle = 'rgba(240,230,210,0.8)';
   ctx.textAlign = 'center';
   ctx.fillText('[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [Esc]撤退', VW / 2, VH - 22);
-  if (B.manual) ctx.fillText('手動操作：WASD 移動 / マウス 照準 / 左クリック 左腕 / 右クリック 右腕', VW / 2, VH - 40);
+  if (B.manual) ctx.fillText(`手動操作：WASD 移動 / マウス 照準 / 左クリック 左腕 / 右クリック 右腕${P.st.jump ? ' / Shift ジャンプ' : ''}`, VW / 2, VH - 40);
   if (B.speed !== 1) {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = '#ffd24a';
@@ -1910,6 +2012,7 @@ const Battle = {
     this.speed = 1;
     this.paused = false;
     this.manual = false;
+    this.jumpReq = false;   // 手動操作で Shift が押された（次のシミュレーションでジャンプ）
     this.xray = false;
     this.zoom = 24;  // 1m あたりのピクセル数（ホイールで変更可）
     this.cam = { x: this.world.player.x, y: this.world.player.y };
@@ -2049,6 +2152,7 @@ const Battle = {
       case 'KeyQ': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio - 0.05); break;
       case 'KeyE': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio + 0.05); break;
       case 'KeyX': this.xray = !this.xray; break;
+      case 'ShiftLeft': case 'ShiftRight': if (this.manual) this.jumpReq = true; break;
       case 'Escape': if (!w.result) endBattle(w, 'retreat'); break;
     }
   },
@@ -2061,6 +2165,7 @@ const Battle = {
       aim: { x: this.cam.x + (this.mouse.x - this.VW / 2) / z, y: this.cam.y + (this.mouse.y - this.VH / 2) / z },
       fireL: this.mouse.l,
       fireR: this.mouse.r,
+      jump: this.jumpReq,
     };
   },
 
@@ -2080,6 +2185,7 @@ const Battle = {
         this.acc -= STEP;
         n++;
       }
+      if (n > 0) this.jumpReq = false;   // Shift のジャンプ要求はシミュレーションに渡したら消す
       if (n >= 12 || w.phase === 'confirm') this.acc = 0;
     }
     if (w.phase === 'confirm' && !this.confirmOpen && !w.result) this.showConfirm();

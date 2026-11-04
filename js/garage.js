@@ -43,10 +43,11 @@ function statChips(cat, p) {
     case 'torso': return c('耐久', p.hp) + c('防御', p.def) + c('出力', p.power) + c('重量', p.weight);
     case 'arm':
       if (p.type === 'none') return c('重量', 0);
-      return c('威力', fmtNum(p.dmg)) + c(p.type === 'melee' ? '振り' : '連射', `${p.rate}/s`) + c('射程', `${p.range}m`) +
+      return c('威力', fmtNum(p.dmg) + (p.shots > 1 ? ` ×${p.shots}発` : '')) + c(p.type === 'melee' ? '振り' : '連射', `${p.rate}/s`) + c('射程', `${p.range}m`) +
         (p.mag ? c('弾数', p.mag) + c('装填', `${p.reload}s`) : '') + (p.splash ? c('爆風', `${p.splash}m`) : '') + c('耐久', p.hp) + c('重量', p.weight);
     case 'legs': return c('速度', `${fmtNum(p.speed)}m/s`) + c('旋回', `${Math.round(p.turn * 57.3)}°/s`) + c('横移動', `${Math.round(p.strafe * 100)}%`) +
-      c('積載', p.cap) + c('耐久', p.hp) + c('重量', p.weight) + (p.defBonus ? c('防御+', p.defBonus) : '');
+      c('積載', p.cap) + c('耐久', p.hp) + c('重量', p.weight) + (p.defBonus ? c('防御+', p.defBonus) : '') +
+      (p.jump ? c('ジャンプ', `${p.jump.dist}m / 待ち${fmtNum(p.jump.cd)}s`) : '');
   }
   return '';
 }
@@ -201,6 +202,7 @@ const Garage = {
       ${row('重量 / 積載', `${st.weight} / ${st.cap}${st.over ? '  過積載！' : ''}`, st.weight / st.cap, st.over)}
       ${row('最高速度', st.speed.toFixed(1) + ' m/s', st.speed / 18)}
       ${row('旋回速度', Math.round(st.turn * 57.3) + ' °/s', st.turn / 5.5)}
+      ${st.jump ? row('ジャンプ', `${st.jump.dist} m / 再使用 ${fmtNum(st.jump.cd)} s`, st.jump.dist / 12) : ''}
       ${row('左腕 DPS', st.armL.dps.toFixed(1), st.armL.dps / 100)}
       ${row('右腕 DPS', st.armR.dps.toFixed(1), st.armR.dps / 100)}
       ${row('センサー', st.sensor + ' m', st.sensor / 75)}
@@ -250,13 +252,15 @@ const Garage = {
         const cost = max ? null : U.cost(lv + 1);
         const ok = cost && ORES.every(k => (ore[k.id] || 0) >= (cost[k.id] || 0));
         const [name, cur, unit] = U.stat(upgradedPart(cat, p, lv));
-        const next = max ? null : U.stat(upgradedPart(cat, p, lv + 1))[1];
+        const [, next, nunit] = max ? [] : U.stat(upgradedPart(cat, p, lv + 1));
+        const note = U.note ? U.note(p, lv) : '';
         let pips = '';
-        for (let i = 0; i < UPGRADE_MAX; i++) pips += `<i class="${i < lv ? 'on' : ''}"></i>`;
+        // Lv6〜 の目盛りは色を変える（弾数+1・ジャンプ解放の段階）
+        for (let i = 0; i < UPGRADE_MAX; i++) pips += `<i class="${i < lv ? 'on' : ''}${i >= 5 ? ' ex' : ''}"></i>`;
         return `<tr class="${eq ? 'eq' : ''}">
           <td class="nm">${p.name}${eq ? '<span class="tag">装着中</span>' : ''}</td>
           <td class="pips">${pips}<small>Lv${lv}</small></td>
-          <td class="val">${name} ${fmtNum(cur)}${unit}${max ? '' : ` → <b>${fmtNum(next)}${unit}</b>`}</td>
+          <td class="val">${name} ${fmtNum(cur)}${unit}${max ? '' : ` → <b>${fmtNum(next)}${nunit}</b>`}${note ? `<small class="note">${note}</small>` : ''}</td>
           <td class="cost">${max ? '<span class="maxed">最大強化</span>' : oreHTML(cost, ore)}</td>
           <td><button class="up-btn ${ok ? 'primary' : ''}" data-id="${p.id}" data-cat="${cat}" ${ok ? '' : 'disabled'}>${max ? 'MAX' : '強化'}</button></td>
         </tr>`;

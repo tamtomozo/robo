@@ -45,6 +45,7 @@ function weaponPerf(w, mult) {
   if (w.type === 'none') dps = 0;
   else if (w.mag > 0) dps = dmg * w.mag / (w.mag / rate + reload);
   else dps = dmg * rate;
+  dps *= w.shots || 1;   // 強化 Lv6〜 は1回の攻撃で複数発
   return { def: w, dmg, rate, reload, dps };
 }
 
@@ -66,7 +67,7 @@ function computeStats(build, ratioOverride, upgrades) {
   const def = p.torso.def + (p.legs.defBonus || 0);
   return {
     parts: p, ratio, power, armMult, legMult, weight, cap, over: weight > cap,
-    speed, turn, accel: p.legs.accel, strafe: p.legs.strafe,
+    speed, turn, accel: p.legs.accel, strafe: p.legs.strafe, jump: p.legs.jump || null,
     hp, def, sensor: p.headCpu.sensor, grid: p.headCpu.grid, clock: p.headCpu.clock,
     armL: weaponPerf(p.armL, armMult), armR: weaponPerf(p.armR, armMult),
   };
@@ -161,11 +162,13 @@ function drawRobot(ctx, parts, o = {}) {
   ctx.save();
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  // 影
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.beginPath();
-  ctx.ellipse(-0.25, 0.25, 1.5, 1.4, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // 影（ジャンプ中は呼び出し側が地面に描く）
+  if (!o.noShadow) {
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(-0.25, 0.25, 1.5, 1.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   drawLegs(ctx, parts.legs, s);
   drawSkeleton(ctx, false);

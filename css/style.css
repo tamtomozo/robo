@@ -105,12 +105,16 @@ h3 small { color: #a89a80; font-weight: normal; font-size: 12px; margin-left: 6p
 .up-tbl td { padding: 5px 6px; border-bottom: 1px solid #3a3226; }
 .up-tbl tr.eq td { background: rgba(90,55,20,0.35); }
 .up-tbl td.nm { width: 230px; font-weight: bold; }
-.up-tbl td.pips { width: 120px; white-space: nowrap; }
-.up-tbl td.pips i { display: inline-block; width: 12px; height: 12px; margin-right: 2px; border: 1px solid #6b5a40; background: #2a241b; transform: skewX(-15deg); }
+.up-tbl td.pips { width: 170px; white-space: nowrap; }
+.up-tbl td.pips i { display: inline-block; width: 10px; height: 12px; margin-right: 2px; border: 1px solid #6b5a40; background: #2a241b; transform: skewX(-15deg); }
 .up-tbl td.pips i.on { background: linear-gradient(#ffd07a, #e08a3a); border-color: #ffd08a; }
+.up-tbl td.pips i.ex { border-color: #7a4a5a; }
+.up-tbl td.pips i.ex:nth-child(6) { margin-left: 5px; }
+.up-tbl td.pips i.ex.on { background: linear-gradient(#ffb0e0, #d04a8a); border-color: #ffc0e8; }
 .up-tbl td.pips small { margin-left: 6px; color: #a89a80; }
 .up-tbl td.val { width: 190px; white-space: nowrap; }
 .up-tbl td.val b { color: #7dff9a; }
+.up-tbl td.val small.note { display: block; font-size: 11px; color: #ffb0e0; }
 .up-tbl td.cost { font-size: 12px; }
 .up-tbl td:last-child { width: 70px; text-align: right; }
 .up-btn { padding: 4px 14px; }

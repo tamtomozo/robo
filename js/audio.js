@@ -162,6 +162,20 @@ const SFX = {
     S.tone(out, t, { type: 'sine', f: 400, f2: 400 * Math.pow(2, up * 0.5), dur: 0.09, vol: 0.16 });
     return 0.1;
   } },
+  jump: { gap: 0.2, play(S, t, out) {
+    // 脚部のスラスター噴射（ボシュッ！と一気に浮き上がる）
+    S.noise(out, t, { dur: 0.32, vol: 0.42, a: 0.01, filt: 'bandpass', f: 500, f2: 2400, q: 1.2 });
+    S.tone(out, t, { type: 'sine', f: 70, f2: 180, dur: 0.22, vol: 0.32 });
+    S.tone(out, t + 0.02, { type: 'triangle', f: 240, f2: 520, dur: 0.18, vol: 0.1 });
+    return 0.34;
+  } },
+  land: { gap: 0.2, play(S, t, out) {
+    // 着地の衝撃（足音より重く、油圧で衝撃を吸収する音つき）
+    S.tone(out, t, { type: 'sine', f: 70, f2: 20, dur: 0.34, vol: 0.65 });
+    S.noise(out, t, { dur: 0.16, vol: 0.32, filt: 'lowpass', f: 700, f2: 90 });
+    S.noise(out, t + 0.08, { dur: 0.12, vol: 0.1, filt: 'bandpass', f: 1800, q: 3 });
+    return 0.36;
+  } },
   step: { gap: 0.12, play(S, t, out) {
     // 数十トンの鋼鉄ロボットが大地を踏みしめる重低音フットステップ（ズシィン…）
     S.tone(out, t, { type: 'sine', f: 60, f2: 22, dur: 0.24, vol: 0.5 }); // 大地を揺らすサブベース

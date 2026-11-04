@@ -127,6 +127,7 @@ function evalCond(tile, P, w) {
     case 'c_hp': return P.hp / P.maxHp * 100 <= prm;
     case 'c_ready_l': return armReady(P.arms.L);
     case 'c_ready_r': return armReady(P.arms.R);
+    case 'c_jump': return canJump(P);
     case 'c_boss': return !!(w.boss && w.boss.hp > 0);
     case 'c_rand': return Math.random() * 100 < prm;
     case 'c_proj': {
@@ -153,6 +154,10 @@ function execCmd(tile, P, w) {
     case 'turn_l':   P.action = { type: 'turn', dir: -1, t: 0.18, block: true }; break;
     case 'turn_r':   P.action = { type: 'turn', dir: 1, t: 0.18, block: true }; break;
     case 'face':     P.action = { type: 'face', t: 0.6, block: true }; break;
+    case 'jump':
+      // 跳べないとき（脚部 Lv5 以下・再使用待ち）は何もせず次のタイルへ。跳んだら着地まで待つ
+      if (startJump(w, P, jumpAngle(w, P, tile.p))) P.action = { type: 'jump', t: P.airMax, block: true };
+      break;
     case 'wait':     P.action = { type: 'wait', t: 0.3, block: true }; break;
     case 'fire_l':   P.arms.L.trigger = 0.6; break;
     case 'fire_r':   P.arms.R.trigger = 0.6; break;
