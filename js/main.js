@@ -15,7 +15,27 @@ const Game = {
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && document.getElementById('screen-garage').classList.contains('active')) this.checkUpdate();
     });
-    this.toGarage();
+    this.toTitle();
+  },
+
+  // タイトル画面：クリックかキーでガレージへ（この操作で音声も有効になる）
+  toTitle() {
+    this.show('title');
+    const scr = document.getElementById('screen-title');
+    // プロローグは毎秒 42px ほどの速さで流す（文章の長さが変わっても同じ速さになるよう、高さから時間を決める）
+    const crawl = document.getElementById('title-crawl'), inner = crawl.firstElementChild;
+    inner.style.animationDuration = ((inner.offsetHeight + crawl.offsetHeight) / 42) + 's';
+    const start = (e) => {
+      if (e.type === 'keydown' && (e.repeat || ['Shift', 'Control', 'Alt', 'Meta'].includes(e.key))) return;
+      if (e.type === 'keydown' && document.activeElement && document.activeElement.closest('#sound-ctl')) return;
+      if (e.type === 'keydown') e.preventDefault();
+      scr.removeEventListener('pointerdown', start);
+      window.removeEventListener('keydown', start);
+      Sound.play('ui');
+      this.toGarage();
+    };
+    scr.addEventListener('pointerdown', start);
+    window.addEventListener('keydown', start);
   },
 
   load() {

@@ -4,11 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- 版の番号。コミット時に .githooks/pre-commit が js・css の ?v= と version.json とあわせて書き換える -->
-<meta name="game-version" content="20261104-114847">
+<meta name="game-version" content="20261104-133612">
 <title>IRON WASTELAND — 荒野機兵戦記</title>
-<link rel="stylesheet" href="css/style.css?v=20261104-114847">
+<link rel="stylesheet" href="css/style.css?v=20261104-133612">
 </head>
 <body>
+
+<!-- ============================== タイトル ============================== -->
+<section id="screen-title" class="screen">
+  <div class="title-box">
+    <h1 class="title-logo">IRON<span>WASTELAND</span></h1>
+    <p class="title-sub">荒 野 機 兵 戦 記</p>
+  </div>
+  <!-- プロローグ（下から上へ流れてループする。速さは main.js の toTitle で文章の長さから決める） -->
+  <div id="title-crawl" class="title-crawl">
+    <div class="crawl-inner">
+      <p class="log">― 恒星間探査局　記録 第0号 ―</p>
+      <p>人類は航路の果てで<br>ひとつの惑星を見つけた。</p>
+      <p>赤錆色の大地。乾いた風。<br>大気の組成は、地球とほぼ同じ。</p>
+      <p>――あまりにも、似すぎていた。</p>
+      <p>先遣調査隊 十二名、降下。<br>七日目の交信を最後に、記録は途絶えている。</p>
+      <p>回収された音声には<br>砂の下から響く、規則正しい音と<br>隊員の最後の言葉だけが残されていた。</p>
+      <p class="warn">『……地面が、息をしている』</p>
+      <p>以来、この星への有人降下は禁じられた。</p>
+      <p>探索は、遠隔の機兵に委ねられる。<br>恐れを知らず、命令だけに従う鋼の体。<br>その頭脳に刻まれるのは<br>あなたが組んだ回路だけだ。</p>
+      <p>任務は、未知の惑星の探索。<br>荒野を進み、地の底を暴き<br>この星が隠しているものを持ち帰ること。</p>
+      <p>鉱石は、そこかしこに眠っている。<br>まるで<span class="warn">――誰かが撒いた餌のように。</span></p>
+      <p>なお、先遣隊の最後の座標からは<br>今も、救難信号が届き続けている。</p>
+      <p class="warn glitch">送信者は、確認されていない。</p>
+      <p class="log">― 降下準備、完了 ―</p>
+    </div>
+  </div>
+  <p class="title-start">クリック または キーを押してスタート</p>
+</section>
 
 <!-- ============================== ガレージ ============================== -->
 <section id="screen-garage" class="screen">
@@ -141,17 +169,17 @@
   <div id="report"></div>
 </section>
 
-<script src="js/data.js?v=20261104-114847"></script>
-<script src="js/audio.js?v=20261104-114847"></script>
-<script src="js/field.js?v=20261104-114847"></script>
-<script src="js/robot.js?v=20261104-114847"></script>
-<script src="js/parts-art.js?v=20261104-114847"></script>
-<script src="js/enemy-art.js?v=20261104-114847"></script>
-<script src="js/circuit.js?v=20261104-114847"></script>
-<script src="js/battle.js?v=20261104-114847"></script>
-<script src="js/boss-spider.js?v=20261104-114847"></script>
-<script src="js/garage.js?v=20261104-114847"></script>
-<script src="js/report.js?v=20261104-114847"></script>
-<script src="js/main.js?v=20261104-114847"></script>
+<script src="js/data.js?v=20261104-133612"></script>
+<script src="js/audio.js?v=20261104-133612"></script>
+<script src="js/field.js?v=20261104-133612"></script>
+<script src="js/robot.js?v=20261104-133612"></script>
+<script src="js/parts-art.js?v=20261104-133612"></script>
+<script src="js/enemy-art.js?v=20261104-133612"></script>
+<script src="js/circuit.js?v=20261104-133612"></script>
+<script src="js/battle.js?v=20261104-133612"></script>
+<script src="js/boss-spider.js?v=20261104-133612"></script>
+<script src="js/garage.js?v=20261104-133612"></script>
+<script src="js/report.js?v=20261104-133612"></script>
+<script src="js/main.js?v=20261104-133612"></script>
 </body>
 </html>
