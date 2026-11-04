@@ -316,6 +316,13 @@ const SFX = {
     S.tone(out, t, { type: 'sine', f: 35, f2: 60, dur: 0.9, vol: 0.4, a: 0.5 });
     return 0.95;
   } },
+  throb: { gap: 0.8, play(S, t, out) {    // 大地の脈動：地の底から響く鼓動（ドクン…ドクン）
+    S.tone(out, t, { type: 'sine', f: 44, f2: 24, dur: 0.38, vol: 0.75, a: 0.03 });
+    S.noise(out, t, { dur: 0.3, vol: 0.32, a: 0.03, filt: 'lowpass', f: 140, f2: 40 });
+    S.tone(out, t + 0.26, { type: 'sine', f: 52, f2: 28, dur: 0.3, vol: 0.55, a: 0.02 });
+    S.noise(out, t + 0.26, { dur: 0.22, vol: 0.22, filt: 'lowpass', f: 170, f2: 50 });
+    return 0.6;
+  } },
   // ---- 蒼晶蜘蛛（洞窟のボス） ----
   screech: { gap: 0.8, play(S, t, out) {   // 甲高い金切り声
     S.tone(out, t, { type: 'sawtooth', f: 900, f2: 1500, dur: 0.9, vol: 0.12, a: 0.08, filt: 'bandpass', ff: 1800, vib: [23, 6] });

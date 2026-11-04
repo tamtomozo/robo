@@ -106,6 +106,7 @@ function createWorld(save) {
     phase: 'fight', phaseT: 0, boss: null, log: [], result: null, endT: 0, shake: 0, banner: null,
     program: save.program,
     ores: [], ore: emptyOre(), orePulse: {}, oreResult: null,   // 落ちている鉱石 / 回収した鉱石
+    veins: [], surge: { state: 'idle', t: rand(35, 55), k: 0, ph: 0 },   // 大地の脈動（地面の亀裂 / 状態）
     stats: {
       kills: { scarab: 0, spitter: 0, troll: 0, boss: 0 }, dmgDealt: 0, dmgTaken: 0,
       shots: { L: 0, R: 0 }, hits: { L: 0, R: 0 }, dmgBy: { L: 0, R: 0 },
@@ -143,6 +144,7 @@ function createWorld(save) {
     const { x, y } = geo.randomPoint(w, i % nd, 0.5);
     w.decor.push({ x, y, s: rand(0.5, 1.5), rot: rand(0, 6.283), type: pick(F.decor) });
   }
+  makeVeins(w);
   addLog(w, `戦闘モード起動。${F.name}へ降下完了。`, '#9fe0b0');
   startDistrict(w);
   return w;
@@ -190,6 +192,88 @@ function advanceDistrict(w) {
 function returnToBase(w) {
   w.phase = 'done';
   endBattle(w, 'return');
+}
+
+// ---------------------------------------------------------------------
+//  大地の脈動：ときどき大地が赤く染まって呼吸するように脈打ち、エネミーが活性化する
+// ---------------------------------------------------------------------
+const SURGE = {
+  rise: 3, fall: 3,            // 赤く染まる / 鎮まるまでの秒数
+  dur: [14, 20],               // 脈動が続く秒数
+  gap: [45, 80],               // 鎮まってから次の脈動までの秒数
+  breath: 2.4,                 // 呼吸1回の秒数
+  speed: 0.45, rate: 0.6, dmg: 0.35, boss: 0.2,   // 最大時の強化量（移動速度 / 攻撃頻度 / 与ダメージ / ボスの行動速度）
+};
+
+// 地面に走る亀裂（脈動中に赤く光る）。各地区に枝分かれした線を散らす
+function makeVeins(w) {
+  const nd = w.field.districts.length;
+  const grow = (x, y, a, n) => {
+    const pts = [[x, y]];
+    for (let k = 0; k < n; k++) {
+      a += rand(-0.6, 0.6);
+      const l = rand(1.2, 3.2);
+      x += Math.cos(a) * l; y += Math.sin(a) * l;
+      pts.push([x, y]);
+    }
+    return pts;
+  };
+  for (let i = 0; i < nd * 16; i++) {
+    const p0 = w.geo.randomPoint(w, i % nd, 2);
+    const a = rand(0, Math.PI * 2);
+    const lines = [grow(p0.x, p0.y, a, 4 + ((Math.random() * 5) | 0))];
+    const nb = (Math.random() * 3) | 0;
+    for (let b = 0; b < nb; b++) {
+      const src = lines[0][1 + ((Math.random() * (lines[0].length - 1)) | 0)];
+      lines.push(grow(src[0], src[1], a + (Math.random() < 0.5 ? -1 : 1) * rand(0.7, 1.3), 2 + ((Math.random() * 3) | 0)));
+    }
+    w.veins.push({ x: p0.x, y: p0.y, r: 22, lines, w: rand(0.7, 1.3) });
+  }
+}
+
+// 呼吸の深さ（0〜1）
+function surgeBreath(w) { return 0.5 - 0.5 * Math.cos(w.surge.ph * Math.PI * 2); }
+
+function updateSurge(w, dt) {
+  const S = w.surge;
+  const ok = !w.result && (w.phase === 'fight' || w.phase === 'boss');
+  if (S.state === 'idle') {
+    if (ok) S.t -= dt;
+    if (S.t <= 0) {
+      S.state = 'rise';
+      addLog(w, '警告：地中から鼓動のような振動を検知……', '#ff7a5a');
+      Sound.play('quake');
+    }
+  } else if (S.state === 'rise') {
+    S.k = Math.min(1, S.k + dt / SURGE.rise);
+    if (!ok) S.state = 'fall';
+    else if (S.k >= 1) {
+      S.state = 'active';
+      S.t = rand(SURGE.dur[0], SURGE.dur[1]);
+      w.banner = { title: '大地脈動', sub: '赤く脈打つ大地に呼応し、敵性生体が活性化！（撃破時の鉱石 2倍）', t: 3 };
+      addLog(w, '大地が脈動している。敵性生体の活性化を確認！', '#ff5a3a');
+      Sound.play('roar');
+    }
+  } else if (S.state === 'active') {
+    S.t -= dt;
+    if (S.t <= 0 || !ok) S.state = 'fall';
+  } else if (S.state === 'fall') {
+    S.k = Math.max(0, S.k - dt / SURGE.fall);
+    if (S.k <= 0) {
+      S.state = 'idle';
+      S.t = rand(SURGE.gap[0], SURGE.gap[1]);
+      if (!w.result) addLog(w, '大地の脈動が鎮まった。', '#9fe0b0');
+    }
+  }
+  // 呼吸：脈動が強いほど速く。息を吸いきるたびに鼓動を鳴らす
+  if (S.k > 0) {
+    const prev = S.ph;
+    S.ph += dt / (SURGE.breath * (1.25 - 0.25 * S.k));
+    if (Math.floor(prev + 0.5) !== Math.floor(S.ph + 0.5) && S.k > 0.3 && !w.result) {
+      Sound.play('throb', { vol: S.k });
+      w.shake = Math.max(w.shake, 0.12 * S.k);
+    }
+  } else S.ph = 0;
 }
 
 function spawnEnemy(w, type, at) {
@@ -260,6 +344,7 @@ function simulate(w, dt, inp) {
   updateEnemyShots(w, dt);
   updateOres(w, dt);
   updateHazards(w, dt);
+  updateSurge(w, dt);
   updateFx(w, dt);
   updatePhase(w, dt);
   if (w.result) w.endT += dt;
@@ -673,7 +758,7 @@ function updatePlayerShots(w, dt) {
 function hurtPlayer(w, dmg) {
   const P = w.player;
   if (w.result || P.air > 0) return;   // ジャンプ中は無敵
-  const real = dmg * 100 / (100 + P.st.def * 4);
+  const real = dmg * (1 + SURGE.dmg * w.surge.k) * 100 / (100 + P.st.def * 4);   // 脈動中は被ダメージ増
   P.hp -= real;
   P.hit = 0.12;
   Sound.play('hurt');
@@ -702,19 +787,20 @@ function hurtPlayer(w, dmg) {
 function updateEnemies(w, dt) {
   const P = w.player;
   const frozen = !!w.result;
+  const rage = w.surge.k;   // 大地の脈動による活性化（0〜1）
   for (const e of w.enemies) {
     e.flash = Math.max(0, e.flash - dt);
     e.anim += dt;
-    e.cd -= dt;
+    e.cd -= dt * (1 + SURGE.rate * rage);
     e.lunge = Math.max(0, e.lunge - dt * 4);
     if (frozen) { e.vx *= 0.9; e.vy *= 0.9; continue; }
-    if (e.def.boss) { BOSS_KINDS[e.type].update(w, e, dt); continue; }
+    if (e.def.boss) { BOSS_KINDS[e.type].update(w, e, dt * (1 + SURGE.boss * rage)); continue; }
 
     const dx = P.x - e.x, dy = P.y - e.y;
     const d = Math.hypot(dx, dy) || 0.001;
     const ux = dx / d, uy = dy / d;              // 機体への直線の向き（射撃用）
     const [mx, my] = w.geo.dirTo(w, e, P.x, P.y);  // 機体へ向かう移動の向き
-    const sp = e.def.speed;
+    const sp = e.def.speed * (1 + SURGE.speed * rage);
     let dvx = 0, dvy = 0;
     e.a = Math.atan2(my, mx);
 
@@ -1197,8 +1283,9 @@ function dropOre(w, e) {
   const drop = ORE_DROPS[e.type];
   if (!drop) return;
   const big = e.def.boss ? 2.5 : 1;
+  const mul = !e.def.boss && w.surge.k > 0.5 ? 2 : 1;   // 脈動中に倒すと鉱石 2倍
   for (const [kind, n] of Object.entries(drop)) {
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n * mul; i++) {
       const a = rand(0, Math.PI * 2), sp = rand(1.5, 5) * big;
       w.ores.push({
         kind, x: e.x + rand(-0.3, 0.3) * e.r, y: e.y + rand(-0.3, 0.3) * e.r,
@@ -1413,6 +1500,8 @@ function drawWorld(ctx, w, B, VW, VH) {
   const inView = (x, y, m = 0) => x > vx0 - m && x < vx1 + m && y > vy0 - m && y < vy1 + m;
 
   w.geo.drawGround(ctx, w, { x0: vx0, y0: vy0, x1: vx1, y1: vy1 });
+  const sk = w.surge.k, sb = sk > 0 ? surgeBreath(w) : 0;
+  if (sk > 0) drawSurgeGround(ctx, w, sk, sb, vx0, vy0, vx1, vy1, inView);
 
   // 地面の装飾
   for (const d of w.decor) {
@@ -1457,9 +1546,10 @@ function drawWorld(ctx, w, B, VW, VH) {
     if (inView(o.x, o.y, 1)) drawOre(ctx, o, w.time);
   }
 
-  // 敵
+  // 敵（脈動中は足元に赤い揺らめき）
   for (const e of w.enemies) {
     if (!inView(e.x, e.y, e.def.boss ? 20 : 3)) continue;
+    if (sk > 0.05 && !e.buried) drawSurgeAura(ctx, e, sk, sb);
     drawEnemy(ctx, e);
   }
 
@@ -1504,6 +1594,54 @@ function drawWorld(ctx, w, B, VW, VH) {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VW, VH);
   }
+  // 大地の脈動：画面の縁が呼吸に合わせて赤く脈打つ
+  if (sk > 0) {
+    const g = ctx.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * (0.42 - 0.08 * sb), VW / 2, VH / 2, Math.max(VW, VH) * 0.72);
+    g.addColorStop(0, 'rgba(120,0,0,0)');
+    g.addColorStop(1, `rgba(110,0,0,${sk * (0.3 + 0.3 * sb)})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, VW, VH);
+  }
+}
+
+// 脈動中の地面：全体を赤く染め、亀裂が呼吸に合わせて光る
+function drawSurgeGround(ctx, w, k, b, x0, y0, x1, y1, inView) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = `rgba(${(225 - 25 * b) | 0},${(80 - 40 * b) | 0},${(70 - 35 * b) | 0},${k * (0.35 + 0.25 * b)})`;
+  ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = `rgba(90,0,0,${k * 0.12 * b})`;
+  ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const pass = (width, color) => {
+    ctx.strokeStyle = color;
+    for (const v of w.veins) {
+      if (!inView(v.x, v.y, v.r)) continue;
+      ctx.lineWidth = width * v.w;
+      ctx.beginPath();
+      for (const pts of v.lines) {
+        pts.forEach(([x, y], i) => { if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+      }
+      ctx.stroke();
+    }
+  };
+  pass(0.45 + 0.45 * b, `rgba(200,20,0,${k * (0.08 + 0.22 * b)})`);                        // にじむ光
+  pass(0.07 + 0.08 * b, `rgba(255,${(90 + 110 * b) | 0},50,${k * (0.3 + 0.55 * b)})`);   // 亀裂の芯
+  ctx.restore();
+}
+
+// 活性化したエネミーの足元の赤い揺らめき
+function drawSurgeAura(ctx, e, k, b) {
+  const r = e.r * (1.5 + 0.35 * b);
+  const g = ctx.createRadialGradient(e.x, e.y, e.r * 0.3, e.x, e.y, r);
+  g.addColorStop(0, `rgba(255,40,20,${k * (0.35 + 0.25 * b)})`);
+  g.addColorStop(1, 'rgba(255,40,20,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 // 落ちている鉱石（種類ごとに形を変える。きらめきで地面と見分けやすくする）
