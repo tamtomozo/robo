@@ -1430,7 +1430,7 @@ function updateOres(w, dt) {
 
 // レアエネミーが落とすブースター（光る容器。鉱石と同じく近づくと吸い寄せられる）
 function dropPart(w, e) {
-  const part = randomDropPart();
+  const part = randomDropPart(w.floor);   // 下の層ほど＋値が高いものが出やすい
   const a = rand(0, Math.PI * 2);
   w.loot.push({ part, x: e.x, y: e.y, vx: Math.cos(a) * 3, vy: Math.sin(a) * 3, rot: rand(0, 6.283), t: 0, pull: 0 });
   w.stats.rareKills++;

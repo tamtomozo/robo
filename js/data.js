@@ -201,13 +201,35 @@ const RARE = {
 
 // ブースターの効果アップ（+1〜+10）。値が低いほど出やすい
 const BONUS_MIN = 1, BONUS_MAX = 10;
-// +0〜+10 それぞれの出やすさ（合計100 = %。+0 は出ない）。+5以上は合わせて14%
+// 第1層での +0〜+10 それぞれの出やすさ（合計100 = %。+0 は出ない）。+5以上は合わせて14%
 const BONUS_WEIGHTS = [0, 30, 25, 18, 13, 5, 3.5, 2.5, 1.5, 1, 0.5];
-function rollBonus() {
-  const total = BONUS_WEIGHTS.reduce((a, b) => a + b, 0);
-  let r = Math.random() * total;
-  for (let b = 0; b < BONUS_WEIGHTS.length; b++) {
-    r -= BONUS_WEIGHTS[b];
+// 下の層ほど高い値が出やすい：第 f 層では +10 の出やすさが第1層の f 倍（第8層で 0.5% → 4%）
+// +N の出やすさを e^(k × (N-1)) 倍して全体を高い側へ傾け、k は層ごとに +10 がちょうど f 倍になる値を求める
+// （第8層で +5以上 14% → 約40%、+8以上 3% → 約16%）
+function bonusWeights(k) {
+  const w = BONUS_WEIGHTS.map((x, b) => x * Math.exp(k * (b - 1)));
+  const sum = w.reduce((a, b) => a + b, 0);
+  return w.map(x => x / sum);
+}
+const BONUS_FLOOR_W = [];   // 層 → 出やすさ（初めて使うときに求める）
+function bonusFloorWeights(floor) {
+  const f = clamp(floor | 0, 1, FLOORS);
+  if (!BONUS_FLOOR_W[f]) {
+    const want = bonusWeights(0)[BONUS_MAX] * f;
+    let lo = 0, hi = 2;
+    for (let i = 0; i < 50; i++) {
+      const mid = (lo + hi) / 2;
+      if (bonusWeights(mid)[BONUS_MAX] < want) lo = mid; else hi = mid;
+    }
+    BONUS_FLOOR_W[f] = bonusWeights(lo);
+  }
+  return BONUS_FLOOR_W[f];
+}
+function rollBonus(floor) {
+  const w = bonusFloorWeights(floor);
+  let r = Math.random();
+  for (let b = 0; b < w.length; b++) {
+    r -= w[b];
     if (r < 0) return b;
   }
   return BONUS_MIN;
@@ -258,11 +280,11 @@ function salvageOre(item) {
 }
 
 // ドロップするブースターの対象パーツ（未装着は除く）
-function randomDropPart() {
+function randomDropPart(floor) {
   const all = [];
   for (const cat of Object.keys(PARTS)) for (const p of PARTS[cat]) if (p.type !== 'none') all.push({ cat, id: p.id });
   const p = all[(Math.random() * all.length) | 0];
-  return { cat: p.cat, id: p.id, bonus: rollBonus() };
+  return { cat: p.cat, id: p.id, bonus: rollBonus(floor) };
 }
 
 // 同時にフィールドにいる一般エネミーの上限（残りは増援として順次出現）
