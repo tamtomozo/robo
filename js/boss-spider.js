@@ -110,8 +110,10 @@ function updateSpider(w, e, dt) {
     e.chain = 0;
     bossSet(e, 'rage', 2);
     w.shake = 0.8;
-    w.banner = { title: T('B062' /* {name} 晶化暴走 */, { name: e.def.name }), sub: T('B063' /* 全身の結晶が共鳴 ― 行動パターンが変化した！ */), t: 3 };
-    addLog(w, T('B064' /* ボス 形態変化：全身の結晶が青白く共鳴している！ 行動パター… */), '#7ad8ff');
+    // 暴走の中身（何が変わったか）は見せない：名前だけを出す
+    const rage = T('B062' /* {name} 晶化暴走 */, { name: e.def.name });
+    w.banner = { title: rage, sub: '', t: 3 };
+    addLog(w, rage, '#7ad8ff');
     Sound.play('screech');
     Sound.play('quake');
   }

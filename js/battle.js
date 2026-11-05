@@ -1042,8 +1042,10 @@ function updateBoss(w, e, dt) {
     e.chain = 0;
     bossSet(e, 'rage', 2);
     w.shake = 0.8;
-    w.banner = { title: T('B024' /* {name} 激昂 */, { name: e.def.name }), sub: T('B025' /* 甲殻が赤熱 ― 行動パターンが変化した！ */), t: 3 };
-    addLog(w, T('B026' /* ボス 形態変化：甲殻が赤熱している！ 行動パターン変化 */), '#ff6a4a');
+    // 激昂の中身（何が変わったか）は見せない：名前だけを出す
+    const rage = T('B024' /* {name} 激昂 */, { name: e.def.name });
+    w.banner = { title: rage, sub: '', t: 3 };
+    addLog(w, rage, '#ff6a4a');
     Sound.play('roar');
     Sound.play('quake');
   }
@@ -2228,7 +2230,7 @@ function drawHUD(ctx, w, B, VW, VH) {
     ctx.fillText(w.banner.title, VW / 2, VH * 0.28 - 30);
     ctx.font = 'bold 15px sans-serif';
     ctx.fillStyle = '#ffd24a';
-    ctx.fillText(w.banner.sub, VW / 2, VH * 0.28 + 12);
+    if (w.banner.sub) ctx.fillText(w.banner.sub, VW / 2, VH * 0.28 + 12);
     ctx.globalAlpha = 1;
   }
 
