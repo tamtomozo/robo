@@ -284,7 +284,7 @@ function updateSurge(w, dt) {
     else if (S.k >= 1) {
       S.state = 'active';
       S.t = rand(SURGE.dur[0], SURGE.dur[1]);
-      w.banner = { title: T('B010' /* 大地脈動 */), sub: T('B011' /* 赤く脈打つ大地に呼応し、敵性生体が活性化！（移動速度 2倍 … */), t: 3 };
+      w.banner = { title: T('B010' /* 大地脈動 */), sub: T('B011' /* 赤く脈打つ大地に呼応し、敵性生体が活性化！ */), t: 3 };
       addLog(w, T('B012' /* 大地が脈動している。敵性生体の活性化を確認！ */), '#ff5a3a');
       Sound.play('roar');
     }
@@ -339,7 +339,7 @@ function spawnEnemy(w, type, at) {
   w.enemies.push(e);
   if (rare) {
     w.stats.rareSeen++;
-    addLog(w, T('B014' /* レア個体を検知：{name}（撃破するとブースターを落とす） */, { name: d.name }), '#ffd84a');
+    addLog(w, T('B014' /* レア個体を検知：{name} */, { name: d.name }), '#ffd84a');
     Sound.play('rare');
   }
   return e;
