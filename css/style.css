@@ -378,6 +378,8 @@ small.up { color: #7dff9a; } small.down { color: #ff7a5a; }
 .dialog-box .act-line { margin: 8px 0 0; font-size: 13px; color: #ffd08a; }
 .dialog-box .carry { margin: 6px 0 0; padding: 6px 10px; border-left: 4px solid #e0902a; background: rgba(224,144,42,0.1); font-size: 13px; color: #ffc080; }
 .dialog-box .q { font-size: 18px; font-weight: bold; text-align: center; margin: 14px 0 10px; }
+#ask-dialog { position: fixed; z-index: 30; }
+#ask-body { white-space: pre-line; font-size: 14px; line-height: 1.7; margin-bottom: 16px; }
 .dialog-btns { display: flex; gap: 10px; }
 .dialog-btns button { flex: 1; padding: 10px; font-size: 15px; }
 .district-tbl { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }

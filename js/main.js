@@ -10,6 +10,7 @@ const Game = {
     I18N.apply();   // 英語なら HTML の文章を差し替える（プロローグの高さを測る toTitle より前に）
     this.save = this.load();
     Sound.init();
+    Ask.init();
     Garage.init();
     document.getElementById('btn-reload').onclick = () => location.reload();
     // 開きっぱなしのタブに戻ってきたときも確認する
@@ -137,6 +138,49 @@ const Game = {
     this.show('battle');
     Sound.play('sortie');
     Battle.start(this.save);
+  },
+};
+
+// =====================================================================
+//  ゲーム内の確認ダイアログ：if (!await Ask.open('〜しますか？')) return;
+//   ・ブラウザの confirm() は全画面表示（itch.io の全画面ボタンなど）を解除してしまうため代わりに使う
+//   ・文章の改行はそのまま表示する。Enter で「はい」、Esc で「キャンセル」
+//     （全画面中の Esc はブラウザが全画面の解除に使うので、ボタンでも選べるようにしてある）
+//   ・開いている間はほかのキー操作（回路の Ctrl+Z など）を通さない
+// =====================================================================
+const Ask = {
+  resolve: null,
+
+  init() {
+    document.getElementById('ask-yes').onclick = () => this.close(true);
+    document.getElementById('ask-no').onclick = () => this.close(false);
+    // 捕捉段階で先に受け取り、ほかの keydown に届かないようにする
+    window.addEventListener('keydown', (e) => {
+      if (!this.resolve || e.key === 'Tab') return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.repeat) return;
+      if (e.key === 'Escape') this.close(false);
+      // Tab で「キャンセル」を選んでいるときの Enter はキャンセル
+      if (e.key === 'Enter') this.close(document.activeElement !== document.getElementById('ask-no'));
+    }, true);
+  },
+
+  open(text) {
+    this.close(false);   // 開いたままのものがあれば、キャンセル扱いで閉じる
+    document.getElementById('ask-body').textContent = text;
+    document.getElementById('ask-dialog').classList.add('show');
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    Sound.play('ui');
+    return new Promise(r => { this.resolve = r; });
+  },
+
+  close(ans) {
+    if (!this.resolve) return;
+    const r = this.resolve;
+    this.resolve = null;
+    document.getElementById('ask-dialog').classList.remove('show');
+    r(ans);
   },
 };
 

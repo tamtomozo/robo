@@ -2524,6 +2524,7 @@ const Battle = {
     const w = this.world;
     if (this.confirmOpen) {
       if (e.code === 'Enter' || e.code === 'KeyY') this.answerConfirm(true);
+      // 基地に帰還は N（ボタンにも N と表示。全画面中の Esc はブラウザが全画面の解除に使うため。Esc も全画面でなければ使える）
       if (e.code === 'Escape' || e.code === 'KeyN') this.answerConfirm(false);
       e.preventDefault();
       return;
@@ -2542,7 +2543,8 @@ const Battle = {
       case 'KeyE': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio + 0.05); break;
       case 'KeyX': this.xray = !this.xray; break;
       case 'ShiftLeft': case 'ShiftRight': if (this.manual) this.jumpReq = true; break;
-      case 'Escape': if (!w.result) endBattle(w, 'retreat'); break;
+      // 撤退は BackSpace。全画面中の Esc はブラウザが全画面の解除に使ってゲームに届かないため（Esc も全画面でなければ使える）
+      case 'Backspace': case 'Escape': if (!w.result) endBattle(w, 'retreat'); e.preventDefault(); break;
     }
   },
 

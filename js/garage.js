@@ -70,12 +70,12 @@ const Garage = {
     document.getElementById('xray').onchange = (e) => { this.xray = e.target.checked; };
     this.buildPalette();
     document.getElementById('btn-sortie').onclick = () => Game.sortie();
-    document.getElementById('btn-prog-default').onclick = () => {
-      if (!confirm(T('G051' /* 回路を初期プログラムに戻しますか？（元に戻す で取り消せます… */))) return;
+    document.getElementById('btn-prog-default').onclick = async () => {
+      if (!await Ask.open(T('G051' /* 回路を初期プログラムに戻しますか？（元に戻す で取り消せます… */))) return;
       this.editProgram(() => { Game.save.program = defaultProgram(); this.sel = null; });
     };
-    document.getElementById('btn-prog-clear').onclick = () => {
-      if (!confirm(T('G052' /* 回路をすべて消去しますか？（STARTは残ります。元に戻す … */))) return;
+    document.getElementById('btn-prog-clear').onclick = async () => {
+      if (!await Ask.open(T('G052' /* 回路をすべて消去しますか？（STARTは残ります。元に戻す … */))) return;
       const p = new Array(MAX_GRID * MAX_GRID).fill(null);
       p[0] = { t: 'start', d: 2, n: 1, p: 0 };
       this.editProgram(() => { Game.save.program = p; this.sel = null; });
@@ -87,7 +87,8 @@ const Garage = {
     document.getElementById('orphan-clear').onclick = () => this.answerOrphans('clear');
     // Ctrl+Z（Mac は ⌘+Z）：回路タブを開いているときだけ有効
     window.addEventListener('keydown', (e) => {
-      if (this.pendingTab && e.key === 'Escape') { this.answerOrphans('stay'); return; }
+      // 未接続タイルの確認中：N で「回路に戻る」（全画面中の Esc はブラウザが全画面の解除に使うため N を表示。Esc も全画面でなければ使える）
+      if (this.pendingTab && (e.code === 'KeyN' || e.key === 'Escape')) { this.answerOrphans('stay'); return; }
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return;
       if (!document.getElementById('screen-garage').classList.contains('active')) return;
       if (!document.getElementById('tab-circuit').classList.contains('active')) return;
@@ -339,7 +340,7 @@ const Garage = {
   },
 
   // ブースターを分解して鉱石にする（差し込み中のものは分解できない）
-  salvage(uids) {
+  async salvage(uids) {
     const save = Game.save, eqd = this.equippedUids();
     const items = save.stock.filter(it => uids.includes(it.uid) && !eqd.has(it.uid));
     if (!items.length) return;
@@ -349,7 +350,7 @@ const Garage = {
     const best = Math.max(...items.map(it => it.bonus));
     const what = items.length === 1 ? boosterName(items[0]) : T('G081' /* ブースター {n}個 */, { n: items.length });
     const warn = best >= BONUS_TIERS[2].min ? T('G082' /* ※ +{best} の高い+値のものが含まれています。 */, { best }) : '';
-    if (!confirm(T('G083' /* {what} を分解しますか？ 得られる鉱石：{txt}{w… */, { what, txt, warn }))) return;
+    if (!await Ask.open(T('G083' /* {what} を分解しますか？ 得られる鉱石：{txt}{w… */, { what, txt, warn }))) return;
     const set = new Set(items.map(it => it.uid));
     save.stock = save.stock.filter(it => !set.has(it.uid));
     for (const u of set) this.stockSel.delete(u);

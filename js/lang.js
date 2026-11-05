@@ -57,6 +57,8 @@ const TEXT = {
   C012: { ja: '<span class="ore none">なし</span>', en: '<span class="ore none">None</span>' },
   C013: { ja: '第{f}層', en: 'Floor {f}' },
   C014: { ja: '{name}「{sub}」', en: '{name} "{sub}"' },
+  C015: { ja: 'はい', en: 'Yes' },
+  C016: { ja: 'キャンセル', en: 'Cancel' },
 
   // ---------------------------------------------------------------- G：ガレージ
   G001: { ja: '① 組立', en: '① Assembly' },
@@ -86,14 +88,14 @@ const TEXT = {
   G020: { ja: '出 撃', en: 'SORTIE' },
   G021: {
     ja: `<h4>戦闘中の操作</h4>
-<p>ロボットは<b>回路プログラム</b>に従って自律戦闘します。<kbd>Space</kbd> 一時停止 / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 速度 ×1・×2・×4 / <kbd>Q</kbd><kbd>E</kbd> 出力配分 / ホイール ズーム / <kbd>Esc</kbd> 撤退</p>
+<p>ロボットは<b>回路プログラム</b>に従って自律戦闘します。<kbd>Space</kbd> 一時停止 / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 速度 ×1・×2・×4 / <kbd>Q</kbd><kbd>E</kbd> 出力配分 / ホイール ズーム / <kbd>BackSpace</kbd> 撤退</p>
 <p><kbd>M</kbd> で手動操作に切替：<kbd>WASD</kbd> 移動・マウス照準・左クリック 左腕・右クリック 右腕・<kbd>Shift</kbd> ジャンプ（脚部 強化Lv6以上）</p>`,
     en: `<h4>Battle Controls</h4>
-<p>The robot fights on its own, following its <b>circuit program</b>. <kbd>Space</kbd> pause / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> speed ×1·×2·×4 / <kbd>Q</kbd><kbd>E</kbd> output split / Wheel zoom / <kbd>Esc</kbd> retreat</p>
+<p>The robot fights on its own, following its <b>circuit program</b>. <kbd>Space</kbd> pause / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> speed ×1·×2·×4 / <kbd>Q</kbd><kbd>E</kbd> output split / Wheel zoom / <kbd>Backspace</kbd> retreat</p>
 <p><kbd>M</kbd> toggles manual control: <kbd>WASD</kbd> move · mouse aim · left click left arm · right click right arm · <kbd>Shift</kbd> jump (legs upgrade Lv6+)</p>`,
   },
   G022: { ja: '未接続のタイルがあります', en: 'There are unconnected tiles' },
-  G023: { ja: '回路に戻る（Esc）', en: 'Back to circuit (Esc)' },
+  G023: { ja: '回路に戻る（N）', en: 'Back to circuit (N)' },
   G024: { ja: '残して移動', en: 'Keep and leave' },
   G025: { ja: '消去して移動', en: 'Delete and leave' },
   G026: { ja: '回路盤', en: 'Board' },
@@ -291,7 +293,7 @@ Ore gained: {txt}{warn}
   G148: { ja: '出撃では選んでいる回路を使います', en: 'The selected circuit is used for sorties' },
 
   // ---------------------------------------------------------------- B：戦闘（ログ・HUD・地区掃討後の確認）
-  B001: { ja: '基地に帰還（Esc）', en: 'Return to base (Esc)' },
+  B001: { ja: '基地に帰還（N）', en: 'Return to base (N)' },
   B002: { ja: '出力配分：腕 {arm}% / 脚 {leg}%', en: 'Output split: arms {arm}% / legs {leg}%' },
   B003: { ja: '戦闘モード起動。{name} {floor}へ降下完了。', en: 'Combat mode online. Landed in {name}, {floor}.' },
   B004: { ja: '深層の敵性生体：耐久 {hp} / 攻撃力 {dmg}', en: 'Deep-floor hostiles: HP {hp} / Attack {dmg}' },
@@ -335,8 +337,8 @@ Ore gained: {txt}{warn}
   B045: { ja: '回路モニター {grid}×{grid} @{clock}Hz', en: 'CIRCUIT MONITOR {grid}×{grid} @{clock}Hz' },
   B046: { ja: '手動操作中', en: 'MANUAL CONTROL' },
   B047: {
-    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [Esc]撤退',
-    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Esc] Retreat',
+    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]撤退',
+    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Retreat',
   },
   B048: { ja: 'リロード中', en: 'reloading' },
   B049: {
