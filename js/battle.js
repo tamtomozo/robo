@@ -705,15 +705,24 @@ function meleeSwing(w, P, arm, dmg) {
     if (Math.abs(angDiff(Math.atan2(dy, dx), P.a)) > d.arc / 2 && dist > 0.5) continue;
     damageEnemy(w, e, dmg, arm.side);
     hit = true;
-    const kb = e.def.boss ? 0 : e.type === 'troll' ? 4 : 12;
-    e.vx += dx / len * kb;
-    e.vy += dy / len * kb;
+    knockEnemy(e, dx / len, dy / len, KNOCK.melee);
     for (let i = 0; i < 4; i++) {
       w.fx.push({ type: 'spark', x: e.x - dx / len * e.r, y: e.y - dy / len * e.r, vx: rand(-8, 8), vy: rand(-8, 8), life: 0.25, max: 0.25, size: 0.15 });
     }
   }
   if (hit) { w.stats.hits[arm.side]++; Sound.play('meleeHit', { x: P.x, y: P.y }); }
   w.fx.push({ type: 'slash', x: P.x, y: P.y, a: P.a, range: d.range + 1.2, arc: d.arc, life: 0.18, max: 0.18 });
+}
+
+// 被弾ノックバックの強さ（敵の速度に加える量。約0.2秒で元の動きに戻る）
+const KNOCK = { melee: 12, shell: 14, missile: 9, gun: 0.5 };
+
+// 一般エネミーを (ux, uy) の向きへ押す。ボスは押さない。トロールは重いので1/3
+function knockEnemy(e, ux, uy, power) {
+  if (e.def.boss || !power) return;
+  const k = power * (e.type === 'troll' ? 1 / 3 : 1);
+  e.vx += ux * k;
+  e.vy += uy * k;
 }
 
 function damageEnemy(w, e, dmg, side) {
@@ -761,12 +770,21 @@ function addScorch(w, x, y, r, color) {
   if (w.scorch.length > 160) w.scorch.shift();
 }
 
-function explode(w, x, y, rad, dmg, side, direct) {
+function explode(w, x, y, rad, dmg, side, direct, shot) {
+  const kb = shot ? KNOCK[shot.kind] || 0 : 0;
+  const sv = shot ? Math.hypot(shot.vx, shot.vy) || 1 : 1;
   for (const e of w.enemies) {
     if (e.hp <= 0 || e.invuln) continue;
-    if (e === direct) { damageEnemy(w, e, dmg, side); continue; }
-    const d = Math.hypot(e.x - x, e.y - y) - e.r;
-    if (d < rad) damageEnemy(w, e, dmg * (1 - 0.5 * Math.max(0, d) / rad), side);
+    const cx = e.x - x, cy = e.y - y, cd = Math.hypot(cx, cy);
+    // 爆心から外向きに押す（爆心が敵の真上なら弾の進む向き）
+    const [ux, uy] = cd > 0.3 ? [cx / cd, cy / cd] : shot ? [shot.vx / sv, shot.vy / sv] : [0, 0];
+    if (e === direct) { damageEnemy(w, e, dmg, side); knockEnemy(e, ux, uy, kb); continue; }
+    const d = cd - e.r;
+    if (d < rad) {
+      const f = 1 - 0.5 * Math.max(0, d) / rad;
+      damageEnemy(w, e, dmg * f, side);
+      knockEnemy(e, ux, uy, kb * f);
+    }
   }
   w.fx.push({ type: 'boom', x, y, life: 0.45, max: 0.45, size: rad });
   Sound.play('boom', { x, y, size: rad });
@@ -821,16 +839,18 @@ function updatePlayerShots(w, dt) {
       }
       if (!s.counted) { s.counted = true; w.stats.hits[s.arm]++; }
       if (s.kind === 'missile') { s.x = e.x; s.y = e.y; }   // 近接信管：目標の真上で炸裂
-      if (s.splash) explode(w, s.x, s.y, s.splash, s.dmg, s.arm, e);
+      if (s.splash) explode(w, s.x, s.y, s.splash, s.dmg, s.arm, e, s);
       else {
         damageEnemy(w, e, s.dmg, s.arm);
+        const sv = Math.hypot(s.vx, s.vy) || 1;
+        knockEnemy(e, s.vx / sv, s.vy / sv, KNOCK[s.kind] || 0);
         w.fx.push({ type: 'spark', x: s.x, y: s.y, vx: rand(-5, 5), vy: rand(-5, 5), life: 0.15, max: 0.15, size: 0.15 });
       }
       s.life = 0;
       s.done = true;
       break;
     }
-    if (!s.done && s.life <= 0 && s.splash && s.kind !== 'flame') explode(w, s.x, s.y, s.splash, s.dmg, s.arm, null);
+    if (!s.done && s.life <= 0 && s.splash && s.kind !== 'flame') explode(w, s.x, s.y, s.splash, s.dmg, s.arm, null, s);
   }
   w.pshots = w.pshots.filter(s => s.life > 0 && w.geo.inside(w, s.x, s.y, -0.5));   // 岩壁・封鎖線で消える
 }
