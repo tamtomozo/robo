@@ -125,7 +125,7 @@ function oreHTML(ore, have, abbr) {
 
 // ---------------------------------------------------------------------
 //  パーツ強化（強化レベルはパーツごと。最大 UPGRADE_MAX）
-//  cost(L)：レベル L に上げるのに必要な鉱石 / apply(p, lv)：パーツ性能の写しを書き換える
+//  cost(L)：レベル L に上げるのに必要な鉱石（以前の5倍） / apply(p, lv)：パーツ性能の写しを書き換える
 // ---------------------------------------------------------------------
 const UPGRADE_MAX = 10;
 const UPGRADE_SHOT_LV = 6;   // 攻撃系：このレベルから弾数+1（1発の威力はいったん下がり、Lv10で未強化の1.5倍）
@@ -148,7 +148,7 @@ const UPGRADES = {
   arm: {
     label: T('upgrade.arm.label' /* 攻撃力 */), where: T('upgrade.arm.where' /* 腕パーツ */),
     per: T('upgrade.arm.per' /* Lv1〜5：威力 +12%/段 Lv{lv}〜：弾数+1（2… */, { lv: UPGRADE_SHOT_LV }),
-    cost: L => ({ iron: 8 * L, crystal: 2 * L }),
+    cost: L => ({ iron: 40 * L, crystal: 10 * L }),
     apply(p, lv) {
       p.dmg *= armUpgradeMult(lv);
       if (lv >= UPGRADE_SHOT_LV) p.shots = 2;
@@ -158,14 +158,14 @@ const UPGRADES = {
   },
   torso: {
     label: T('upgrade.torso.label' /* 防御力 */), where: T('upgrade.torso.where' /* 胴体 */), per: T('upgrade.torso.per' /* 1段階ごとに 防御 +2（被ダメージ軽減） */),
-    cost: L => ({ iron: 8 * L, core: 2 * L }),
+    cost: L => ({ iron: 40 * L, core: 10 * L }),
     apply(p, lv) { p.def += 2 * lv; },
     stat: p => [T('upgrade.torso.stat' /* 防御 */), p.def, ''],
   },
   legs: {
     label: T('upgrade.legs.label' /* 機動性 */), where: T('upgrade.legs.where' /* 脚部 */),
     per: T('upgrade.legs.per' /* 1段階ごとに 速度・旋回・加速 +6% Lv{lv}〜：ジャ… */, { lv: UPGRADE_JUMP_LV }),
-    cost: L => ({ iron: 12 * L }),
+    cost: L => ({ iron: 60 * L }),
     apply(p, lv) {
       const k = 1 + 0.06 * lv; p.speed *= k; p.turn *= k; p.accel *= k;
       p.jump = jumpPerf(lv);
@@ -181,7 +181,7 @@ const UPGRADES = {
   },
   headCpu: {
     label: T('upgrade.headCpu.label' /* 実行速度 */), where: T('upgrade.headCpu.where' /* 頭部A（回路ユニット） */), per: T('upgrade.headCpu.per' /* 1段階ごとに 回路の処理速度 +20% */),
-    cost: L => ({ crystal: 3 * L, core: L }),
+    cost: L => ({ crystal: 15 * L, core: 5 * L }),
     apply(p, lv) { p.clock *= 1 + 0.2 * lv; },
     stat: p => [T('upgrade.headCpu.stat' /* 処理 */), p.clock, 'Hz'],
   },
