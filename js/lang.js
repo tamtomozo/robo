@@ -263,13 +263,13 @@ Ore gained: {txt}{warn}
   G130: { ja: '<b>{name}</b>「{sub}」', en: '<b>{name}</b> "{sub}"' },
   G131: { ja: '地区', en: 'District' },
   G132: { ja: '戦闘フィールド', en: 'Battlefield' },
-  G133: { ja: '全地区掃討後に出現', en: 'Appears after all districts are cleared' },
+  G133: { ja: '3地区の後に出現', en: 'Appears after the 3 districts' },
   G134: { ja: '全地区', en: 'All districts' },
   G135: {
-    ja: `各地区を掃討するたびに「次に進みますか？」と確認されます。帰還すればそこまでの戦果で任務終了。HP・弾薬は地区をまたいで持ち越します。<br>
+    ja: `<b>活動限界は{limit}分</b>。3地区とボス戦を{seg}分ずつで区切ります（第1地区 〜1:00 / 第2地区 〜2:00 / 第3地区 〜3:00 / ボス 〜4:00）。地区を掃討するか区切りの時間になるたびに「次に進みますか？」と確認されます。敵が残っていても次の地区は解放され、残敵はそのままに新しい地区の敵が加わります。早く掃討すれば余った時間は次に回ります。帰還すればそこまでの戦果で任務終了。HP・弾薬は地区をまたいで持ち越します。<br>
       スカラベ：小型・高速の近接群体 / スピッター：距離を取って酸を吐く / トロール：鈍重だが高耐久・高打撃<br>
       <b style="color:#ffd84a">レア個体</b>：一般エネミーが {chance}% の確率で金色に輝く「{prefix}個体」として現れる（大地の脈動中は {surge}倍）。耐久 {hp}倍と手強いが、倒すと効果 +{min}〜+{max} のブースター（特定のパーツ専用の強化モジュール）を落とす。`,
-    en: ({ chance, prefix, surge, hp, min, max }) => `After each district is cleared you'll be asked whether to continue. Returning to base ends the mission with what you've earned so far. HP and ammo carry over between districts.<br>
+    en: ({ chance, prefix, surge, hp, min, max, limit, seg }) => `<b>Activity limit: ${limit} min.</b> The 3 districts and the boss fight get ${seg} min each (District 1 until 1:00 / District 2 until 2:00 / District 3 until 3:00 / Boss until 4:00). Each time you clear a district or reach a checkpoint, you'll be asked whether to continue. The next district opens even if enemies remain: they stay, and the new district's enemies join them. Clear early and the leftover time carries forward. Returning to base ends the mission with what you've earned so far. HP and ammo carry over between districts.<br>
       Scarab: small, fast melee swarmers / Spitter: keeps its distance and spits acid / Troll: slow, but tough and hits hard<br>
       <b style="color:#ffd84a">Rare enemies</b>: any regular enemy has a ${chance}% chance to appear as a gold-glowing "${prefix.trim()}" variant (×${surge} during an Earth Pulse). They have ${hp}× HP, but drop a +${min} to +${max} booster (an upgrade module for one specific part).`,
   },
@@ -330,7 +330,6 @@ Ore gained: {txt}{warn}
   B039: { ja: '残敵 {remain} / {perDistrict}', en: 'Hostiles {remain} / {perDistrict}' },
   B040: { ja: '掃討完了', en: 'CLEARED' },
   B041: { ja: '眷属 {remain}', en: 'Brood {remain}' },
-  B042: { ja: '経過', en: 'Time' },
   B043: { ja: '（{phase2Name}）', en: ' ({phase2Name})' },
   B044: { ja: '巨大生体反応 接近中', en: 'MASSIVE LIFE SIGN APPROACHING' },
   B045: { ja: '回路モニター {grid}×{grid} @{clock}Hz', en: 'CIRCUIT MONITOR {grid}×{grid} @{clock}Hz' },
@@ -385,6 +384,20 @@ Ore gained: {txt}{warn}
   },
   B083: { ja: '左腕 {st}', en: 'L arm {st}' },
   B084: { ja: '右腕 {st}', en: 'R arm {st}' },
+  B085: { ja: '残敵 {n}体はボス戦に持ち越し。', en: ({ n }) => `${n} remaining ${n === 1 ? 'enemy carries' : 'enemies carry'} over into the boss fight.` },
+  B086: { ja: '活動限界まで 残り10秒！', en: '10 seconds until the activity limit!' },
+  B087: { ja: '活動時間の区切りまで 残り10秒', en: '10 seconds until the next checkpoint' },
+  B088: { ja: '{district} 活動時間の区切り。残敵 {n}体。', en: '{district}: checkpoint reached. {n} enemies remain.' },
+  B089: { ja: '活動限界に到達。機体を回収する。', en: 'Activity limit reached. Recovering the machine.' },
+  B090: { ja: '活動限界まで {total}', en: 'Activity limit in {total}' },
+  B091: { ja: '活動限界まで {total} ／ 区切りまで {seg}', en: 'Activity limit in {total} / Checkpoint in {seg}' },
+  B092: { ja: '{district} 活動時間の区切り', en: '{district}: checkpoint' },
+  B093: { ja: '活動限界まで 残り {total}（次の区切りまで {seg}）', en: 'Activity limit: {total} left (next checkpoint in {seg})' },
+  B094: {
+    ja: '残敵 {n}体を倒しきれていません。進むとそのまま残り、次の敵が加わります。',
+    en: ({ n }) => `${n} ${n === 1 ? 'enemy remains' : 'enemies remain'}. If you proceed, they stay and the next wave joins them.`,
+  },
+  B095: { ja: '全地区の封鎖を解除。{bossWarn}', en: 'All district barriers lifted. {bossWarn}' },
 
   // ---------------------------------------------------------------- R：戦闘レポート
   R001: { ja: '任務完了 — {floor} 制圧・ボス撃破', en: 'Mission Complete — {floor} secured, boss destroyed' },
@@ -420,7 +433,7 @@ Ore gained: {txt}{warn}
   R016: { ja: 'フィールドに残したブースター {n}個は回収できませんでした。', en: ({ n }) => `${n} booster${n === 1 ? '' : 's'} left on the field could not be recovered.` },
   R017: { ja: '持ち帰った鉱石は、ガレージの「強化」タブでパーツの強化に使えます。', en: 'Use the ore you brought back to upgrade parts on the garage\'s Upgrade tab.' },
   R018: { ja: '特記事項なし。良好な戦闘データです。', en: 'Nothing to report. Good combat data.' },
-  R019: { ja: '掃討 {n} / {count} 地区 / 戦闘時間 {time} / 交戦した敵 {total}体', en: 'Cleared {n} / {count} districts / Battle time {time} / Enemies engaged {total}' },
+  R019: { ja: '掃討 {n} / {count} 地区 / 活動時間 {time} / 交戦した敵 {total}体', en: 'Cleared {n} / {count} districts / Activity time {time} / Enemies engaged {total}' },
   R020: { ja: '撃破記録', en: 'Kills' },
   R021: { ja: '撃破', en: 'Destroyed' },
   R022: { ja: '未撃破', en: 'Survived' },
@@ -462,6 +475,15 @@ Ore gained: {txt}{warn}
   },
   R053: { ja: '機体HP {pct}% で帰還しました。次は{name}以降が待っています。', en: 'Returned with {pct}% hull HP. {name} and beyond still await.' },
   R054: { ja: '機体HP {pct}% で帰還しました。ボス戦に挑むには、さらに損傷を抑える必要があります。', en: 'Returned with {pct}% hull HP. To take on the boss, you need to keep damage lower.' },
+  R055: { ja: '活動限界 — ボス未撃破のまま機体を回収', en: 'Activity Limit — Machine recovered, boss not destroyed' },
+  R056: {
+    ja: '活動限界（{min}分）に達しました。地区を早く掃討するほど、余った時間をボス戦に回せます。',
+    en: 'You hit the activity limit ({min} min). The faster you clear districts, the more time is left for the boss.',
+  },
+  R057: {
+    ja: '{n}地区は活動時間の区切りまでに掃討しきれませんでした。火力か索敵の回路を見直してみましょう。',
+    en: ({ n }) => `${n} district${n === 1 ? ' was' : 's were'} not cleared before the checkpoint. Review your firepower or targeting circuit.`,
+  },
 
   // ---------------------------------------------------------------- データ：スロット（スケルトンジョイント）
   'slot.headCpu.label': { ja: '頭部A', en: 'Head A' },

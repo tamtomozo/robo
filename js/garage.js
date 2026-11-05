@@ -783,10 +783,10 @@ const Garage = {
       <table class="district-tbl">
         <thead><tr><th>${T('G131' /* 地区 */)}</th><th>${ENEMY_DEFS.scarab.name}</th><th>${ENEMY_DEFS.spitter.name}</th><th>${ENEMY_DEFS.troll.name}</th><th>${T('G132' /* 戦闘フィールド */)}</th></tr></thead>
         <tbody>${rows}
-          <tr class="boss"><td><b>BOSS</b> ${ENEMY_DEFS[F.boss].name}</td><td colspan="3">${T('G133' /* 全地区掃討後に出現 */)} / HP ${bossHp(ENEMY_DEFS[F.boss], n, floor)}</td><td>${T('G134' /* 全地区 */)}</td></tr>
+          <tr class="boss"><td><b>BOSS</b> ${ENEMY_DEFS[F.boss].name}</td><td colspan="3">${T('G133' /* 3地区の後に出現 */)} / HP ${bossHp(ENEMY_DEFS[F.boss], n, floor)}</td><td>${T('G134' /* 全地区 */)}</td></tr>
         </tbody>
       </table>
-      <p class="muted">${T('G135' /* 各地区を掃討するたびに「次に進みますか？」と確認されます。帰… */, { chance: Math.round(RARE.chance * 100), prefix: RARE.prefix, surge: RARE.surgeMul, hp: RARE.hp, min: BONUS_MIN, max: BONUS_MAX })}</p>`;
+      <p class="muted">${T('G135' /* 活動限界は{limit}分。3地区とボス戦を{seg}分ずつ… */, { chance: Math.round(RARE.chance * 100), prefix: RARE.prefix, surge: RARE.surgeMul, hp: RARE.hp, min: BONUS_MIN, max: BONUS_MAX, limit: ACT_LIMIT / 60, seg: ACT_SEG / 60 })}</p>`;
     const st = computeStats(Game.save.build, null, Game.save.upgrades);
     const prog = Game.save.program;
     const warns = [];

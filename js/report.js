@@ -12,8 +12,9 @@ const Report = {
       win: T('R001' /* 任務完了 — {floor} 制圧・ボス撃破 */, { floor: floorName(w.floor) }),
       lose: T('R002' /* 機体大破 — 任務失敗 */), retreat: T('R003' /* 撤退 — 任務中断 */),
       return: T('R004' /* 基地へ帰還 — {n}地区 掃討完了 */, { n: s.cleared }),
+      timeout: T('R055' /* 活動限界 — ボス未撃破のまま機体を回収 */),
     }[w.result];
-    const cls = { win: 'win', lose: 'lose', retreat: 'retreat', return: 'return' }[w.result];
+    const cls = { win: 'win', lose: 'lose', retreat: 'retreat', return: 'return', timeout: 'timeout' }[w.result];
     const mmss = (t) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
     const acc = (side) => s.shots[side] ? Math.round(s.hits[side] / s.shots[side] * 100) + '%' : '—';
     const armName = (side) => partLabel(P.arms[side].def);
@@ -44,12 +45,15 @@ const Report = {
     if (P.st.over) notes.push(T('R007' /* 過積載状態で出撃しています。脚部の積載量を見直してください。 */));
     if (w.result === 'return') {
       const pct = Math.round(P.hp / P.maxHp * 100);
-      notes.push(s.cleared < DS.length ? T('R053' /* 機体HP {pct}% で帰還しました。次は{name}以降… */, { pct, name: DS[s.cleared].name })
+      notes.push(s.res.length < DS.length ? T('R053' /* 機体HP {pct}% で帰還しました。次は{name}以降… */, { pct, name: DS[s.res.length].name })
         : T('R054' /* 機体HP {pct}% で帰還しました。ボス戦に挑むには、さ… */, { pct }));
     }
     if (w.unlocked) notes.push(T('R008' /* {name}の{floor}が解放されました。次の出撃は{f… */, { name: w.field.name, floor: floorName(w.unlocked), hp: fmtMul(floorMul(w.unlocked).hp), dmg: fmtMul(floorMul(w.unlocked).dmg) }));
     else if (w.result === 'win' && w.floor >= FLOORS) notes.push(T('R009' /* {name}の最深部 {floor}を制圧しました。 */, { name: w.field.name, floor: floorName(FLOORS) }));
-    if (w.result === 'win' && w.time < 420) notes.push(T('R010' /* 迅速な任務遂行です。敵数を増やして挑戦してみましょう。 */));
+    if (w.result === 'timeout') notes.push(T('R056' /* 活動限界（{min}分）に達しました。地区を早く掃討するほど… */, { min: ACT_LIMIT / 60 }));
+    const timeN = s.res.filter(r => r === 'time').length;
+    if (timeN) notes.push(T('R057' /* {n}地区は活動時間の区切りまでに掃討しきれませんでした。火… */, { n: timeN }));
+    if (w.result === 'win' && w.act < ACT_LIMIT - ACT_SEG) notes.push(T('R010' /* 迅速な任務遂行です。敵数を増やして挑戦してみましょう。 */));
     if (lostAny) notes.push(T('R011' /* 機体大破により、回収した鉱石の半分を失いました。 */));
     if (ore.field) notes.push(T('R012' /* フィールドに残した鉱石 {n}個は回収できませんでした（地区… */, { n: ore.field }));
     if (s.rareKills) notes.push(T('R013' /* レア個体を {n}体 撃破しました。落としたブースターはガレ… */, { n: s.rareKills }));
@@ -60,10 +64,10 @@ const Report = {
     if (!notes.length) notes.push(T('R018' /* 特記事項なし。良好な戦闘データです。 */));
 
     document.getElementById('report').innerHTML = `
-      <div class="rep-head ${cls}"><h1>${title}</h1><p>${w.field.name} ${floorName(w.floor)} / ${T('R019' /* 掃討 {n} / {count} 地区 / 戦闘時間 {ti… */, { n: s.cleared, count: DS.length, time: mmss(w.time), total: s.total })}</p>
+      <div class="rep-head ${cls}"><h1>${title}</h1><p>${w.field.name} ${floorName(w.floor)} / ${T('R019' /* 掃討 {n} / {count} 地区 / 活動時間 {ti… */, { n: s.cleared, count: DS.length, time: mmss(Math.min(w.act, ACT_LIMIT)), total: s.total })}</p>
         <div class="rep-districts">${DS.map((D, i) => {
-          const st = i < s.cleared ? 'done' : i === w.district && w.result !== 'return' ? 'fail' : 'none';
-          return `<span class="${st}">${districtLabel(D)}${st === 'done' ? ' ✔' : st === 'fail' ? ' ✖' : ''}</span>`;
+          const st = s.res[i] === 'clear' ? 'done' : s.res[i] === 'time' ? 'time' : i === w.district && !w.full ? 'fail' : 'none';
+          return `<span class="${st}">${districtLabel(D)}${{ done: ' ✔', time: ' ⏱', fail: ' ✖', none: '' }[st]}</span>`;
         }).join('<em>›</em>')}<em>›</em><span class="${s.kills.boss ? 'done' : s.bossAt != null ? 'fail' : 'none'}">BOSS${s.kills.boss ? ' ✔' : s.bossAt != null ? ' ✖' : ''}</span></div></div>
       <div class="rep-body">
         <div class="rep-col">

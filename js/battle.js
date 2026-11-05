@@ -101,6 +101,21 @@ function insideRock(w, x, y, r) {
   return w.rocks.some(k => Math.hypot(k.x - x, k.y - y) < k.r + r);
 }
 
+// 活動限界：機体が動けるのは ACT_LIMIT 秒。3地区＋ボスを ACT_SEG 秒ずつで区切る
+//   区切りは出撃からの活動時間で決まる（第1地区 〜1:00 / 第2地区 〜2:00 / 第3地区 〜3:00 / ボス 〜4:00）
+//   早く掃討すれば、余った時間は次の地区に回る。確認ダイアログの間は活動時間が止まる
+const ACT_SEG = 60, ACT_LIMIT = 240;
+
+// 今の区切り（地区 / ボス戦）が終わる活動時間
+function actDeadline(w) {
+  return w.full ? ACT_LIMIT : Math.min(ACT_LIMIT, (w.district + 1) * ACT_SEG);
+}
+
+function fmtClock(t) {
+  const s = Math.max(0, Math.ceil(t));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 function createWorld(save) {
   // field = 出撃するフィールド、geo = その形の処理（field.js）。FW × H = フィールド全体の大きさ
   const F = fieldById(save.field), geo = FIELD_SHAPES[F.shape];
@@ -109,7 +124,7 @@ function createWorld(save) {
   const w = {
     field: F, floor, fm: floorMul(floor),   // 出撃した層 / その層のエネミー強化倍率（耐久・攻撃・鉱石）
     geo, FW, H, district: 0, open: 1, full: false, perDistrict: save.enemyCount,
-    time: 0, enemies: [], pshots: [], eshots: [], fx: [], scorch: [], rocks: [], decor: [],
+    time: 0, act: 0, actWarned: false, timeUp: false, segTotal: 0, enemies: [], pshots: [], eshots: [], fx: [], scorch: [], rocks: [], decor: [],
     webs: [], hazards: [],   // 蜘蛛の巣（機体が減速する）/ 落下予告の出ている攻撃（boss-spider.js）
     phase: 'fight', phaseT: 0, boss: null, log: [], result: null, endT: 0, shake: 0, banner: null,
     program: save.program,
@@ -121,6 +136,7 @@ function createWorld(save) {
       shots: { L: 0, R: 0 }, hits: { L: 0, R: 0 }, dmgBy: { L: 0, R: 0 },
       distance: 0, total: save.enemyCount, bossAt: null, cleared: 0,
       rareSeen: 0, rareKills: 0,
+      res: [],   // 地区ごとの結果：'clear'（掃討）/ 'time'（活動時間の区切りで次へ）
     },
   };
   w.start = geo.start(F);
@@ -162,6 +178,7 @@ function createWorld(save) {
 }
 
 // 現在の地区の敵を配置（同時出現上限を超える分は増援キューへ）
+// 前の地区の残敵（出現待ちを含む）はそのまま残り、新しい地区の敵が加わる
 function startDistrict(w) {
   const D = w.field.districts[w.district];
   const comp = enemyComposition(w.perDistrict, D);
@@ -169,10 +186,13 @@ function startDistrict(w) {
     const j = (Math.random() * (i + 1)) | 0;
     [comp[i], comp[j]] = [comp[j], comp[i]];
   }
-  w.queue = comp;
+  w.queue = comp.concat(w.queue || []);   // 末尾から出現するので、前の地区の出現待ちが先に出る
   w.reinT = 0;
   w.reinLogged = false;
   while (w.queue.length && w.enemies.length < MAX_ACTIVE_ENEMIES) spawnEnemy(w, w.queue.pop(), null);
+  w.segTotal = w.enemies.filter(e => !e.def.boss).length + w.queue.length;
+  w.actWarned = false;
+  w.timeUp = false;
   w.phase = 'fight';
   w.banner = { title: `${floorName(w.floor)} ${districtLabel(D)}`, sub: T('B005' /* 敵性生体反応 {perDistrict}体 */, { perDistrict: w.perDistrict }), t: 3 };
   Sound.play('radio');
@@ -193,7 +213,12 @@ function advanceDistrict(w) {
     w.full = true;
     w.phase = 'warn';
     w.phaseT = 3;
-    addLog(w, T('B008' /* 全地区 掃討完了。{bossWarn} */, { bossWarn: w.field.bossWarn }), '#ffd24a');
+    w.actWarned = false;
+    w.timeUp = false;
+    const allClear = w.stats.res.every(r => r === 'clear');
+    addLog(w, allClear ? T('B008' /* 全地区 掃討完了。{bossWarn} */, { bossWarn: w.field.bossWarn })
+      : T('B095' /* 全地区の封鎖を解除。{bossWarn} */, { bossWarn: w.field.bossWarn }), '#ffd24a');
+    if (w.enemies.length || w.queue.length) addLog(w, T('B085' /* 残敵 {n}体はボス戦に持ち越し。 */, { n: w.enemies.length + w.queue.length }), '#ffb070');
     Sound.stopBgm(1.5);
     Sound.play('siren');
   }
@@ -366,6 +391,7 @@ function spawnBoss(w) {
 // ---------------------------------------------------------------------
 function simulate(w, dt, inp) {
   w.time += dt;
+  if (!w.result) w.act += dt;   // 活動時間（確認ダイアログの間はシミュレーション自体が止まる）
   w.shake = Math.max(0, w.shake - dt * 2.5);
   if (w.banner) { w.banner.t -= dt; if (w.banner.t <= 0) w.banner = null; }
   const P = w.player;
@@ -384,7 +410,7 @@ function simulate(w, dt, inp) {
 
 function updatePhase(w, dt) {
   if (w.result) return;
-  if (w.phase === 'fight' && w.queue.length) {
+  if ((w.phase === 'fight' || w.phase === 'boss') && w.queue.length) {
     w.reinT -= dt;
     if (w.reinT <= 0 && w.enemies.length < MAX_ACTIVE_ENEMIES) {
       spawnEnemy(w, w.queue.pop(), null);
@@ -392,16 +418,38 @@ function updatePhase(w, dt) {
       if (!w.reinLogged) { w.reinLogged = true; addLog(w, T('B016' /* 増援接近：後続 {n}体 */, { n: w.queue.length + 1 }), '#ffb070'); }
     }
   }
+  // 活動時間：区切り・活動限界の10秒前に知らせる
+  const left = actDeadline(w) - w.act;
+  if (!w.actWarned && left <= 10 && (w.phase === 'fight' || w.phase === 'boss')) {
+    w.actWarned = true;
+    addLog(w, w.full ? T('B086' /* 活動限界まで 残り10秒！ */) : T('B087' /* 活動時間の区切りまで 残り10秒 */), '#ffb070');
+    Sound.play('radio');
+  }
+  if (w.full && w.act >= ACT_LIMIT) {
+    endBattle(w, 'timeout');
+    return;
+  }
   if (w.phase === 'fight' && w.enemies.length === 0 && w.queue.length === 0) {
     // 地区掃討 → 確認ダイアログ待ち（Battle 側がダイアログを出す）
     const D = w.field.districts[w.district];
-    w.stats.cleared = w.district + 1;
+    w.stats.res[w.district] = 'clear';
+    w.stats.cleared = w.stats.res.filter(r => r === 'clear').length;
     w.phase = 'confirm';
     w.pshots = [];
     w.eshots = [];
     addLog(w, T('B017' /* {district} 掃討完了。 */, { district: districtLabel(D) }), '#9fe0b0');
     Sound.play('clear');
     collectAllOres(w);
+  } else if (w.phase === 'fight' && w.act >= actDeadline(w)) {
+    // 活動時間の区切り：敵が残っていても確認ダイアログへ（進めば残敵はそのまま、次の地区の敵が加わる）
+    const D = w.field.districts[w.district];
+    w.stats.res[w.district] = 'time';
+    w.timeUp = true;
+    w.phase = 'confirm';
+    w.pshots = [];
+    w.eshots = [];
+    addLog(w, T('B088' /* {district} 活動時間の区切り。残敵 {n}体。 */, { district: districtLabel(D), n: w.enemies.length + w.queue.length }), '#ffd24a');
+    Sound.play('radio');
   } else if (w.phase === 'warn') {
     w.phaseT -= dt;
     if (w.phaseT <= 0) { w.phase = 'boss'; spawnBoss(w); }
@@ -416,8 +464,9 @@ function endBattle(w, result) {
   if (result === 'lose') addLog(w, T('B019' /* 機体大破。通信途絶…… */), '#ff6a4a');
   if (result === 'retreat') addLog(w, T('B020' /* 撤退信号を受信。戦域を離脱する。 */), '#ffd24a');
   if (result === 'return') addLog(w, T('B021' /* {n}地区を掃討。基地への帰還を開始する。 */, { n: w.stats.cleared }), '#9fe0b0');
+  if (result === 'timeout') addLog(w, T('B089' /* 活動限界に到達。機体を回収する。 */), '#ffb070');
   Sound.stopBgm(result === 'lose' ? 0.3 : 1);
-  Sound.play({ win: 'win', lose: 'lose', retreat: 'retreat', return: 'retreat' }[result]);
+  Sound.play({ win: 'win', lose: 'lose', retreat: 'retreat', return: 'retreat', timeout: 'retreat' }[result]);
 }
 
 function collideRocks(w, o) {
@@ -1412,7 +1461,7 @@ function collectAllOres(w) {
 function finishOre(w) {
   if (w.oreResult) return w.oreResult;
   let field = 0, fieldParts = 0;
-  if (w.result === 'win' || w.result === 'return') collectAllOres(w);
+  if (w.result === 'win' || w.result === 'return' || w.result === 'timeout') collectAllOres(w);
   else { field = w.ores.length; fieldParts = w.loot.length; }
   const lost = emptyOre(), gain = emptyOre();
   for (const k of ORES) {
@@ -2159,7 +2208,7 @@ function drawHUD(ctx, w, B, VW, VH) {
 
   // --- 敵数 / ボス ---
   ctx.textAlign = 'center';
-  const remain = w.enemies.filter(e => !e.def.boss).length + (w.phase === 'fight' ? w.queue.length : 0);
+  const remain = w.enemies.filter(e => !e.def.boss).length + w.queue.length;
   const bossPhase = w.phase === 'warn' || w.phase === 'boss';
   const DS = w.field.districts, D = DS[w.district];
   ctx.font = 'bold 14px sans-serif';
@@ -2167,13 +2216,16 @@ function drawHUD(ctx, w, B, VW, VH) {
   if (!bossPhase) ctx.fillText(`${floorName(w.floor)}  ${districtLabel(D)}  ${w.district + 1} / ${DS.length}`, VW / 2, 12);
   ctx.font = 'bold 18px sans-serif';
   ctx.fillStyle = '#f2e6c8';
-  if (w.phase === 'fight') ctx.fillText(T('B039' /* 残敵 {remain} / {perDistrict} */, { remain, perDistrict: w.perDistrict }), VW / 2, 32);
-  else if (w.phase === 'confirm' || w.phase === 'done') ctx.fillText(T('B040' /* 掃討完了 */), VW / 2, 32);
+  if (w.phase === 'fight') ctx.fillText(T('B039' /* 残敵 {remain} / {perDistrict} */, { remain, perDistrict: w.segTotal }), VW / 2, 32);
+  else if ((w.phase === 'confirm' || w.phase === 'done') && !w.timeUp) ctx.fillText(T('B040' /* 掃討完了 */), VW / 2, 32);
   else if (remain > 0) ctx.fillText(T('B041' /* 眷属 {remain} */, { remain }), VW / 2, 60);
-  const bt = Math.floor(w.time);
-  ctx.font = '12px sans-serif';
-  ctx.fillStyle = '#cbbd9c';
-  ctx.fillText(`${T('B042' /* 経過 */)} ${String(Math.floor(bt / 60)).padStart(2, '0')}:${String(bt % 60).padStart(2, '0')}`, VW / 2, bossPhase ? 80 : 56);
+  // 活動時間：限界までの残り / 次の区切りまでの残り（残り10秒で赤く点滅）
+  const segLeft = actDeadline(w) - w.act;
+  const urgent = segLeft <= 10 && !w.result && w.phase !== 'confirm';
+  ctx.font = urgent ? 'bold 14px sans-serif' : 'bold 12px sans-serif';
+  ctx.fillStyle = urgent ? `rgb(255,${(90 + 60 * (0.5 + 0.5 * Math.sin(w.time * 10))) | 0},60)` : '#cbbd9c';
+  ctx.fillText(w.full ? T('B090' /* 活動限界まで {total} */, { total: fmtClock(ACT_LIMIT - w.act) })
+    : T('B091' /* 活動限界まで {total} ／ 区切りまで {seg} */, { total: fmtClock(ACT_LIMIT - w.act), seg: fmtClock(segLeft) }), VW / 2, bossPhase ? 80 : 56);
   if (w.banner && !w.result) {
     const a = Math.min(1, w.banner.t, (3 - w.banner.t) * 3);
     ctx.globalAlpha = Math.max(0, a);
@@ -2301,8 +2353,8 @@ function drawHUD(ctx, w, B, VW, VH) {
     ctx.textBaseline = 'top';
   }
   if (w.result) {
-    const txt = { win: 'MISSION COMPLETE', lose: 'MACHINE DOWN', retreat: 'RETREAT', return: 'RETURN TO BASE' }[w.result];
-    const col = { win: '#9fffb0', lose: '#ff6a4a', retreat: '#ffd24a', return: '#9fe0ff' }[w.result];
+    const txt = { win: 'MISSION COMPLETE', lose: 'MACHINE DOWN', retreat: 'RETREAT', return: 'RETURN TO BASE', timeout: 'ACTIVITY LIMIT' }[w.result];
+    const col = { win: '#9fffb0', lose: '#ff6a4a', retreat: '#ffd24a', return: '#9fe0ff', timeout: '#ffb070' }[w.result];
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, VH / 2 - 45, VW, 90);
     ctx.font = 'bold 46px sans-serif';
@@ -2355,7 +2407,7 @@ const Battle = {
     this.hideConfirm();
   },
 
-  // 地区掃討後の「次に進みますか？」ダイアログ
+  // 地区掃討後・活動時間の区切りの「次に進みますか？」ダイアログ
   showConfirm() {
     const w = this.world, P = w.player;
     const DS = w.field.districts;
@@ -2375,12 +2427,17 @@ const Battle = {
       const N = DS[w.district + 1];
       next = T('B050' /* 次：{district} 敵 {perDistrict}体第… */, { district: districtLabel(N), perDistrict: w.perDistrict, n: w.district + 2 });
     }
-    document.getElementById('confirm-title').textContent = T('B051' /* {district} 掃討完了 */, { district: districtLabel(D) });
+    const carry = w.enemies.length + w.queue.length;
+    document.getElementById('confirm-title').textContent = w.timeUp
+      ? T('B092' /* {district} 活動時間の区切り */, { district: districtLabel(D) })
+      : T('B051' /* {district} 掃討完了 */, { district: districtLabel(D) });
     document.getElementById('confirm-body').innerHTML = `
       <div class="hpline"><span>${T('B052' /* 機体HP {hp} / {max}（{hpPct}%） */, { hp: Math.ceil(P.hp), max: P.maxHp, hpPct })}</span><i><b style="width:${hpPct}%"></b></i></div>
       <p class="muted">${ammo}${T('B053' /* ※HP・弾薬は持ち越し（補給なし） */)}</p>
       <p class="ore-line">${T('B054' /* 回収鉱石： */)}${oreHTML(w.ore)}</p>
       ${w.parts.length ? `<p class="ore-line">${T('B055' /* 回収ブースター： */)}${w.parts.map(p => partTagHTML(p)).join(' ')}</p>` : ''}
+      <p class="act-line">${T('B093' /* 活動限界まで 残り {total}（次の区切りまで {seg… */, { total: fmtClock(ACT_LIMIT - w.act), seg: fmtClock((last ? ACT_LIMIT : (w.district + 2) * ACT_SEG) - w.act) })}</p>
+      ${w.timeUp && carry ? `<p class="carry">${T('B094' /* 残敵 {n}体を倒しきれていません。進むとそのまま残り、次の… */, { n: carry })}</p>` : ''}
       ${next}
       <p class="q">${last ? T('B056' /* ボス戦に進みますか？ */) : T('B057' /* 次に進みますか？ */)}</p>`;
     document.getElementById('confirm-yes').textContent = last ? T('B058' /* ボス戦へ（Enter） */) : T('B059' /* 次の地区へ（Enter） */);

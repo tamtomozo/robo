@@ -131,7 +131,7 @@ const STRIP_SHAPE = {
         ctx.strokeStyle = 'rgba(255,220,170,0.25)';
         ctx.beginPath(); ctx.moveTo(mx + i * F.dw * k + 0.5, my); ctx.lineTo(mx + i * F.dw * k + 0.5, my + mmh); ctx.stroke();
       }
-      const sealed = i >= w.open && !w.full, done = i < w.stats.cleared;
+      const sealed = i >= w.open && !w.full, done = w.stats.res[i] === 'clear';
       ctx.fillStyle = mapLabelColor(sealed, done);
       ctx.fillText(`${D.name}${sealed ? T('B068' /* （封鎖） */) : done ? T('B069' /* （掃討済） */) : ''}`, mx + (i + 0.5) * F.dw * k, my + mmh + 3);
     });
@@ -328,7 +328,7 @@ const DISC_SHAPE = {
     ctx.font = 'bold 11px sans-serif';
     ctx.lineWidth = 1;
     F.districts.forEach((D, i) => {
-      const sealed = i >= w.open && !w.full, done = i < w.stats.cleared;
+      const sealed = i >= w.open && !w.full, done = w.stats.res[i] === 'clear';
       const r0 = this.innerR(F, i), r1 = F.radii[i];
       annulusPath(ctx, cx, cy, r0 * k, r1 * k);
       ctx.fillStyle = sealed ? 'rgba(0,0,0,0.55)' : 'rgba(255,230,180,0.08)';
