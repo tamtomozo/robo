@@ -1412,11 +1412,7 @@ function dropPart(w, e) {
   const a = rand(0, Math.PI * 2);
   w.loot.push({ part, x: e.x, y: e.y, vx: Math.cos(a) * 3, vy: Math.sin(a) * 3, rot: rand(0, 6.283), t: 0, pull: 0 });
   w.stats.rareKills++;
-  addLog(w, T('B029' /* {name} 撃破 ― ブースターを落とした：{booste… */, { name: e.def.name, booster: boosterName(part) }), bonusTier(part.bonus).color);
-}
-
-function partLogText(part) {
-  return boosterName(part);
+  addLog(w, T('B029' /* {name} 撃破 ― ブースターを落とした */, { name: e.def.name }), bonusTier(part.bonus).color);
 }
 
 function collectPart(w, o) {
@@ -1424,7 +1420,7 @@ function collectPart(w, o) {
   w.parts.push(o.part);
   w.partPulse = 0.6;
   Sound.play('partGet');
-  addLog(w, T('B030' /* ブースター回収：{booster}（{tier}） */, { booster: partLogText(o.part), tier: bonusTier(o.part.bonus).name }), bonusTier(o.part.bonus).color);
+  addLog(w, T('B030' /* ブースターを回収（{tier}） */, { tier: bonusTier(o.part.bonus).name }), bonusTier(o.part.bonus).color);   // 詳しい名前は出さない
   for (let i = 0; i < 6; i++) {
     w.fx.push({ type: 'gib', x: w.player.x, y: w.player.y, vx: rand(-4, 4), vy: rand(-4, 4), life: 0.35, max: 0.35, size: 0.2, color: bonusTier(o.part.bonus).color });
   }
@@ -1443,7 +1439,7 @@ function collectOre(w, o) {
 function collectAllOres(w) {
   if (w.loot.length) {
     for (const o of w.loot) w.parts.push(o.part);
-    addLog(w, T('B031' /* 回収ドローン：残りのブースターを回収（{list}） */, { list: w.loot.map(o => partLogText(o.part)).join(' / ') }), '#ffd84a');
+    addLog(w, T('B031' /* 回収ドローン：残りのブースター {n}個を回収 */, { n: w.loot.length }), '#ffd84a');
     w.loot = [];
   }
   if (!w.ores.length) return;
