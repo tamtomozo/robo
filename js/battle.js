@@ -191,7 +191,6 @@ function startDistrict(w) {
   w.reinLogged = false;
   while (w.queue.length && w.enemies.length < MAX_ACTIVE_ENEMIES) spawnEnemy(w, w.queue.pop(), null);
   w.segTotal = w.enemies.filter(e => !e.def.boss).length + w.queue.length;
-  w.actWarned = false;
   w.timeUp = false;
   w.phase = 'fight';
   w.banner = { title: `${floorName(w.floor)} ${districtLabel(D)}`, sub: T('B005' /* 敵性生体反応 {perDistrict}体 */, { perDistrict: w.perDistrict }), t: 3 };
@@ -213,7 +212,6 @@ function advanceDistrict(w) {
     w.full = true;
     w.phase = 'warn';
     w.phaseT = 3;
-    w.actWarned = false;
     w.timeUp = false;
     const allClear = w.stats.res.every(r => r === 'clear');
     addLog(w, allClear ? T('B008' /* 全地区 掃討完了。{bossWarn} */, { bossWarn: w.field.bossWarn })
@@ -418,11 +416,10 @@ function updatePhase(w, dt) {
       if (!w.reinLogged) { w.reinLogged = true; addLog(w, T('B016' /* 増援接近：後続 {n}体 */, { n: w.queue.length + 1 }), '#ffb070'); }
     }
   }
-  // 活動時間：区切り・活動限界の10秒前に知らせる
-  const left = actDeadline(w) - w.act;
-  if (!w.actWarned && left <= 10 && (w.phase === 'fight' || w.phase === 'boss')) {
+  // 活動限界の10秒前に知らせる（地区の区切りまでの時間は知らせない）
+  if (!w.actWarned && ACT_LIMIT - w.act <= 10 && (w.phase === 'fight' || w.phase === 'boss')) {
     w.actWarned = true;
-    addLog(w, w.full ? T('B086' /* 活動限界まで 残り10秒！ */) : T('B087' /* 活動時間の区切りまで 残り10秒 */), '#ffb070');
+    addLog(w, T('B086' /* 活動限界まで 残り10秒！ */), '#ffb070');
     Sound.play('radio');
   }
   if (w.full && w.act >= ACT_LIMIT) {
@@ -2219,13 +2216,12 @@ function drawHUD(ctx, w, B, VW, VH) {
   if (w.phase === 'fight') ctx.fillText(T('B039' /* 残敵 {remain} / {perDistrict} */, { remain, perDistrict: w.segTotal }), VW / 2, 32);
   else if ((w.phase === 'confirm' || w.phase === 'done') && !w.timeUp) ctx.fillText(T('B040' /* 掃討完了 */), VW / 2, 32);
   else if (remain > 0) ctx.fillText(T('B041' /* 眷属 {remain} */, { remain }), VW / 2, 60);
-  // 活動時間：限界までの残り / 次の区切りまでの残り（残り10秒で赤く点滅）
-  const segLeft = actDeadline(w) - w.act;
-  const urgent = segLeft <= 10 && !w.result && w.phase !== 'confirm';
+  // 活動限界までの残り時間（残り10秒で赤く点滅）
+  const actLeft = ACT_LIMIT - w.act;
+  const urgent = actLeft <= 10 && !w.result && w.phase !== 'confirm';
   ctx.font = urgent ? 'bold 14px sans-serif' : 'bold 12px sans-serif';
   ctx.fillStyle = urgent ? `rgb(255,${(90 + 60 * (0.5 + 0.5 * Math.sin(w.time * 10))) | 0},60)` : '#cbbd9c';
-  ctx.fillText(w.full ? T('B090' /* 活動限界まで {total} */, { total: fmtClock(ACT_LIMIT - w.act) })
-    : T('B091' /* 活動限界まで {total} ／ 区切りまで {seg} */, { total: fmtClock(ACT_LIMIT - w.act), seg: fmtClock(segLeft) }), VW / 2, bossPhase ? 80 : 56);
+  ctx.fillText(T('B090' /* 活動限界まで {total} */, { total: fmtClock(actLeft) }), VW / 2, bossPhase ? 80 : 56);
   if (w.banner && !w.result) {
     const a = Math.min(1, w.banner.t, (3 - w.banner.t) * 3);
     ctx.globalAlpha = Math.max(0, a);
@@ -2436,7 +2432,7 @@ const Battle = {
       <p class="muted">${ammo}${T('B053' /* ※HP・弾薬は持ち越し（補給なし） */)}</p>
       <p class="ore-line">${T('B054' /* 回収鉱石： */)}${oreHTML(w.ore)}</p>
       ${w.parts.length ? `<p class="ore-line">${T('B055' /* 回収ブースター： */)}${w.parts.map(p => partTagHTML(p)).join(' ')}</p>` : ''}
-      <p class="act-line">${T('B093' /* 活動限界まで 残り {total}（次の区切りまで {seg… */, { total: fmtClock(ACT_LIMIT - w.act), seg: fmtClock((last ? ACT_LIMIT : (w.district + 2) * ACT_SEG) - w.act) })}</p>
+      <p class="act-line">${T('B093' /* 活動限界まで 残り {total} */, { total: fmtClock(ACT_LIMIT - w.act) })}</p>
       ${w.timeUp && carry ? `<p class="carry">${T('B094' /* 残敵 {n}体を倒しきれていません。進むとそのまま残り、次の… */, { n: carry })}</p>` : ''}
       ${next}
       <p class="q">${last ? T('B056' /* ボス戦に進みますか？ */) : T('B057' /* 次に進みますか？ */)}</p>`;
