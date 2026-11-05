@@ -60,8 +60,13 @@ const Game = {
           reached[f.id] = clamp((s.reached && s.reached[f.id]) | 0, 1, FLOORS);
           floor[f.id] = clamp((s.floor && s.floor[f.id]) | 0, 1, reached[f.id]);
         }
+        // 回路：保存枠（枠の無い頃のセーブは今の回路を1番に入れる）
+        const okProg = p => Array.isArray(p) && p.length === MAX_GRID * MAX_GRID;
+        const progSlot = clamp(s.progSlot | 0, 0, PROG_SLOTS - 1);
+        const programs = d.programs.map((p, i) => (Array.isArray(s.programs) && okProg(s.programs[i]) ? s.programs[i] : p));
+        programs[progSlot] = s.program;
         return {
-          build, program: s.program, enemyCount: s.enemyCount || d.enemyCount,
+          build, program: s.program, programs, progSlot, enemyCount: s.enemyCount || d.enemyCount,
           field: fieldById(s.field).id, floor, reached,
           ore: Object.assign(d.ore, s.ore), upgrades: Object.assign(d.upgrades, s.upgrades),
           stock, nextUid: Math.max(s.nextUid || 1, ...stock.map(it => it.uid + 1)),
@@ -72,6 +77,7 @@ const Game = {
   },
 
   persist() {
+    this.save.programs[this.save.progSlot] = this.save.program;   // 回路を丸ごと差し替えたときも保存枠に反映する
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.save)); } catch (e) { /* 保存不可の環境 */ }
   },
 

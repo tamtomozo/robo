@@ -60,7 +60,8 @@ const Garage = {
   t: 0,
   walk: 0,
   xray: false,
-  undoStack: [],   // 回路の編集履歴（元に戻す用。セーブには含めない）
+  undoStacks: Array.from({ length: PROG_SLOTS }, () => []),   // 回路ごとの編集履歴（元に戻す用。セーブには含めない）
+  get undoStack() { return this.undoStacks[Game.save.progSlot]; },
   curTab: 'assembly',
   pendingTab: null, // 未接続タイルの確認ダイアログを閉じたあとに開くタブ
 
@@ -505,6 +506,9 @@ const Garage = {
     const prog = Game.save.program;
     document.getElementById('circuit-info').innerHTML =
       T('G107' /* 頭部A {name}：使用可能 {grid}×{grid} … */, { name: partLabel(st.parts.headCpu), grid, clock: fmtNum(st.clock), sensor: fmtNum(st.sensor) });
+    document.getElementById('prog-slots').innerHTML = Array.from({ length: PROG_SLOTS }, (_, i) =>
+      `<button data-slot="${i}" class="${i === Game.save.progSlot ? 'active' : ''}" title="${T('G148' /* 出撃では選んでいる回路を使います */)}">${T('G147' /* 回路{n} */, { n: i + 1 })}</button>`).join('');
+    document.querySelectorAll('#prog-slots button').forEach(b => { b.onclick = () => this.selectSlot(+b.dataset.slot); });
     const el = document.getElementById('circuit-grid');
     const orphans = new Set(orphanTiles(prog, grid));
     let html = '';
@@ -651,6 +655,20 @@ const Garage = {
       else tile.d = (tile.d + 1) % 4;
       this.sel = { x, y };
     });
+  },
+
+  // 保存してある回路を切り替える（出撃にはこの回路を使う）
+  selectSlot(i) {
+    if (i === Game.save.progSlot) return;
+    Sound.play('ui');
+    Game.persist();   // 今の回路を保存枠へ
+    Game.save.progSlot = i;
+    Game.save.program = Game.save.programs[i];
+    this.sel = null;
+    Game.persist();
+    this.renderCircuit();
+    this.renderInspector();
+    this.renderSortie();
   },
 
   // 回路を書き換える処理はすべてここを通す。変更があったときだけ、変更前の状態を履歴に積む
@@ -803,7 +821,7 @@ const Garage = {
     const hidden = prog.filter((t, i) => t && ((i % MAX_GRID) >= st.grid || Math.floor(i / MAX_GRID) >= st.grid)).length;
     if (hidden) warns.push(T('G139' /* 回路盤の外に {n} 個のタイルがあります（現在の頭部Aでは… */, { n: hidden }));
     document.getElementById('sortie-check').innerHTML =
-      T('G140' /* 回路：{used} タイル使用 / {grid}×{grid… */, { used, grid: st.grid }) +
+      T('G140' /* 回路{n}：{used} タイル使用 / {grid}×{g… */, { n: Game.save.progSlot + 1, used, grid: st.grid }) +
       (warns.length ? warns.map(w => `<p class="warn">⚠ ${w}</p>`).join('') : `<p class="ok">✔ ${T('G141' /* 出撃準備完了 */)}</p>`);
   },
 };

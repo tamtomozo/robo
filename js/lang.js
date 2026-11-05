@@ -280,13 +280,15 @@ Ore gained: {txt}{warn}
     ja: '回路盤の外に {n} 個のタイルがあります（現在の頭部Aでは実行されません）。',
     en: ({ n }) => `${n} tile${n === 1 ? ' is' : 's are'} outside the circuit board (they won't run with the current Head A).`,
   },
-  G140: { ja: '<p>回路：{used} タイル使用 / {grid}×{grid}</p>', en: '<p>Circuit: {used} tiles used / {grid}×{grid}</p>' },
+  G140: { ja: '<p>回路{n}：{used} タイル使用 / {grid}×{grid}</p>', en: '<p>Circuit {n}: {used} tiles used / {grid}×{grid}</p>' },
   G141: { ja: '出撃準備完了', en: 'Ready for sortie' },
   G142: { ja: '{name}以下', en: '{name} & below' },
   G143: { ja: '{what}（+{max}以下）を選択', en: 'Select {what} (+{max} or less)' },
   G144: { ja: '+{min}〜', en: ({ lo, hi }) => (lo === hi ? `+${lo}` : `+${lo}–${hi}`) },
   G145: { ja: '{n} 体', en: '{n}' },
   G146: { ja: '第1〜{n}地区', en: ({ n }) => (n > 1 ? `Districts 1–${n}` : 'District 1') },
+  G147: { ja: '回路{n}', en: 'Circuit {n}' },
+  G148: { ja: '出撃では選んでいる回路を使います', en: 'The selected circuit is used for sorties' },
 
   // ---------------------------------------------------------------- B：戦闘（ログ・HUD・地区掃討後の確認）
   B001: { ja: '基地に帰還（Esc）', en: 'Return to base (Esc)' },

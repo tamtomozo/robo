@@ -412,11 +412,15 @@ function defaultProgram() {
   return c;
 }
 
+const PROG_SLOTS = 3;   // 保存しておける回路の数
+
 function defaultSave() {
-  return {
+  const s = {
     // gear = スロット → 差し込んだブースター { uid, id(対象パーツ), bonus }（無いスロットは無し）
     build: { headCpu: 'cpu_m', headReg: 'reg_b', torso: 't_std', armL: 'gatling', armR: 'cannon', legs: 'biped', armRatio: 0.5, gear: {} },
-    program: defaultProgram(),
+    program: null,     // 出撃に使う回路（programs[progSlot] と同じもの。下で入れる）
+    programs: [defaultProgram(), defaultProgram(), defaultProgram()],   // 保存しておける回路（PROG_SLOTS 個）
+    progSlot: 0,       // 選んでいる回路の番号
     enemyCount: 20,
     field: 'wasteland',   // 出撃するフィールド（FIELDS の id）
     floor: emptyFloors(1),     // フィールド id → 出撃する層
@@ -426,4 +430,6 @@ function defaultSave() {
     stock: [],         // レアエネミーが落としたブースター { uid, cat, id(対象パーツ), bonus, got }（同じものを何個でも持てる）
     nextUid: 1,
   };
+  s.program = s.programs[0];
+  return s;
 }
