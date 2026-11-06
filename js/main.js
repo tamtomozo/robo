@@ -66,11 +66,20 @@ const Game = {
         const progSlot = clamp(s.progSlot | 0, 0, PROG_SLOTS - 1);
         const programs = d.programs.map((p, i) => (Array.isArray(s.programs) && okProg(s.programs[i]) ? s.programs[i] : p));
         programs[progSlot] = s.program;
+        // 対戦相手：読み込んだときと同じ確かめ方で読み直す（読めなくなったものは捨てる）
+        const rivals = [];
+        for (const r of Array.isArray(s.rivals) ? s.rivals : []) {
+          const v = r && versusFromObj(r.data);
+          if (!v || rivals.length >= VS.rivals) continue;
+          const rec = r.rec || {};
+          rivals.push({ id: String(r.id), data: machineToData(v.m), rec: { w: rec.w | 0, l: rec.l | 0, d: rec.d | 0 }, got: +r.got || 0 });
+        }
         return {
           build, program: s.program, programs, progSlot, enemyCount: s.enemyCount || d.enemyCount,
           field: fieldById(s.field).id, floor, reached,
           ore: Object.assign(d.ore, s.ore), upgrades: Object.assign(d.upgrades, s.upgrades),
           stock, nextUid: Math.max(s.nextUid || 1, ...stock.map(it => it.uid + 1)),
+          pilot: cleanName(s.pilot), rivals, vsSel: typeof s.vsSel === 'string' ? s.vsSel : d.vsSel, vsFlat: !!s.vsFlat,
         };
       }
     } catch (e) { /* 壊れたセーブは無視 */ }
@@ -138,6 +147,27 @@ const Game = {
     this.show('battle');
     Sound.play('sortie');
     Battle.start(this.save);
+  },
+
+  // 対戦：選んでいる対戦相手と闘技場で戦う（versus.js）
+  versus() {
+    const opp = vsOpponents(this.save).find(o => o.id === this.save.vsSel);
+    if (!opp) return;
+    Garage.onHide();
+    this.show('battle');
+    Sound.play('sortie');
+    Battle.start(this.save, { opp, flat: this.save.vsFlat });
+  },
+
+  // 対戦が終わったとき：読み込んだ相手なら戦績に加えてから、結果を見せる
+  endVersus(w) {
+    const r = this.save.rivals.find(x => x.id === w.opp.id);
+    if (r) {
+      r.rec[{ win: 'w', lose: 'l', draw: 'd' }[w.result]]++;
+      this.persist();
+      w.rec = Object.assign({}, r.rec);
+    }
+    Report.showVersus(w);
   },
 };
 

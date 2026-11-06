@@ -38,7 +38,7 @@ function setPlayerRatio(w, P, v) {
   const reg = P.st.parts.headReg;
   const r = clampRatio(reg, Math.round(v * 100) / 100);
   if (Math.abs(r - P.st.ratio) < 0.001) return;
-  Sound.play('ratio', { up: r > P.st.ratio });
+  if (!P.rival) Sound.play('ratio', { up: r > P.st.ratio });   // 対戦相手の切り替えは鳴らさない
   P.st = computeStats(P.build, r, P.upgrades);
   P.arms.L.perf = P.st.armL;
   P.arms.R.perf = P.st.armR;
@@ -157,14 +157,7 @@ function createWorld(save) {
            w.rocks.every(k => Math.hypot(k.x - x, k.y - y) >= k.r * 1.12 + r * 1.12 + 4.5);
     }
     if (!ok) continue;
-    const n = 7 + ((Math.random() * 4) | 0);
-    const pts = [];
-    for (let k = 0; k < n; k++) {
-      const a = k / n * Math.PI * 2;
-      const rr = r * rand(0.8, 1.12);
-      pts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
-    }
-    w.rocks.push({ x, y, r, pts, cave: !!F.dark });
+    w.rocks.push({ x, y, r, pts: rockPoints(r), cave: !!F.dark });
   }
   for (let i = 0; i < F.decorN; i++) {
     const { x, y } = geo.randomPoint(w, i % nd, 0.5);
@@ -175,6 +168,18 @@ function createWorld(save) {
   if (floor > 1) addLog(w, T('B004' /* 深層の敵性生体：耐久 {hp} / 攻撃力 {dmg} */, { hp: fmtMul(w.fm.hp), dmg: fmtMul(w.fm.dmg) }), '#ffb070');
   startDistrict(w);
   return w;
+}
+
+// 岩の輪郭（半径 r のまわりをでこぼこさせた多角形）
+function rockPoints(r) {
+  const n = 7 + ((Math.random() * 4) | 0);
+  const pts = [];
+  for (let k = 0; k < n; k++) {
+    const a = k / n * Math.PI * 2;
+    const rr = r * rand(0.8, 1.12);
+    pts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+  }
+  return pts;
 }
 
 // 現在の地区の敵を配置（同時出現上限を超える分は増援キューへ）
@@ -697,7 +702,7 @@ function meleeSwing(w, P, arm, dmg) {
   const d = arm.def;
   let hit = false;
   for (const e of w.enemies) {
-    if (e.invuln || e.hp <= 0) continue;
+    if (e.invuln || e.hp <= 0 || e.air > 0) continue;   // air = ジャンプ中の対戦相手
     const dx = e.x - P.x, dy = e.y - P.y;
     const len = Math.hypot(dx, dy) || 1;
     const dist = len - e.r;
@@ -718,7 +723,12 @@ function meleeSwing(w, P, arm, dmg) {
 const KNOCK = { melee: 12, shell: 14, missile: 9, gun: 0.5 };
 
 // 一般エネミーを (ux, uy) の向きへ押す。ボスは押さない。トロールは重いので1/3
+// 対戦相手の機体（e.robot）は半分の強さで押す（ジャンプ中は押さない）
 function knockEnemy(e, ux, uy, power) {
+  if (e.robot) {
+    if (power && !(e.air > 0)) { e.vx += ux * power * 0.5; e.vy += uy * power * 0.5; }
+    return;
+  }
   if (e.def.boss || !power) return;
   const k = power * (e.type === 'troll' ? 1 / 3 : 1);
   e.vx += ux * k;
@@ -726,6 +736,7 @@ function knockEnemy(e, ux, uy, power) {
 }
 
 function damageEnemy(w, e, dmg, side) {
+  if (e.robot) { hurtRobot(w, e, dmg, side); return; }   // 対戦相手の機体（versus.js）
   if (e.invuln || e.hp <= 0) return;
   const real = Math.min(dmg, e.hp);
   e.hp -= dmg;
@@ -774,7 +785,7 @@ function explode(w, x, y, rad, dmg, side, direct, shot) {
   const kb = shot ? KNOCK[shot.kind] || 0 : 0;
   const sv = shot ? Math.hypot(shot.vx, shot.vy) || 1 : 1;
   for (const e of w.enemies) {
-    if (e.hp <= 0 || e.invuln) continue;
+    if (e.hp <= 0 || e.invuln || e.air > 0) continue;
     const cx = e.x - x, cy = e.y - y, cd = Math.hypot(cx, cy);
     // 爆心から外向きに押す（爆心が敵の真上なら弾の進む向き）
     const [ux, uy] = cd > 0.3 ? [cx / cd, cy / cd] : shot ? [shot.vx / sv, shot.vy / sv] : [0, 0];
@@ -823,7 +834,7 @@ function updatePlayerShots(w, dt) {
     s.px = s.x; s.py = s.y;
 
     for (const e of w.enemies) {
-      if (e.hp <= 0 || e.invuln) continue;
+      if (e.hp <= 0 || e.invuln || e.air > 0) continue;   // ジャンプ中の対戦相手の頭上は越える
       const rr = e.r + s.r;
       const tt = clamp(((e.x - sx0) * sdx + (e.y - sy0) * sdy) / sl2, 0, 1);
       const hx = sx0 + sdx * tt, hy = sy0 + sdy * tt;
@@ -1663,6 +1674,11 @@ function drawWorld(ctx, w, B, VW, VH) {
     ctx.setLineDash([1.2, 1.2]);
     circle(ctx, P.x, P.y, P.st.sensor);
     ctx.stroke();
+    if (w.vs && !w.rival.dead) {   // 対戦：相手のセンサー範囲は赤で
+      ctx.strokeStyle = 'rgba(255,120,100,0.16)';
+      circle(ctx, w.rival.x, w.rival.y, w.rival.st.sensor);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -1689,6 +1705,7 @@ function drawWorld(ctx, w, B, VW, VH) {
 
   // 敵（脈動中は足元に赤い揺らめき）
   for (const e of w.enemies) {
+    if (e.robot) { drawMech(ctx, w, e, false); continue; }   // 対戦相手の機体
     if (!inView(e.x, e.y, e.def.boss ? 20 : 3)) continue;
     if (sk > 0.05 && !e.buried) drawSurgeAura(ctx, e, sk, sb);
     if (e.rare) drawRareAura(ctx, e, w.time, false);
@@ -1697,31 +1714,12 @@ function drawWorld(ctx, w, B, VW, VH) {
   }
 
   // プレイヤー
-  if (!P.dead) {
-    // ジャンプ中：地面に影を残し、機体は高さに応じて大きく描く
-    const lift = P.air > 0 ? Math.sin(Math.PI * (1 - P.air / P.airMax)) : 0;
-    if (lift > 0) {
-      ctx.fillStyle = `rgba(0,0,0,${0.25 - 0.1 * lift})`;
-      ctx.beginPath();
-      ctx.ellipse(P.x + 0.6 * lift, P.y + 1.4 * lift, 1.5 * (1 - 0.25 * lift), 1.4 * (1 - 0.25 * lift), 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.save();
-    ctx.translate(P.x, P.y);
-    ctx.rotate(P.a);
-    if (lift > 0) ctx.scale(1 + 0.35 * lift, 1 + 0.35 * lift);
-    drawRobot(ctx, P.st.parts, {
-      time: w.time, walk: P.walk, hit: P.hit, xray: B.xray, noShadow: lift > 0,
-      armL: { recoil: P.arms.L.recoil, flash: P.arms.L.flash },
-      armR: { recoil: P.arms.R.recoil, flash: P.arms.R.flash },
-    });
-    ctx.restore();
-  }
+  drawMech(ctx, w, P, B.xray);
 
-  // 弾
+  // 弾（対戦では相手の弾も機体の弾）
   for (const s of w.pshots) drawPShot(ctx, s);
   for (const s of w.eshots) {
-    if (inView(s.x, s.y)) drawEnemyShot(ctx, s);
+    if (inView(s.x, s.y)) w.vs ? drawPShot(ctx, s) : drawEnemyShot(ctx, s);
   }
   for (const f of w.fx) if (f.type !== 'dust' && inView(f.x, f.y, 12)) drawFx(ctx, f);
 
@@ -1745,6 +1743,36 @@ function drawWorld(ctx, w, B, VW, VH) {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VW, VH);
   }
+}
+
+// 機体（自機・対戦相手）。対戦では足元に色の輪（自機は青、相手は赤）を描く
+function drawMech(ctx, w, P, xray) {
+  if (P.dead) return;
+  // ジャンプ中：地面に影を残し、機体は高さに応じて大きく描く
+  const lift = P.air > 0 ? Math.sin(Math.PI * (1 - P.air / P.airMax)) : 0;
+  if (lift > 0) {
+    ctx.fillStyle = `rgba(0,0,0,${0.25 - 0.1 * lift})`;
+    ctx.beginPath();
+    ctx.ellipse(P.x + 0.6 * lift, P.y + 1.4 * lift, 1.5 * (1 - 0.25 * lift), 1.4 * (1 - 0.25 * lift), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (w.vs) {
+    ctx.save();
+    ctx.strokeStyle = P.rival ? 'rgba(255,90,70,0.8)' : 'rgba(90,180,255,0.8)';
+    ctx.lineWidth = 0.18;
+    circle(ctx, P.x, P.y, 2.1); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.translate(P.x, P.y);
+  ctx.rotate(P.a);
+  if (lift > 0) ctx.scale(1 + 0.35 * lift, 1 + 0.35 * lift);
+  drawRobot(ctx, P.st.parts, {
+    time: w.time, walk: P.walk, hit: P.hit, xray, noShadow: lift > 0,
+    armL: { recoil: P.arms.L.recoil, flash: P.arms.L.flash },
+    armR: { recoil: P.arms.R.recoil, flash: P.arms.R.flash },
+  });
+  ctx.restore();
 }
 
 // 脈動中の地面：全体を赤く染め、亀裂が呼吸に合わせて光る
@@ -2142,58 +2170,91 @@ function hudBar(ctx, x, y, w, h, k, col, bg = 'rgba(255,255,255,0.1)') {
   ctx.fillRect(x, y, w * clamp(k, 0, 1), h);
 }
 
-function drawHUD(ctx, w, B, VW, VH) {
-  const P = w.player;
+// レポートログ（左下）
+function drawLogPanel(ctx, w, VW, VH) {
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'left';
+  const lines = w.log.slice(-8).map(l => {
+    const ts = Math.floor(l.t);
+    return { l, text: `[${String(Math.floor(ts / 60)).padStart(2, '0')}:${String(ts % 60).padStart(2, '0')}] ${l.msg}` };
+  });
+  // 長い行（英語など）がはみ出さないよう、一番長い行に合わせて広げる（420px〜画面幅の45%）
+  const widest = Math.max(0, ...lines.map(o => ctx.measureText(o.text).width));
+  const lw = Math.round(clamp(widest + 18, 420, Math.max(420, VW * 0.45))), lh = 150, lx = 12, ly = VH - lh - 40;
+  hudPanel(ctx, lx, ly, lw, lh, 'REPORT');
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  lines.forEach(({ l, text }, i) => {
+    const age = w.time - l.t;
+    ctx.globalAlpha = age < 8 ? 1 : 0.55;
+    ctx.fillStyle = l.color;
+    ctx.fillText(text, lx + 8, ly + 24 + i * 15);
+  });
+  ctx.globalAlpha = 1;
+}
+
+// 機体ステータスの枠（左上 x0, y0 に幅 310）。ジャンプが使える脚なら1行増える → 増えた高さを返す
+function drawMechPanel(ctx, P, x0, y0, title, manual) {
+  const JP = P.st.jump, jh = JP ? 18 : 0;
+  const x = x0 + 8;
+  hudPanel(ctx, x0, y0, 310, 172 + jh, title);
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
-
-  // --- 機体ステータス ---
-  const JP = P.st.jump, jh = JP ? 18 : 0;   // ジャンプが使える脚なら1行増やす
-  hudPanel(ctx, 12, 12, 310, 172 + jh, T('B033' /* 機体ステータス [頭部A/B テレメトリ] */));
   ctx.font = '12px sans-serif';
   ctx.fillStyle = '#e8f0ea';
-  ctx.fillText(`HP ${Math.ceil(P.hp)} / ${P.maxHp}`, 20, 30);
-  hudBar(ctx, 20, 46, 294, 10, P.hp / P.maxHp, P.hp / P.maxHp > 0.3 ? '#5dde7a' : '#ff5a4a');
+  ctx.fillText(`HP ${Math.ceil(P.hp)} / ${P.maxHp}`, x, y0 + 18);
+  hudBar(ctx, x, y0 + 34, 294, 10, P.hp / P.maxHp, P.hp / P.maxHp > 0.3 ? '#5dde7a' : '#ff5a4a');
   const r = P.st.ratio;
   ctx.fillStyle = '#e8f0ea';
-  ctx.fillText(T('B034' /* 出力配分 腕 {arm}% / 脚 {leg}% 総出力 {… */, { arm: Math.round(r * 100), leg: Math.round((1 - r) * 100), power: Math.round(P.st.power) }), 20, 62);
+  ctx.fillText(T('B034' /* 出力配分 腕 {arm}% / 脚 {leg}% 総出力 {… */, { arm: Math.round(r * 100), leg: Math.round((1 - r) * 100), power: Math.round(P.st.power) }), x, y0 + 50);
   ctx.fillStyle = '#e0604a';
-  ctx.fillRect(20, 78, 294 * r, 8);
+  ctx.fillRect(x, y0 + 66, 294 * r, 8);
   ctx.fillStyle = '#4a9ae0';
-  ctx.fillRect(20 + 294 * r, 78, 294 * (1 - r), 8);
-  let y = 94;
+  ctx.fillRect(x + 294 * r, y0 + 66, 294 * (1 - r), 8);
+  let y = y0 + 82;
   for (const arm of [P.arms.L, P.arms.R]) {
     ctx.fillStyle = '#e8f0ea';
     const nm = arm.side === 'L' ? T('B072' /* 左腕：{name} */, { name: partLabel(arm.def) }) : T('B073' /* 右腕：{name} */, { name: partLabel(arm.def) });
-    ctx.fillText(nm, 20, y);
+    ctx.fillText(nm, x, y);
     if (arm.def.type === 'none') { /* なし */ }
     else if (arm.reloading > 0) {
       ctx.fillStyle = '#ffd24a';
-      ctx.fillText(T('B035' /* リロード中 */), 240, y);
-      hudBar(ctx, 20, y + 16, 294, 5, 1 - arm.reloading / arm.perf.reload, '#ffd24a');
+      ctx.fillText(T('B035' /* リロード中 */), x + 220, y);
+      hudBar(ctx, x, y + 16, 294, 5, 1 - arm.reloading / arm.perf.reload, '#ffd24a');
     } else if (arm.def.mag > 0) {
       ctx.fillStyle = '#cde';
-      ctx.fillText(`${arm.ammo} / ${arm.def.mag}`, 250, y);
-      hudBar(ctx, 20, y + 16, 294, 5, arm.ammo / arm.def.mag, '#9cd6d6');
+      ctx.fillText(`${arm.ammo} / ${arm.def.mag}`, x + 230, y);
+      hudBar(ctx, x, y + 16, 294, 5, arm.ammo / arm.def.mag, '#9cd6d6');
     } else {
       ctx.fillStyle = '#cde';
-      ctx.fillText('∞', 270, y);
+      ctx.fillText('∞', x + 250, y);
     }
     y += 28;
   }
   ctx.fillStyle = '#9fb5a5';
   ctx.fillText(T('B074' /* 速度 {speed} m/s 制御：{mode} */, {
-    speed: Math.hypot(P.vx, P.vy).toFixed(1), mode: B.manual ? T('B075' /* 手動操作 */) : T('B076' /* 回路プログラム */),
-  }), 20, y);
+    speed: Math.hypot(P.vx, P.vy).toFixed(1), mode: manual ? T('B075' /* 手動操作 */) : T('B076' /* 回路プログラム */),
+  }), x, y);
   if (JP) {
     y += 18;
     const air = P.air > 0;
     ctx.fillStyle = air ? '#8fe0ff' : P.jumpCd > 0 ? '#9fb5a5' : '#9fe0b0';
     ctx.fillText(air ? T('B036' /* ジャンプ：跳躍中（無敵） */)
       : P.jumpCd > 0 ? T('B037' /* ジャンプ：再使用まで {cd}s */, { cd: P.jumpCd.toFixed(1) })
-      : T('B038' /* ジャンプ：準備完了{manual} */, { manual: B.manual ? ' [Shift]' : '' }), 20, y);
-    hudBar(ctx, 200, y + 4, 114, 5, air ? 1 : 1 - P.jumpCd / JP.cd, '#8fe0ff');
+      : T('B038' /* ジャンプ：準備完了{manual} */, { manual: manual ? ' [Shift]' : '' }), x, y);
+    hudBar(ctx, x + 180, y + 4, 114, 5, air ? 1 : 1 - P.jumpCd / JP.cd, '#8fe0ff');
   }
+  return jh;
+}
+
+function drawHUD(ctx, w, B, VW, VH) {
+  const P = w.player;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+
+  // --- 機体ステータス ---
+  const jh = drawMechPanel(ctx, P, 12, 12, T('B033' /* 機体ステータス [頭部A/B テレメトリ] */), B.manual);
 
   // --- 回収鉱石 ---
   hudPanel(ctx, 12, 190 + jh, 310, 44, w.ores.length ? T('B078' /* 回収鉱石 （フィールドに {n}個） */, { n: w.ores.length }) : T('B077' /* 回収鉱石 */));
@@ -2325,26 +2386,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   }
 
   // --- レポートログ ---
-  ctx.font = '12px sans-serif';
-  ctx.textAlign = 'left';
-  const lines = w.log.slice(-8).map(l => {
-    const ts = Math.floor(l.t);
-    return { l, text: `[${String(Math.floor(ts / 60)).padStart(2, '0')}:${String(ts % 60).padStart(2, '0')}] ${l.msg}` };
-  });
-  // 長い行（英語など）がはみ出さないよう、一番長い行に合わせて広げる（420px〜画面幅の45%）
-  const widest = Math.max(0, ...lines.map(o => ctx.measureText(o.text).width));
-  const lw = Math.round(clamp(widest + 18, 420, Math.max(420, VW * 0.45))), lh = 150, lx = 12, ly = VH - lh - 40;
-  hudPanel(ctx, lx, ly, lw, lh, 'REPORT');
-  ctx.font = '12px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  lines.forEach(({ l, text }, i) => {
-    const age = w.time - l.t;
-    ctx.globalAlpha = age < 8 ? 1 : 0.55;
-    ctx.fillStyle = l.color;
-    ctx.fillText(text, lx + 8, ly + 24 + i * 15);
-  });
-  ctx.globalAlpha = 1;
+  drawLogPanel(ctx, w, VW, VH);
 
   // --- 操作説明 ---
   ctx.font = '12px sans-serif';
@@ -2386,17 +2428,18 @@ function drawHUD(ctx, w, B, VW, VH) {
 const Battle = {
   running: false,
 
-  start(save) {
+  // vs を渡すと対戦（versus.js）：{ opp: 対戦相手, flat: 強化・ブースター無効 }
+  start(save, vs) {
     this.canvas = document.getElementById('battle');
     this.ctx = this.canvas.getContext('2d');
     this.save = save;
-    this.world = createWorld(save);
+    this.world = vs ? createVersusWorld(save, vs.opp, vs.flat) : createWorld(save);
     this.speed = 1;
     this.paused = false;
     this.manual = false;
     this.jumpReq = false;   // 手動操作で Shift が押された（次のシミュレーションでジャンプ）
     this.xray = false;
-    this.zoom = 24;  // 1m あたりのピクセル数（ホイールで変更可）
+    this.zoom = vs ? 16 : 24;  // 1m あたりのピクセル数（ホイールで変更可）。対戦は闘技場が見渡せるよう引いて見る
     this.cam = { x: this.world.player.x, y: this.world.player.y };
     this.camLead = { x: 0, y: 0 };  // 自機の前方へずらすカメラのオフセット（m）
     this.atkHold = 0;               // 攻撃後もしばらく前方を広く見せる残り時間
@@ -2410,7 +2453,7 @@ const Battle = {
     document.getElementById('confirm-yes').onclick = () => this.answerConfirm(true);
     document.getElementById('confirm-no').onclick = () => this.answerConfirm(false);
     this.running = true;
-    Sound.playBgm('battle');
+    Sound.playBgm(vs ? 'boss' : 'battle');
     requestAnimationFrame(this.loop);
   },
 
@@ -2544,7 +2587,10 @@ const Battle = {
       case 'KeyX': this.xray = !this.xray; break;
       case 'ShiftLeft': case 'ShiftRight': if (this.manual) this.jumpReq = true; break;
       // 撤退は BackSpace。全画面中の Esc はブラウザが全画面の解除に使ってゲームに届かないため（Esc も全画面でなければ使える）
-      case 'Backspace': case 'Escape': if (!w.result) endBattle(w, 'retreat'); e.preventDefault(); break;
+      case 'Backspace': case 'Escape':
+        if (!w.result) { if (w.vs) vsEnd(w, 'lose', 'surrender'); else endBattle(w, 'retreat'); }   // 対戦では降参
+        e.preventDefault();
+        break;
     }
   },
 
@@ -2572,7 +2618,8 @@ const Battle = {
       let n = 0;
       const inp = this.input();
       while (this.acc >= STEP && n < 12 && w.phase !== 'confirm') {
-        simulate(w, STEP, inp);
+        if (w.vs) simulateVersus(w, STEP, inp);
+        else simulate(w, STEP, inp);
         this.acc -= STEP;
         n++;
       }
@@ -2596,8 +2643,11 @@ const Battle = {
     this.camLead.x += (tx - this.camLead.x) * fl;
     this.camLead.y += (ty - this.camLead.y) * fl;
     const f = Math.min(1, dt * 5);
-    this.cam.x += (P.x + this.camLead.x - this.cam.x) * f;
-    this.cam.y += (P.y + this.camLead.y - this.cam.y) * f;
+    // 対戦（回路で戦っているとき）は2機の中間を映す。手動操作中は照準しやすいよう自機を追う
+    let cx = P.x + this.camLead.x, cy = P.y + this.camLead.y;
+    if (w.vs && !this.manual) { cx = (P.x + w.rival.x) / 2; cy = (P.y + w.rival.y) / 2; }
+    this.cam.x += (cx - this.cam.x) * f;
+    this.cam.y += (cy - this.cam.y) * f;
 
     Sound.listen(this.cam.x, this.cam.y, this.VW / 2 / z);
     Sound.duck(this.paused || this.confirmOpen);
@@ -2605,8 +2655,14 @@ const Battle = {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     drawWorld(ctx, w, this, this.VW, this.VH);
-    drawHUD(ctx, w, this, this.VW, this.VH);
+    if (w.vs) drawVersusHUD(ctx, w, this, this.VW, this.VH);
+    else drawHUD(ctx, w, this, this.VW, this.VH);
 
+    if (w.vs && w.result && w.endT > 3.2) {
+      this.stop();
+      Game.endVersus(w);
+      return;
+    }
     if (w.result && w.endT > 3.2) {
       this.stop();
       const res = finishOre(w);

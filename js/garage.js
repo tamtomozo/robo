@@ -52,6 +52,41 @@ function statChips(cat, p) {
   return '';
 }
 
+// 文字列をファイルとして保存させる（ブラウザのダウンロード）
+function downloadText(name, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ファイル名に付ける日付（20261106）
+function dateStamp() {
+  const d = new Date(), z = v => String(v).padStart(2, '0');
+  return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}`;
+}
+
+// 機体の見下ろし図（対戦タブの小さな絵）
+function drawMachineThumb(cv, m) {
+  const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(W / 2, H / 2, 4, W / 2, H / 2, W / 2);
+  g.addColorStop(0, '#5a4630');
+  g.addColorStop(1, '#1e1812');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(W / 2, H / 2 + W * 0.04);
+  ctx.scale(W / 5, W / 5);
+  ctx.rotate(-Math.PI / 2);
+  drawRobot(ctx, buildParts(m.build, m.upgrades), { time: 0, walk: 0 });
+  ctx.restore();
+}
+
 const Garage = {
   slot: 'armL',
   brush: 'select',
@@ -84,6 +119,9 @@ const Garage = {
     const pf = document.getElementById('prog-file');
     document.getElementById('btn-prog-import').onclick = () => { pf.value = ''; pf.click(); };
     pf.onchange = () => { if (pf.files[0]) this.importProgram(pf.files[0]); };
+    // 対戦：対戦相手のファイル（複数まとめて選べる）
+    const vf = document.getElementById('vs-file');
+    vf.onchange = () => { const fs = [...vf.files]; vf.value = ''; if (fs.length) this.importRivals(fs); };
     document.getElementById('btn-undo').onclick = () => this.undo();
     document.getElementById('btn-orphans').onclick = () => this.clearOrphans();
     document.getElementById('orphan-stay').onclick = () => this.answerOrphans('stay');
@@ -162,6 +200,7 @@ const Garage = {
     this.renderSortie();
     this.renderUpgrade();
     this.renderStock();
+    this.renderVersus();
   },
 
   // ------------------------------------------------------------ 組立
@@ -691,16 +730,7 @@ const Garage = {
 
   // 選んでいる回路をファイルに書き出す（ブラウザのダウンロードとして保存される）
   exportProgram() {
-    const d = new Date(), z = v => String(v).padStart(2, '0');
-    const name = `iron-wasteland-circuit${Game.save.progSlot + 1}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}.json`;
-    const url = URL.createObjectURL(new Blob([circuitToFile(Game.save.program)], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadText(`iron-wasteland-circuit${Game.save.progSlot + 1}-${dateStamp()}.json`, circuitToFile(Game.save.program));
     Sound.play('ui');
   },
 
@@ -788,6 +818,113 @@ const Garage = {
       <tr><th>${T('G090' /* 旋回速度 */)}</th><td>${Math.round(st.turn * 57.3)} °/s</td></tr>
       <tr><th>${T('G092' /* 左腕 DPS */)}</th><td>${cmp(st.armL.dps, mid.armL.dps)}</td></tr>
       <tr><th>${T('G093' /* 右腕 DPS */)}</th><td>${cmp(st.armR.dps, mid.armR.dps)}</td></tr>`;
+  },
+
+  // ------------------------------------------------------------ 対戦
+  renderVersus() {
+    const el = document.getElementById('versus');
+    if (!el) return;
+    const save = Game.save;
+    const opps = vsOpponents(save);
+    if (!opps.some(o => o.id === save.vsSel)) save.vsSel = opps[0].rival ? opps[0].id : 'self' + save.progSlot;
+    const me = myMachine(save);
+    const summary = (m) => {
+      const mm = save.vsFlat ? flatMachine(m) : m;
+      const st = computeStats(mm.build, null, mm.upgrades), p = st.parts;
+      return `<small>${partLabel(p.armL)} ／ ${partLabel(p.armR)}</small>
+        <small>${partLabel(p.torso)} ・ ${partLabel(p.legs)} ・ ${partLabel(p.headCpu)}</small>
+        <small class="vs-st">${T('G178' /* HP {hp} / 速度 {speed}m/s / 火力 {… */, { hp: st.hp, speed: st.speed.toFixed(1), dps: Math.round(st.armL.dps + st.armR.dps) })}</small>`;
+    };
+    const card = (o) => `<div class="vs-card ${o.id === save.vsSel ? 'sel' : ''}" data-id="${o.id}">
+        <canvas class="vs-thumb" width="76" height="76"></canvas>
+        <div class="vs-info"><b>${escHTML(o.m.name)}</b>${summary(o.m)}
+          ${o.rival ? `<small class="vs-rec">${T('G169' /* 戦績 {w}勝 {l}敗 {d}分 */, { w: o.rival.rec.w, l: o.rival.rec.l, d: o.rival.rec.d })}</small>` : ''}</div>
+        ${o.rival ? `<button class="vs-del danger" data-id="${o.id}">${T('G170' /* 削除 */)}</button>` : ''}</div>`;
+    const stored = opps.filter(o => o.rival), selfs = opps.filter(o => !o.rival);
+    el.innerHTML = `<h2>${T('G157' /* 対戦 */)}</h2>
+      <p class="muted">${T('G158' /* ほかの人と機体データ（パーツ・強化・ブースター・回路）をファ… */)}</p>
+      <section class="vs-sec">
+        <h3>${T('G159' /* 自分の対戦用データ */)}</h3>
+        <div class="vs-me">
+          <canvas class="vs-thumb" id="vs-me-thumb" width="96" height="96"></canvas>
+          <div class="vs-info">
+            <label class="vs-name">${T('G160' /* 機体名 */)} <input id="vs-name" maxlength="${VS.nameMax}" value="${escHTML(save.pilot)}" placeholder="${escHTML(defaultPilot())}"></label>
+            ${summary(me)}
+            <small>${T('G162' /* 書き出す内容：今のパーツ・出力配分・強化レベル・差し込んだブ… */, { n: save.progSlot + 1, used: progToTiles(save.program).length })}</small>
+          </div>
+          <button id="vs-export" class="primary">${T('G163' /* 対戦用データを書き出す */)}</button>
+        </div>
+      </section>
+      <section class="vs-sec">
+        <h3>${T('G164' /* 対戦相手 */)} <small>${stored.length} / ${VS.rivals}</small><button id="vs-import">${T('G165' /* 対戦相手を読み込む */)}</button></h3>
+        <div class="vs-list">${stored.length ? stored.map(card).join('') : `<p class="empty">${T('G166' /* まだ対戦相手がいません。友だちから受け取った対戦用データ（.… */)}</p>`}</div>
+        <h4>${T('G167' /* 練習相手（自分の機体） */)}</h4>
+        <div class="vs-list">${selfs.map(card).join('')}</div>
+      </section>
+      <section class="vs-sec">
+        <label class="chk"><input type="checkbox" id="vs-flat" ${save.vsFlat ? 'checked' : ''}> ${T('G171' /* 強化とブースターを無効にする（パーツと回路だけで勝負） */)}</label>
+        <p class="muted"><b>${VS_FIELD.name}</b> ${VS_FIELD.desc}</p>
+        <button id="btn-versus" class="big primary">${T('G172' /* 対 戦 開 始 */)}</button>
+      </section>`;
+    drawMachineThumb(document.getElementById('vs-me-thumb'), save.vsFlat ? flatMachine(me) : me);
+    el.querySelectorAll('.vs-card').forEach(c => {
+      const o = opps.find(x => x.id === c.dataset.id);
+      drawMachineThumb(c.querySelector('canvas'), save.vsFlat ? flatMachine(o.m) : o.m);
+      c.onclick = () => { save.vsSel = o.id; Sound.play('tick'); Game.persist(); this.renderVersus(); };
+    });
+    el.querySelectorAll('.vs-del').forEach(b => {
+      b.onclick = async (e) => {
+        e.stopPropagation();
+        const o = opps.find(x => x.id === b.dataset.id);
+        if (!await Ask.open(T('G173' /* 「{name}」を対戦相手から削除しますか？（戦績も消えます… */, { name: o.m.name }))) return;
+        save.rivals = save.rivals.filter(r => r.id !== o.id);
+        Sound.play('erase');
+        Game.persist();
+        this.renderVersus();
+      };
+    });
+    const nm = document.getElementById('vs-name');
+    nm.oninput = () => { save.pilot = cleanName(nm.value); Game.persist(); };
+    nm.onchange = () => this.renderVersus();
+    document.getElementById('vs-export').onclick = () => this.exportVersus();
+    document.getElementById('vs-import').onclick = () => document.getElementById('vs-file').click();
+    document.getElementById('vs-flat').onchange = (e) => { save.vsFlat = e.target.checked; Sound.play('tick'); Game.persist(); this.renderVersus(); };
+    document.getElementById('btn-versus').onclick = () => Game.versus();
+  },
+
+  // 自分の機体（選んでいる回路）を対戦用データとして書き出す
+  exportVersus() {
+    const m = myMachine(Game.save);
+    const safe = m.name.replace(/[\\/:*?"<>|\s]+/g, '_');
+    downloadText(`iron-wasteland-vs-${safe}-${dateStamp()}.json`, versusToFile(m));
+    Sound.play('ui');
+  },
+
+  // 対戦用データのファイルを読み込んで対戦相手に加える（同じ機体名の相手がいれば、置き換えるか確かめる）
+  async importRivals(files) {
+    const save = Game.save;
+    let last = null;
+    for (const file of files) {
+      const v = file.size <= 200000 ? versusFromText(await file.text().catch(() => '')) : null;
+      if (!v) { await Ask.tell(T('G174' /* 「{name}」は対戦用データとして読み込めませんでした。 */, { name: file.name })); continue; }
+      const data = machineToData(v.m);
+      const same = save.rivals.find(r => r.data.name === data.name);
+      if (same) {
+        if (!await Ask.open(T('G175' /* 「{name}」はすでに対戦相手にいます。新しいデータで置き… */, { name: data.name }))) continue;
+        same.data = data;
+        same.got = Date.now();
+        last = same.id;
+      } else {
+        if (save.rivals.length >= VS.rivals) { await Ask.tell(T('G176' /* 対戦相手は {max} 機まで登録できます。いらない相手を削… */, { max: VS.rivals })); break; }
+        const id = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        save.rivals.push({ id, data, rec: { w: 0, l: 0, d: 0 }, got: Date.now() });
+        last = id;
+      }
+      if (v.skipped) await Ask.tell(T('G177' /* 「{name}」の回路に読み込めないタイルが {n} 個あっ… */, { name: data.name, n: v.skipped }));
+    }
+    if (last) { save.vsSel = last; Sound.play('equip'); }
+    Game.persist();
+    this.renderVersus();
   },
 
   // ------------------------------------------------------------ 出撃

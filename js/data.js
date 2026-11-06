@@ -327,6 +327,26 @@ function fieldById(id) {
   return FIELDS.find(f => f.id === id) || FIELDS[0];
 }
 
+// ---------------------------------------------------------------------
+//  対戦（versus.js）：ほかの人の機体データ（パーツ・強化・ブースター・回路）と、回路どうしで1対1で戦う
+// ---------------------------------------------------------------------
+const VS = {
+  time: 120,          // 制限時間（秒）。決着がつかなければ残りHPの割合で判定
+  count: 3,           // 開始前のカウントダウン（秒）
+  r0: 34,             // 闘技場の半径(m)
+  shrinkAt: 60, shrinkEnd: 105, rMin: 12,   // 60秒から105秒にかけて、外周の電磁柵が半径12mまで狭まる
+  gap: 32,            // 開始時の2機の距離(m)。いちばん狭いセンサー（45m）でも相手が見える
+  dmg: 1,             // 機体どうしのダメージの倍率（調整用）
+  rivals: 20,         // 登録しておける対戦相手の数
+  nameMax: 16,        // 機体名の長さ
+};
+// 対戦フィールド（出撃の FIELDS とは別。形は field.js の arena）。岩は中心に対して点対称に置く
+const VS_FIELD = {
+  id: 'arena', name: T('field.arena.name' /* 闘技場「鉄の円環」 */), shape: 'arena',
+  desc: T('field.arena.desc' /* 半径{r}mの円形闘技場。岩は中心に対して点対称に置かれ、ど… */, { r: VS.r0, at: VS.shrinkAt, min: VS.rMin, time: VS.time }),
+  rockPairs: 3, rockR: [1.8, 3], decorN: 240, decor: ['pebble', 'pebble', 'pebble', 'crack', 'crack', 'bone'],
+};
+
 // 階層：どのフィールドも第1〜第 FLOORS 層（各層は同じ3地区＋ボス）。
 // 下の層ほどエネミー（ボス含む）の耐久・攻撃力が上がり、落とす鉱石も増える。ボスを倒すと次の層が解放される
 const FLOORS = 8;
@@ -451,6 +471,11 @@ function defaultSave() {
     upgrades: {},      // パーツ id → 強化レベル
     stock: [],         // レアエネミーが落としたブースター { uid, cat, id(対象パーツ), bonus, got }（同じものを何個でも持てる）
     nextUid: 1,
+    // 対戦（versus.js）
+    pilot: '',         // 対戦用データに書く機体名（空なら「名無しの機兵」）
+    rivals: [],        // 読み込んだ対戦相手 { id, data（対戦用データのファイルの中身）, rec: { w, l, d }（戦績）, got }
+    vsSel: 'self0',    // 選んでいる対戦相手（rivals の id。self0〜2 は自分の機体の回路1〜3）
+    vsFlat: false,     // 強化とブースターを無効にして戦う
   };
   s.program = s.programs[0];
   return s;

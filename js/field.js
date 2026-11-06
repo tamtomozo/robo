@@ -353,7 +353,129 @@ const DISC_SHAPE = {
   },
 };
 
-const FIELD_SHAPES = { strip: STRIP_SHAPE, disc: DISC_SHAPE };
+// ---------------------------------------------------------------------
+//  arena：対戦の闘技場（versus.js）。半径 VS.r0 の砂の円を、鋼の床と電磁柵が囲む
+//  動ける範囲は w.arenaR（時間がたつと外周の電磁柵が狭まる）
+// ---------------------------------------------------------------------
+const ARENA_PAD = 12;   // 闘技場の外側に描く鋼の床の幅（m）
+let arenaSteelPattern = null;
+
+function makeSteelPattern(ctx) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#2b2d30';
+  g.fillRect(0, 0, 64, 64);
+  g.strokeStyle = 'rgba(0,0,0,0.55)';
+  g.lineWidth = 2;
+  g.strokeRect(1, 1, 62, 62);
+  g.strokeStyle = 'rgba(150,160,170,0.12)';
+  g.lineWidth = 1;
+  g.strokeRect(3, 3, 58, 58);
+  g.fillStyle = 'rgba(160,170,180,0.25)';
+  for (const [x, y] of [[7, 7], [57, 7], [7, 57], [57, 57]]) { g.beginPath(); g.arc(x, y, 1.6, 0, Math.PI * 2); g.fill(); }
+  const pat = ctx.createPattern(c, 'repeat');
+  if (pat.setTransform) pat.setTransform(new DOMMatrix().scale(1 / 16));   // 4m 四方の鋼板
+  return pat;
+}
+
+const ARENA_SHAPE = {
+  size() { const s = 2 * (VS.r0 + ARENA_PAD); return { FW: s, H: s }; },
+  start() { const c = VS.r0 + ARENA_PAD; return { x: c, y: c, a: 0 }; },
+  init() {},
+  openR(w) { return w.arenaR; },
+  inside(w, x, y, m) {
+    const c = w.FW / 2;
+    return Math.hypot(x - c, y - c) <= w.arenaR - m;
+  },
+  clamp(w, o) {
+    const c = w.FW / 2, dx = o.x - c, dy = o.y - c, d = Math.hypot(dx, dy), lim = w.arenaR - o.r;
+    if (d > lim && d > 0) {
+      o.x = c + dx / d * lim;
+      o.y = c + dy / d * lim;
+    }
+  },
+  randomPoint(w, di, m) {
+    const c = w.FW / 2, r = Math.sqrt(rand(0, (VS.r0 - m) ** 2)), a = rand(0, Math.PI * 2);
+    return { x: c + Math.cos(a) * r, y: c + Math.sin(a) * r };
+  },
+  rockOk() { return true; },
+  los() { return true; },
+  dirTo(w, e, tx, ty) {
+    const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 0.001;
+    return [dx / d, dy / d];
+  },
+
+  drawGround(ctx, w, v) {
+    const c = w.FW / 2, R = VS.r0;
+    if (!groundPattern) groundPattern = makeGroundPattern(ctx);
+    if (!arenaSteelPattern) arenaSteelPattern = makeSteelPattern(ctx);
+    ctx.fillStyle = arenaSteelPattern;
+    ctx.fillRect(v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c, c, R, 0, Math.PI * 2);
+    ctx.fillStyle = groundPattern;
+    ctx.fill();
+    ctx.clip();
+    // 白線：中央の円・中心線・開始位置（自機は青、相手は赤）
+    ctx.strokeStyle = 'rgba(240,230,210,0.22)';
+    ctx.lineWidth = 0.25;
+    circle(ctx, c, c, 6); ctx.stroke();
+    circle(ctx, c, c, R * 0.62); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c, c - R); ctx.lineTo(c, c + R); ctx.stroke();
+    for (const [k, col] of [[-1, 'rgba(90,170,255,0.35)'], [1, 'rgba(255,100,80,0.35)']]) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 0.35;
+      circle(ctx, c + k * VS.gap / 2, c, 2.4); ctx.stroke();
+    }
+    ctx.restore();
+    // 縁石
+    ctx.strokeStyle = '#4a4036';
+    ctx.lineWidth = 1.2;
+    circle(ctx, c, c, R + 0.6); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,220,170,0.18)';
+    ctx.lineWidth = 0.2;
+    circle(ctx, c, c, R); ctx.stroke();
+  },
+
+  // 外周の電磁柵。狭まった外側は暗くして、柵を赤く光らせる
+  drawSealed(ctx, w) {
+    const c = w.FW / 2, R = w.arenaR, closing = R < VS.r0 - 0.01;
+    ctx.save();
+    if (closing) {
+      annulusPath(ctx, c, c, R, VS.r0 + ARENA_PAD * 2);
+      ctx.fillStyle = 'rgba(40,6,4,0.45)';
+      ctx.fill('evenodd');
+    }
+    const pulse = 0.55 + 0.45 * Math.sin(w.time * (closing ? 8 : 3));
+    ctx.strokeStyle = closing ? `rgba(255,90,50,${0.55 + 0.4 * pulse})` : `rgba(110,220,255,${0.3 + 0.3 * pulse})`;
+    ctx.shadowColor = closing ? '#ff5a2a' : '#6adcff';
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = closing ? 0.45 : 0.3;
+    ctx.setLineDash([1.6, 0.8]);
+    circle(ctx, c, c, R); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+    // 柵の支柱（15°ごと）
+    ctx.fillStyle = closing ? '#ff8a5a' : '#9adcf0';
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2;
+      circle(ctx, c + Math.cos(a) * R, c + Math.sin(a) * R, 0.32); ctx.fill();
+    }
+    ctx.restore();
+  },
+
+  minimap(ctx, w, right, top) {
+    const size = 150, k = size / w.FW, mx = right - size, my = top;
+    hudPanel(ctx, mx, my, size, size);
+    ctx.strokeStyle = 'rgba(255,220,170,0.35)';
+    circle(ctx, mx + w.FW / 2 * k, my + w.FW / 2 * k, w.arenaR * k); ctx.stroke();
+    return { mx, my, k };
+  },
+};
+
+const FIELD_SHAPES = { strip: STRIP_SHAPE, disc: DISC_SHAPE, arena: ARENA_SHAPE };
 
 // 出撃タブのフィールド選択カードに描く見取り図（地区の並びと進む向き）
 function drawFieldThumb(cv, F) {

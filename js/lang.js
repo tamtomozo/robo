@@ -299,6 +299,47 @@ Ore gained: {txt}{warn}
   G153: { ja: '「{name}」は回路のファイルとして読み込めませんでした。', en: '"{name}" could not be loaded as a circuit file.' },
   G154: { ja: '読み込めないタイルが {n} 個あったため、空きマスにしました。', en: ({ n }) => `${n} tile${n === 1 ? '' : 's'} could not be loaded and ${n === 1 ? 'was' : 'were'} left empty.` },
   G155: { ja: 'ファイルの回路を、選んでいる回路に読み込みます', en: 'Load a circuit from a file into the selected circuit' },
+  G156: { ja: '⑦ 対戦', en: '⑦ Versus' },
+  G157: { ja: '対戦', en: 'Versus' },
+  G158: {
+    ja: 'ほかの人と機体データ（パーツ・強化・ブースター・回路）をファイルで交換し、回路どうしで1対1で戦わせます。自分の機体の回路1〜3とも練習できます。対戦では鉱石やブースターは手に入りません。',
+    en: 'Trade machine data (parts, upgrades, boosters, and circuit) with other players as files and pit circuit against circuit, one on one. You can also spar against your own machine running Circuits 1–3. Versus matches yield no ore or boosters.',
+  },
+  G159: { ja: '自分の対戦用データ', en: 'Your versus data' },
+  G160: { ja: '機体名', en: 'Machine name' },
+  G161: { ja: '名無しの機兵', en: 'Nameless Mech' },
+  G162: {
+    ja: '書き出す内容：今のパーツ・出力配分・強化レベル・差し込んだブースターと、回路{n}（{used}タイル）',
+    en: 'Exports: current parts, output split, upgrade levels, inserted boosters, and Circuit {n} ({used} tiles)',
+  },
+  G163: { ja: '対戦用データを書き出す', en: 'Export versus data' },
+  G164: { ja: '対戦相手', en: 'Opponents' },
+  G165: { ja: '対戦相手を読み込む', en: 'Load opponent' },
+  G166: {
+    ja: 'まだ対戦相手がいません。友だちから受け取った対戦用データ（.json）を「対戦相手を読み込む」で読み込みましょう。',
+    en: 'No opponents yet. Use "Load opponent" to load versus data (.json) you received from a friend.',
+  },
+  G167: { ja: '練習相手（自分の機体）', en: 'Sparring partners (your own machine)' },
+  G168: { ja: '{name}（回路{n}）', en: '{name} (Circuit {n})' },
+  G169: { ja: '戦績 {w}勝 {l}敗 {d}分', en: 'Record {w}W {l}L {d}D' },
+  G170: { ja: '削除', en: 'Delete' },
+  G171: { ja: '強化とブースターを無効にする（パーツと回路だけで勝負）', en: 'Disable upgrades and boosters (parts and circuits only)' },
+  G172: { ja: '対 戦 開 始', en: 'F I G H T' },
+  G173: { ja: '「{name}」を対戦相手から削除しますか？（戦績も消えます）', en: 'Remove "{name}" from your opponents? (Its record will also be deleted.)' },
+  G174: { ja: '「{name}」は対戦用データとして読み込めませんでした。', en: '"{name}" could not be loaded as versus data.' },
+  G175: {
+    ja: '「{name}」はすでに対戦相手にいます。新しいデータで置き換えますか？（戦績はそのまま残ります）',
+    en: '"{name}" is already one of your opponents. Replace it with the new data? (Its record is kept.)',
+  },
+  G176: {
+    ja: '対戦相手は {max} 機まで登録できます。いらない相手を削除してから読み込んでください。',
+    en: 'You can register up to {max} opponents. Delete one you no longer need, then load again.',
+  },
+  G177: {
+    ja: '「{name}」の回路に読み込めないタイルが {n} 個あったため、空きマスにしました。',
+    en: ({ name, n }) => `${n} tile${n === 1 ? '' : 's'} in the circuit of "${name}" could not be loaded and ${n === 1 ? 'was' : 'were'} left empty.`,
+  },
+  G178: { ja: 'HP {hp} / 速度 {speed}m/s / 火力 {dps}', en: 'HP {hp} / Speed {speed}m/s / Firepower {dps}' },
 
   // ---------------------------------------------------------------- B：戦闘（ログ・HUD・地区掃討後の確認）
   B001: { ja: '基地に帰還（N）', en: 'Return to base (N)' },
@@ -404,6 +445,23 @@ Ore gained: {txt}{warn}
     en: ({ n }) => `${n} ${n === 1 ? 'enemy remains' : 'enemies remain'}. If you proceed, they stay and the next wave joins them.`,
   },
   B095: { ja: '全地区の封鎖を解除。{bossWarn}', en: 'All district barriers lifted. {bossWarn}' },
+  B096: { ja: '対戦開始：{me} VS {foe}', en: 'Match start: {me} VS {foe}' },
+  B097: { ja: '外周の電磁柵が収縮を開始！', en: 'The perimeter fence is closing in!' },
+  B098: { ja: '{name} を撃破！', en: '{name} destroyed!' },
+  B099: { ja: '機体大破……{name} の勝利。', en: 'Machine destroyed... {name} wins.' },
+  B100: { ja: '時間切れ。残りHPの割合で判定する。', en: 'Time up. Judging by remaining HP.' },
+  B101: { ja: '降参した。', en: 'You surrendered.' },
+  B102: { ja: '引き分け。{me} と {foe} は互角だった。', en: 'Draw. {me} and {foe} were evenly matched.' },
+  B103: { ja: '対戦相手：{name}', en: 'OPPONENT: {name}' },
+  B104: { ja: '自機：{name}', en: 'YOU: {name}' },
+  B105: { ja: '相手の回路 {grid}×{grid} @{clock}Hz', en: 'OPPONENT CIRCUIT {grid}×{grid} @{clock}Hz' },
+  B106: {
+    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]降参',
+    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Surrender',
+  },
+  B107: { ja: '電磁柵の収縮まで {t}', en: 'Fence closes in {t}' },
+  B108: { ja: '電磁柵 収縮中（半径 {r}m）', en: 'Fence closing (radius {r}m)' },
+  B109: { ja: 'ルール：強化・ブースター無効', en: 'Rule: upgrades & boosters disabled' },
 
   // ---------------------------------------------------------------- R：戦闘レポート
   R001: { ja: '任務完了 — {floor} 制圧・ボス撃破', en: 'Mission Complete — {floor} secured, boss destroyed' },
@@ -490,6 +548,24 @@ Ore gained: {txt}{warn}
     ja: '{n}地区は活動時間の区切りまでに掃討しきれませんでした。火力か索敵の回路を見直してみましょう。',
     en: ({ n }) => `${n} district${n === 1 ? ' was' : 's were'} not cleared before the checkpoint. Review your firepower or targeting circuit.`,
   },
+  R058: { ja: '勝利 — {name} を撃破', en: 'Victory — {name} destroyed' },
+  R059: { ja: '敗北 — {name} に撃破された', en: 'Defeat — destroyed by {name}' },
+  R060: { ja: '判定勝ち — {name} より多くHPが残った', en: 'Win on decision — more HP left than {name}' },
+  R061: { ja: '判定負け — {name} のほうがHPが多く残った', en: 'Loss on decision — {name} had more HP left' },
+  R062: { ja: '引き分け — {name} と互角', en: 'Draw — evenly matched with {name}' },
+  R063: { ja: '降参 — {name} との対戦を中断', en: 'Surrender — match with {name} abandoned' },
+  R064: { ja: '{field} / 対戦時間 {time}{rule}', en: '{field} / Match time {time}{rule}' },
+  R065: { ja: '（強化・ブースター無効）', en: ' (upgrades & boosters disabled)' },
+  R066: { ja: '自機', en: 'You' },
+  R067: { ja: '相手', en: 'Opponent' },
+  R068: { ja: '{name} との戦績：{w}勝 {l}敗 {d}分', en: 'Record vs {name}: {w}W {l}L {d}D' },
+  R069: { ja: '再戦', en: 'Rematch' },
+  R070: {
+    ja: '相手をセンサーで捉えられない時間が長めでした（{t}秒）。センサー内に敵がいないときに前進・旋回して相手を探す流れを回路に入れてみましょう。',
+    en: 'Your sensors lost track of the opponent for a while ({t}s). Try adding a branch that moves forward or turns to search when no enemy is in sensor range.',
+  },
+  R071: { ja: '練習相手との対戦は戦績に残りません。', en: 'Matches against sparring partners are not recorded.' },
+  R072: { ja: '対戦データ', en: 'Match Data' },
 
   // ---------------------------------------------------------------- データ：スロット（スケルトンジョイント）
   'slot.headCpu.label': { ja: '頭部A', en: 'Head A' },
@@ -650,6 +726,11 @@ Ore gained: {txt}{warn}
   'field.cave.desc': {
     ja: '巨大な円形の地下空洞。中心に降下し、地区を掃討するたびに外側の輪へ戦場が広がる。全地区を掃討すると空洞全体でボス戦になる。',
     en: 'A huge circular cavern. You drop into the center, and each district you clear widens the battlefield to the next outer ring. Clear them all to fight the boss across the whole cavern.',
+  },
+  'field.arena.name': { ja: '闘技場「鉄の円環」', en: 'Arena "Iron Ring"' },
+  'field.arena.desc': {
+    ja: '半径{r}mの円形闘技場。岩は中心に対して点対称に置かれ、どちらの開始位置からも同じ地形になる。{at}秒から外周の電磁柵が半径{min}mまで狭まり、{time}秒で決着がつかなければ残りHPの割合で勝敗を決める。',
+    en: 'A circular arena {r}m in radius. Rocks are placed point-symmetrically, so both starting positions see the same terrain. From {at}s the perimeter fence closes in to a {min}m radius; if there is no winner by {time}s, the remaining HP percentage decides.',
   },
 
   // ---------------------------------------------------------------- データ：回路タイルの分類

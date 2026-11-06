@@ -48,7 +48,8 @@ function orphanTiles(prog, grid) {
 // ---------------------------------------------------------------------
 const CIRCUIT_FILE = { game: 'iron-wasteland', kind: 'circuit', version: 1 };
 
-function circuitToFile(prog) {
+// 回路 → ファイルに書くタイルの並び（空きマスは書かない。対戦用データ versus.js でも使う）
+function progToTiles(prog) {
   const tiles = [];
   for (let y = 0; y < MAX_GRID; y++) {
     for (let x = 0; x < MAX_GRID; x++) {
@@ -56,22 +57,35 @@ function circuitToFile(prog) {
       if (t) tiles.push({ x, y, t: t.t, d: t.d, n: t.n, p: t.p });
     }
   }
-  // 中身を見て分かるよう、タイル1枚を1行にする
-  const head = JSON.stringify(CIRCUIT_FILE).slice(1, -1);
-  return `{${head},\n"tiles":[\n${tiles.map(t => JSON.stringify(t)).join(',\n')}\n]}\n`;
+  return tiles;
+}
+
+// 中身を見て分かるよう、タイル1枚を1行にする（head = タイルより前に書く項目）
+function fileWithTiles(head, tiles) {
+  const h = Object.entries(head).map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(v)}`).join(',\n');
+  return `{${h},\n"tiles":[\n${tiles.map(t => JSON.stringify(t)).join(',\n')}\n]}\n`;
+}
+
+function circuitToFile(prog) {
+  return fileWithTiles(CIRCUIT_FILE, progToTiles(prog));
 }
 
 // ファイルの文字列から回路を作る。回路のファイルでなければ null
-// 他の人が作ったファイルや手で書き換えたファイルも読むので、タイルを1枚ずつ確かめ、おかしなものは空きマスにする
 //   → { prog, skipped（空きマスにしたタイルの数） }
 function circuitFromFile(text) {
   let o;
   try { o = JSON.parse(text); } catch (e) { return null; }
   if (!o || o.game !== CIRCUIT_FILE.game || o.kind !== CIRCUIT_FILE.kind || !Array.isArray(o.tiles)) return null;
+  return tilesToProg(o.tiles);
+}
+
+// タイルの並び → 回路。他の人が作ったファイルや手で書き換えたファイルも読むので、
+// タイルを1枚ずつ確かめ、おかしなものは空きマスにする → { prog, skipped（空きマスにしたタイルの数） }
+function tilesToProg(tiles) {
   const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
   const prog = new Array(MAX_GRID * MAX_GRID).fill(null);
   let skipped = 0;
-  for (const s of o.tiles) {
+  for (const s of tiles) {
     const def = s && Object.prototype.hasOwnProperty.call(TILE_DEFS, s.t) && TILE_DEFS[s.t];
     const i = def && isInt(s.x, 0, MAX_GRID - 1) && isInt(s.y, 0, MAX_GRID - 1) ? s.y * MAX_GRID + s.x : -1;
     // START は左上に1つだけ（左上には必ず START を置く）。同じマスに2枚あれば後のものは捨てる

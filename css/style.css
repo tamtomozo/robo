@@ -359,6 +359,36 @@ small.up { color: #7dff9a; } small.down { color: #ff7a5a; }
 .help { font-size: 13px; color: #cfc4ac; }
 .help h4 { margin: 0 0 4px; color: #f0c890; }
 
+/* 対戦 */
+.versus { max-width: 860px; }
+.versus > p.muted { line-height: 1.7; margin: 0 0 6px; }
+.vs-sec { margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid #3a3226; }
+.vs-sec h3 { display: flex; align-items: center; gap: 8px; }
+.vs-sec h3 button { margin-left: auto; padding: 4px 12px; font-size: 13px; font-weight: normal; }
+.vs-sec h4 { margin: 12px 0 6px; font-size: 13px; color: #a89a80; font-weight: normal; }
+.vs-sec .empty { color: #8a7e68; padding: 10px 0; margin: 0; }
+.vs-sec .chk { display: block; margin-bottom: 6px; }
+.vs-me { display: flex; align-items: center; gap: 14px; }
+.vs-me > button { flex: none; padding: 10px 16px; }
+.vs-thumb { flex: none; border-radius: 4px; border: 1px solid #4a3e2c; }
+.vs-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.vs-info b { color: #f0c890; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vs-info small { color: #cbbd9c; font-size: 11px; }
+.vs-info small.vs-st { color: #a89a80; }
+.vs-info small.vs-rec { color: #ffd08a; }
+.vs-name { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 13px; }
+.vs-name input {
+  width: 220px; font: inherit; color: inherit; background: #1e1a14; border: 1px solid #6b5a40; border-radius: 4px; padding: 4px 8px;
+}
+.vs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 8px; }
+.vs-card {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px; cursor: pointer;
+  background: #2a241b; border: 1px solid #4a3e2c; border-radius: 5px;
+}
+.vs-card:hover { border-color: #a08458; }
+.vs-card.sel { border-color: #e08a3a; background: #4a3420; box-shadow: 0 0 0 1px #e08a3a inset; }
+.vs-card .vs-del { flex: none; padding: 3px 10px; font-size: 12px; }
+
 /* ===================== 戦闘 ===================== */
 #screen-battle { background: #000; }
 #battle { display: block; cursor: crosshair; }
@@ -417,6 +447,14 @@ table.rep th { text-align: left; font-weight: normal; color: #b8aa8e; padding: 4
 table.rep td { padding: 4px; border-bottom: 1px solid #3a3226; text-align: right; }
 table.rep tr.sum th, table.rep tr.sum td { color: #ffb050; font-weight: bold; }
 #rep-heat { display: block; margin: 0 auto; }
+/* 対戦の結果：自機（青）と相手（赤）を並べる */
+table.vs-rep td { width: 38%; }
+table.vs-rep td.me { color: #8ac8ff; }
+table.vs-rep td.foe { color: #ff9a8a; }
+table.vs-rep td b { color: #f0c890; }
+.vs-heat { display: flex; gap: 8px; justify-content: center; }
+.vs-heat > div { text-align: center; }
+.vs-heat p { margin: 4px 0 0; }
 .notes { padding-left: 18px; line-height: 1.7; font-size: 13px; }
 .rep-btns { display: flex; gap: 12px; justify-content: center; margin: 20px 0 40px; }
 .rep-btns button { font-size: 16px; padding: 10px 26px; }

@@ -120,4 +120,81 @@ const Report = {
     document.getElementById('rep-garage').onclick = () => Game.toGarage();
     document.getElementById('rep-retry').onclick = () => Game.sortie();
   },
+
+  // 対戦の結果（versus.js）。自機と相手を並べて見せる
+  showVersus(w) {
+    Game.show('report');
+    Sound.playBgm('garage');
+    const P = w.player, R = w.rival, foe = w.opp.name;
+    const title = w.vsReason === 'surrender' ? T('R063' /* 降参 — {name} との対戦を中断 */, { name: foe })
+      : w.result === 'draw' ? T('R062' /* 引き分け — {name} と互角 */, { name: foe })
+      : w.vsReason === 'time' ? (w.result === 'win' ? T('R060' /* 判定勝ち — {name} より多くHPが残った */, { name: foe }) : T('R061' /* 判定負け — {name} のほうがHPが多く残った */, { name: foe }))
+      : w.result === 'win' ? T('R058' /* 勝利 — {name} を撃破 */, { name: foe }) : T('R059' /* 敗北 — {name} に撃破された */, { name: foe });
+    const cls = { win: 'win', lose: 'lose', draw: 'retreat' }[w.result];
+    const mmss = (t) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+    const sides = [
+      { M: P, s: w.stats, name: w.meName, head: T('R066' /* 自機 */) },
+      { M: R, s: w.rv.stats, name: foe, head: T('R067' /* 相手 */) },
+    ];
+    const acc = (s, k) => s.shots[k] ? Math.round(s.hits[k] / s.shots[k] * 100) + '%' : '—';
+    const row = (label, f) => `<tr><th>${label}</th>${sides.map(o => `<td>${f(o)}</td>`).join('')}</tr>`;
+
+    // 自機の回路への所見
+    const notes = [];
+    const grid = P.st.grid, prog = P.vm.prog;
+    let unused = 0;
+    for (let y = 0; y < grid; y++) for (let x = 0; x < grid; x++) {
+      const i = y * MAX_GRID + x;
+      if (prog[i] && P.vm.counts[i] === 0) unused++;
+    }
+    if (unused) notes.push(T('R005' /* 一度も実行されなかったタイルが {n} 個あります。矢印のつ… */, { n: unused }));
+    for (const side of ['L', 'R']) {
+      const a = P.arms[side], s = w.stats;
+      if (a.def.type === 'none') continue;
+      const L = side === 'L';
+      if (s.shots[side] === 0) notes.push(L ? T('R049' /* 左腕は一度も攻撃していません。攻撃タイルの配置を確認してくだ… */) : T('R050' /* 右腕は一度も攻撃していません。攻撃タイルの配置を確認してくだ… */));
+      else if (s.hits[side] / s.shots[side] < 0.3 && a.def.type !== 'missile') {
+        notes.push(L ? T('R051' /* 左腕の命中率が低め（{acc}）。「前方に敵」の角度を狭める… */, { acc: acc(s, side) }) : T('R052' /* 右腕の命中率が低め（{acc}）。「前方に敵」の角度を狭める… */, { acc: acc(s, side) }));
+      }
+    }
+    if (w.vsT > 0 && w.stats.lost > Math.min(w.vsT, VS.time) * 0.3) notes.push(T('R070' /* 相手をセンサーで捉えられない時間が長めでした（{t}秒）。セ… */, { t: Math.round(w.stats.lost) }));
+    if (P.st.over) notes.push(T('R007' /* 過積載状態で出撃しています。脚部の積載量を見直してください。 */));
+    if (w.rec) notes.push(T('R068' /* {name} との戦績：{w}勝 {l}敗 {d}分 */, { name: escHTML(foe), w: w.rec.w, l: w.rec.l, d: w.rec.d }));
+    else notes.push(T('R071' /* 練習相手との対戦は戦績に残りません。 */));
+
+    document.getElementById('report').innerHTML = `
+      <div class="rep-head ${cls}"><h1>${escHTML(title)}</h1>
+        <p>${T('R064' /* {field} / 対戦時間 {time}{rule} */, { field: w.field.name, time: mmss(clamp(w.vsT, 0, VS.time)), rule: w.flat ? T('R065' /* （強化・ブースター無効） */) : '' })}</p></div>
+      <div class="rep-body">
+        <div class="rep-col">
+          <h3>${T('R072' /* 対戦データ */)}</h3>
+          <table class="rep vs-rep">
+            <tr><th></th>${sides.map(o => `<td class="${o.M.rival ? 'foe' : 'me'}">${o.head}<br><b>${escHTML(o.name)}</b></td>`).join('')}</tr>
+            ${row(T('R035' /* 残りHP */), o => `${Math.ceil(o.M.hp)} / ${o.M.maxHp}（${Math.round(o.M.hp / o.M.maxHp * 100)}%）`)}
+            ${row(T('R033' /* 与ダメージ */), o => Math.round(o.s.dmgDealt))}
+            ${row(`${T('R042' /* 左腕 */)} / ${T('R040' /* 命中率 */)}`, o => `${partLabel(o.M.arms.L.def)}<br>${acc(o.s, 'L')}`)}
+            ${row(`${T('R043' /* 右腕 */)} / ${T('R040' /* 命中率 */)}`, o => `${partLabel(o.M.arms.R.def)}<br>${acc(o.s, 'R')}`)}
+            ${row(T('R036' /* 移動距離 */), o => `${Math.round(o.s.distance)} m`)}
+            ${row(T('R037' /* 回路 実行ステップ数 */), o => o.M.vm.steps)}
+          </table>
+          <h3>${T('R046' /* 頭部ユニット所見 */)}</h3>
+          <ul class="notes">${notes.map(n => `<li>${n}</li>`).join('')}</ul>
+        </div>
+        <div class="rep-col">
+          <h3>${T('R044' /* 回路 実行ヒートマップ */)}</h3>
+          <div class="vs-heat">${sides.map((o, i) => `<div><canvas id="rep-heat${i}" width="230" height="230"></canvas><p class="muted">${o.head}：${escHTML(o.name)}</p></div>`).join('')}</div>
+          <p class="muted">${T('R045' /* 明るいほど多く実行されたタイル */)}</p>
+        </div>
+      </div>
+      <div class="rep-btns">
+        <button id="rep-garage">${T('R047' /* ガレージへ戻る */)}</button>
+        <button id="rep-retry" class="primary">${T('R069' /* 再戦 */)}</button>
+      </div>`;
+    sides.forEach((o, i) => {
+      const g = o.M.st.grid, cs = Math.floor(210 / g);
+      drawCircuit(document.getElementById('rep-heat' + i).getContext('2d'), o.M.vm.prog, g, 10, 10, cs, { counts: o.M.vm.counts });
+    });
+    document.getElementById('rep-garage').onclick = () => Game.toGarage();
+    document.getElementById('rep-retry').onclick = () => Game.versus();
+  },
 };
