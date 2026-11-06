@@ -293,6 +293,7 @@ function vsEnd(w, result, reason) {
 //  HUD
 // ---------------------------------------------------------------------
 function drawVersusHUD(ctx, w, B, VW, VH) {
+  if (B.compact) { drawVersusHUDCompact(ctx, w, B, VW, VH); return; }
   const P = w.player, R = w.rival;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
@@ -347,7 +348,7 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
   ctx.font = '12px sans-serif';
   ctx.fillStyle = 'rgba(240,230,210,0.8)';
   ctx.textAlign = 'center';
-  ctx.fillText(T('B106' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
+  if (!B.touchUI) ctx.fillText(T('B106' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
   if (B.manual) ctx.fillText(P.st.jump ? T('B082' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */) : T('B081' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */), VW / 2, VH - 40);
   if (B.speed !== 1) {
     ctx.font = 'bold 16px sans-serif';
@@ -395,6 +396,82 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
     ctx.font = 'bold 46px sans-serif';
     ctx.fillStyle = col;
     ctx.fillText(txt, VW / 2, VH / 2);
+  }
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+}
+
+// 狭い画面（スマートフォンなど）の対戦 HUD：上に2機の小さなステータス、その下に残り時間。
+// 回路モニターは自機の分だけ（相手の回路・操作説明は省く）
+function drawVersusHUDCompact(ctx, w, B, VW, VH) {
+  const P = w.player, R = w.rival, pad = HUD_PAD;
+  const pw = Math.min(230, (VW - pad * 3) / 2);
+  const a = drawMechMini(ctx, P, pad, pad, pw, T('B104' /* 自機：{name} */, { name: w.meName }));
+  const b = drawMechMini(ctx, R, VW - pad - pw, pad, pw, T('B103' /* 対戦相手：{name} */, { name: w.opp.name }));
+  // 2機の枠の間に入りきれば上の中央、入らなければ枠の下に残り時間
+  const gap = VW - pw * 2 - pad * 4;
+  let y = gap >= 110 ? pad : Math.max(a.bottom, b.bottom) + 6;
+  const tw = gap >= 110 ? gap : VW - pad * 2;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const left = VS.time - Math.max(0, w.vsT);
+  const urgent = left <= 10 && !w.result && w.vsT > 0;
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillStyle = urgent ? `rgb(255,${(90 + 60 * (0.5 + 0.5 * Math.sin(w.time * 10))) | 0},60)` : '#f2e6c8';
+  ctx.fillText(fmtClock(left), VW / 2, y);
+  y += 26;
+  ctx.font = 'bold 11px sans-serif';
+  const fence = w.vsT < VS.shrinkAt;
+  ctx.fillStyle = fence ? '#9adcf0' : '#ff9a6a';
+  ctx.fillText(clipText(ctx, fence ? T('B107' /* 電磁柵の収縮まで {t} */, { t: fmtClock(VS.shrinkAt - Math.max(0, w.vsT)) })
+    : T('B108' /* 電磁柵 収縮中（半径 {r}m） */, { r: Math.round(w.arenaR) }), tw), VW / 2, y);
+  y += 15;
+  if (w.flat) {
+    ctx.fillStyle = '#c9a0ff';
+    ctx.fillText(clipText(ctx, T('B109' /* ルール：強化・ブースター無効 */), tw), VW / 2, y);
+    y += 15;
+  }
+  if (B.speed !== 1) {
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillStyle = '#ffd24a';
+    ctx.fillText(`×${B.speed}`, VW / 2, y);
+  }
+
+  drawCompactBottom(ctx, w, B, VW, VH, P.vm.prog);
+
+  // 開始前のカウントダウン → FIGHT
+  if (w.vsT < 0 || (w.vsT < 1 && !w.result)) {
+    const n = Math.ceil(-w.vsT);
+    const k = w.vsT < 0 ? (-w.vsT) % 1 || 1 : 1 - w.vsT;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, VH / 2 - 50, VW, 100);
+    drawCompactCenter(ctx, VW, VH / 2, w.vsT < 0 ? String(n) : 'FIGHT!',
+      w.vsT < 0 ? '#f2e6c8' : `rgba(255,210,74,${Math.min(1, k * 2)})`, Math.round(48 + 30 * k));
+    if (w.vsT < 0) {
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillStyle = '#cbbd9c';
+      ctx.textAlign = 'center';
+      ctx.fillText(clipText(ctx, `${w.meName}  VS  ${w.opp.name}`, VW - 24), VW / 2, VH / 2 - 76);
+    }
+  } else if (w.banner && !w.result) {
+    const al = Math.min(1, w.banner.t, (2.5 - w.banner.t) * 3);
+    ctx.globalAlpha = Math.max(0, al);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, VH * 0.36 - 26, VW, 52);
+    drawCompactCenter(ctx, VW, VH * 0.36, w.banner.title, '#ffb070', 22);
+    ctx.globalAlpha = 1;
+  }
+  if (B.paused) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, VW, VH);
+    drawCompactCenter(ctx, VW, VH / 2, 'PAUSE', '#fff', 36);
+  }
+  if (w.result) {
+    const txt = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW' }[w.result];
+    const col = { win: '#9fffb0', lose: '#ff6a4a', draw: '#ffd24a' }[w.result];
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, VH / 2 - 36, VW, 72);
+    drawCompactCenter(ctx, VW, VH / 2, txt, col, 40);
   }
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';

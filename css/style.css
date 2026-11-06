@@ -498,3 +498,171 @@ table.vs-rep td b { color: #f0c890; }
 }
 .update-banner.show { display: flex; }
 .update-banner button { padding: 4px 12px; }
+
+/* ===================== 戦闘：操作ボタン（スマートフォンなど。battle.js の bindCtl） ===================== */
+#battle { touch-action: none; }
+.battle-ctl { display: none; position: absolute; left: 8px; bottom: 8px; gap: 6px; z-index: 5; }
+.battle-ctl.show { display: flex; }
+.battle-ctl button {
+  min-width: 46px; height: 40px; padding: 0 10px; font-size: 14px; font-weight: bold;
+  background: rgba(20,16,11,0.82); border-color: #6b5a40; user-select: none; -webkit-user-select: none;
+}
+.battle-ctl button.arm { color: #ff9a70; }
+.battle-ctl button.leg { color: #7ab8ff; }
+.battle-ctl button.danger { background: rgba(90,36,32,0.85); }
+/* 操作ボタンを出している戦闘中は、右下の音量パネルを隠す（回路モニターと重なるため） */
+#screen-battle.active:has(.battle-ctl.show) ~ #sound-ctl { display: none; }
+
+/* ダイアログは画面に収める */
+.dialog-box { max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); overflow: auto; }
+
+/* ===================== 画面幅に合わせたレイアウト ===================== */
+html { -webkit-text-size-adjust: 100%; }
+button { touch-action: manipulation; }
+.vs-list { grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); }
+#rep-heat, .vs-heat canvas { max-width: 100%; height: auto; }
+
+/* 中くらいの幅：列が入りきらなければ折り返す */
+@media (max-width: 1240px) {
+  .topbar { flex-wrap: wrap; row-gap: 8px; }
+  .tab.active { flex-wrap: wrap; }
+}
+
+/* スマートフォン（縦・横）：1列に並べ、文字や余白をつめる */
+@media (max-width: 940px) {
+  body { font-size: 13px; }
+
+  /* タイトル */
+  .title-box { margin-top: 6vh; }
+  .title-sub { font-size: 15px; letter-spacing: 6px; }
+  .title-crawl { height: 52vh; }
+  .crawl-inner { font-size: 16px; letter-spacing: 1px; }
+  .crawl-inner .log { font-size: 12px; letter-spacing: 3px; }
+  html[lang=en] .title-sub { font-size: 13px; letter-spacing: 3px; }
+  html[lang=en] .crawl-inner { font-size: 15px; letter-spacing: 0; }
+  .title-start { font-size: 14px; bottom: 5vh; }
+
+  /* 上の帯：ロゴと鉱石を1行目、タブを2行目（横にスクロール）。スクロールしても上に残す */
+  .topbar { position: sticky; top: 0; z-index: 10; gap: 6px 10px; padding: 6px 8px; background: #1f1912; }
+  .logo { font-size: 16px; letter-spacing: 1px; }
+  .logo small { display: none; }
+  .ore-bank { font-size: 12px; padding: 3px 8px; }
+  .ore-bank b { display: none; }
+  .tabs { order: 3; width: 100%; gap: 4px; flex-wrap: wrap; }
+  .tabs button, html[lang=en] .tabs button { flex: 1 1 auto; padding: 6px 8px; font-size: 12px; }
+  .update-banner { top: auto; bottom: 44px; max-width: calc(100vw - 16px); }
+
+  .tab { padding: 8px 8px 48px; gap: 8px; }
+  .tab.active { flex-direction: column; flex-wrap: nowrap; }
+  /* 列は画面幅いっぱい（auto のままだと縦並びの flex で骨格図の高さが正しく測られない） */
+  .skel-col, .prev-col, .parts-col, #palette, .circuit-col, #inspector { width: 100%; }
+  .col { padding: 10px; }
+  h3 { font-size: 14px; }
+  /* 音量パネルはオン／オフだけ（音量は端末の音量で） */
+  #sound-ctl { right: 6px; bottom: 4px; padding: 2px 4px; }
+  #sound-ctl input[type=range] { display: none; }
+
+  /* 組立：スロット → パーツ一覧 → 機体の絵と性能 */
+  .skel-col { order: 1; }
+  .parts-col { order: 2; min-width: 0; max-height: none; }
+  .prev-col { order: 3; }
+  #skeleton { max-width: 360px; margin: 0 auto; }
+  .slot { width: 104px; padding: 3px 4px; }
+  #preview { max-width: 440px; margin: 0 auto; }
+  #stats th { width: 92px; }
+
+  /* 回路：タイル一覧（高さを抑えて横に並べる）→ 回路盤 → タイル設定 */
+  #palette { max-height: 30vh; }
+  .pgroup { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .pgroup h4 { width: 100%; margin: 0; }
+  .pbtn { display: inline-block; width: auto; margin: 0; padding: 5px 8px; }
+  #circuit-grid { --cs: min(58px, calc((100vw - 70px) / 10)); padding: 4px; width: max-content; margin: 0 auto; }
+  .tile { inset: 2px; border-left-width: 3px; }
+  .tile .nm { display: none; }
+  .tile .ic { font-size: 13px; }
+  .tile .pm { font-size: 9px; }
+  .cell.orphan::after { font-size: 8px; }
+  .prog-slots button { padding: 5px 10px; }
+  .circuit-btns { flex-wrap: wrap; gap: 6px; }
+  .circuit-btns button { font-size: 12px; padding: 6px 8px; }
+
+  /* 強化：表の行をカードのように2〜3段に組みかえる */
+  .upgrade-panel, .output-panel, .sortie { padding: 12px; }
+  .upgrade-panel h2, .output-panel h2, .sortie h2 { font-size: 18px; }
+  .up-tbl tr {
+    display: grid; grid-template-columns: 1fr auto; grid-template-areas: "nm btn" "pips btn" "val val" "cost cost";
+    padding: 4px 0; border-bottom: 1px solid #3a3226;
+  }
+  .up-tbl tr.eq { background: rgba(90,55,20,0.35); }
+  .up-tbl td, .up-tbl td.nm, .up-tbl td.pips, .up-tbl td.val, .up-tbl td:last-child { width: auto; padding: 2px 4px; border: none; background: none !important; }
+  .up-tbl td.nm { grid-area: nm; }
+  .up-tbl td.pips { grid-area: pips; }
+  .up-tbl td.val { grid-area: val; white-space: normal; }
+  .up-tbl td.cost { grid-area: cost; }
+  .up-tbl td:last-child { grid-area: btn; align-self: center; }
+  .up-sec h3 small { display: block; margin: 2px 0 0; }
+
+  /* ブースター：同じく行を組みかえる（見出しは「すべて選ぶ」のチェックだけ残す） */
+  .stock-tbl thead tr { display: flex; }
+  .stock-tbl thead th:not(:first-child) { display: none; }
+  .stock-tbl thead th { border: none; }
+  .stock-tbl tbody tr {
+    display: grid; grid-template-columns: 26px 1fr auto; grid-template-areas: "chk nm btn" ". bd bd" ". cost cost";
+    border-bottom: 1px solid #3a3226; padding: 3px 0;
+  }
+  .stock-tbl tr.sel { background: rgba(160,60,40,0.22); }
+  .stock-tbl tr.eq { background: rgba(90,55,20,0.35); }
+  .stock-tbl td { padding: 2px 4px; border: none; background: none !important; }
+  .stock-tbl td:first-child { grid-area: chk; }
+  .stock-tbl td.nm { grid-area: nm; }
+  .stock-tbl td.bd { grid-area: bd; }
+  .stock-tbl td.cost { grid-area: cost; }
+  .stock-tbl td:last-child { grid-area: btn; align-self: center; }
+  .stock-foot .sum { margin-left: 0; width: 100%; }
+
+  /* 出力配分 */
+  .ratio-row { gap: 8px; }
+  .ratio-lab { width: 72px; }
+  .ratio-lab b { font-size: 20px; }
+  .ratio-bar { margin: 10px 0 18px; }
+  #output-table td { font-size: 14px; }
+
+  /* 出撃：出撃ボタンを上のほうに置き、地区ごとの敵の内訳はその下に回す */
+  .sortie:not(.versus) { display: flex; flex-direction: column; }
+  #composition { order: 1; }
+  .sortie .help { order: 2; }
+  .field-select { flex-direction: column; }
+  .floor-btns { flex-wrap: wrap; }
+  .floor-btns button { flex: 1 0 18%; }
+  .cnt-row { font-size: 14px; gap: 8px; }
+  .cnt-row b { width: 48px; font-size: 18px; }
+  #composition { overflow-x: auto; }
+  .district-tbl { font-size: 12px; }
+  .district-tbl th, .district-tbl td { padding: 4px; }
+  .big { font-size: 22px; letter-spacing: 8px; padding: 12px; }
+
+  /* 対戦 */
+  .vs-me { flex-wrap: wrap; }
+  .vs-name { flex-wrap: wrap; }
+  .vs-name input { width: auto; flex: 1; min-width: 0; }
+
+  /* 戦闘のダイアログ */
+  .dialog-box { padding: 14px 16px; }
+  .dialog-box h2 { font-size: 17px; }
+  .dialog-btns button { padding: 10px 6px; font-size: 14px; }
+
+  /* レポート */
+  #report { margin: 12px auto; padding: 0 8px; }
+  .rep-head { padding: 12px 14px; }
+  .rep-head h1 { font-size: 20px; }
+  .rep-body { flex-direction: column; gap: 10px; }
+  .rep-col { padding: 10px; }
+  .vs-heat { flex-wrap: wrap; }
+  .rep-btns { flex-wrap: wrap; margin-bottom: 48px; }
+  .rep-btns button { font-size: 15px; padding: 10px 18px; }
+}
+
+/* キーボードの無い端末：キー操作の説明は出さない */
+@media (pointer: coarse) {
+  .help { display: none; }
+}

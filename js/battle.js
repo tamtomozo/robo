@@ -2180,7 +2180,7 @@ function drawLogPanel(ctx, w, VW, VH) {
   });
   // 長い行（英語など）がはみ出さないよう、一番長い行に合わせて広げる（420px〜画面幅の45%）
   const widest = Math.max(0, ...lines.map(o => ctx.measureText(o.text).width));
-  const lw = Math.round(clamp(widest + 18, 420, Math.max(420, VW * 0.45))), lh = 150, lx = 12, ly = VH - lh - 40;
+  const lw = Math.round(clamp(widest + 18, 420, Math.max(420, VW * 0.45))), lh = 150, lx = 12, ly = VH - lh - Math.max(40, Battle.ctl.h + 16);   // 操作ボタンを出しているときはその上に
   hudPanel(ctx, lx, ly, lw, lh, 'REPORT');
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'left';
@@ -2248,7 +2248,41 @@ function drawMechPanel(ctx, P, x0, y0, title, manual) {
   return jh;
 }
 
+// ミニマップ（右上 right, top）。max は幅の上限。描いた位置と大きさを返す
+function drawMinimap(ctx, w, right, top, max) {
+  const P = w.player;
+  const { mx, my, k } = w.geo.minimap(ctx, w, right, top, max);
+  ctx.fillStyle = 'rgba(120,90,60,0.6)';
+  for (const rk of w.rocks) { circle(ctx, mx + rk.x * k, my + rk.y * k, Math.max(1.5, rk.r * k)); ctx.fill(); }
+  for (const o of w.ores) {
+    ctx.fillStyle = ORES.find(k => k.id === o.kind).color;
+    ctx.fillRect(mx + o.x * k - 0.75, my + o.y * k - 0.75, 1.5, 1.5);
+  }
+  for (const e of w.enemies) {
+    const art = enemyArtOf(e.type);
+    ctx.fillStyle = art.mapColor;
+    const s = art.mapSize;
+    ctx.fillRect(mx + e.x * k - s / 2, my + e.y * k - s / 2, s, s);
+  }
+  // レア個体と落ちているブースターは点滅する金色の印
+  const blink = 0.5 + 0.5 * Math.sin(w.time * 6);
+  ctx.strokeStyle = `rgba(255,216,74,${0.5 + 0.5 * blink})`;
+  ctx.lineWidth = 1.5;
+  for (const e of w.enemies) if (e.rare) { circle(ctx, mx + e.x * k, my + e.y * k, 4); ctx.stroke(); }
+  for (const o of w.loot) {
+    ctx.fillStyle = bonusTier(o.part.bonus).color;
+    ctx.fillRect(mx + o.x * k - 2, my + o.y * k - 2, 4, 4);
+  }
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(140,255,190,0.35)';
+  circle(ctx, mx + P.x * k, my + P.y * k, P.st.sensor * k); ctx.stroke();
+  ctx.fillStyle = '#7dff9a';
+  circle(ctx, mx + P.x * k, my + P.y * k, 3); ctx.fill();
+  return { mx, my, k, w: right - mx, h: w.H * k };
+}
+
 function drawHUD(ctx, w, B, VW, VH) {
+  if (B.compact) { drawHUDCompact(ctx, w, B, VW, VH); return; }
   const P = w.player;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
@@ -2340,33 +2374,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   }
 
   // --- ミニマップ ---
-  const { mx, my, k } = w.geo.minimap(ctx, w, VW - 12, 12);
-  ctx.fillStyle = 'rgba(120,90,60,0.6)';
-  for (const rk of w.rocks) { circle(ctx, mx + rk.x * k, my + rk.y * k, Math.max(1.5, rk.r * k)); ctx.fill(); }
-  for (const o of w.ores) {
-    ctx.fillStyle = ORES.find(k => k.id === o.kind).color;
-    ctx.fillRect(mx + o.x * k - 0.75, my + o.y * k - 0.75, 1.5, 1.5);
-  }
-  for (const e of w.enemies) {
-    const art = enemyArtOf(e.type);
-    ctx.fillStyle = art.mapColor;
-    const s = art.mapSize;
-    ctx.fillRect(mx + e.x * k - s / 2, my + e.y * k - s / 2, s, s);
-  }
-  // レア個体と落ちているブースターは点滅する金色の印
-  const blink = 0.5 + 0.5 * Math.sin(w.time * 6);
-  ctx.strokeStyle = `rgba(255,216,74,${0.5 + 0.5 * blink})`;
-  ctx.lineWidth = 1.5;
-  for (const e of w.enemies) if (e.rare) { circle(ctx, mx + e.x * k, my + e.y * k, 4); ctx.stroke(); }
-  for (const o of w.loot) {
-    ctx.fillStyle = bonusTier(o.part.bonus).color;
-    ctx.fillRect(mx + o.x * k - 2, my + o.y * k - 2, 4, 4);
-  }
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = 'rgba(140,255,190,0.35)';
-  circle(ctx, mx + P.x * k, my + P.y * k, P.st.sensor * k); ctx.stroke();
-  ctx.fillStyle = '#7dff9a';
-  circle(ctx, mx + P.x * k, my + P.y * k, 3); ctx.fill();
+  drawMinimap(ctx, w, VW - 12, 12);
 
   // --- 回路モニター ---
   const grid = P.st.grid;
@@ -2388,11 +2396,11 @@ function drawHUD(ctx, w, B, VW, VH) {
   // --- レポートログ ---
   drawLogPanel(ctx, w, VW, VH);
 
-  // --- 操作説明 ---
+  // --- 操作説明（タッチ操作の端末では画面下のボタンで操作するので出さない） ---
   ctx.font = '12px sans-serif';
   ctx.fillStyle = 'rgba(240,230,210,0.8)';
   ctx.textAlign = 'center';
-  ctx.fillText(T('B047' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
+  if (!B.touchUI) ctx.fillText(T('B047' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
   if (B.manual) ctx.fillText(P.st.jump ? T('B082' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */) : T('B081' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */), VW / 2, VH - 40);
   if (B.speed !== 1) {
     ctx.font = 'bold 16px sans-serif';
@@ -2423,6 +2431,249 @@ function drawHUD(ctx, w, B, VW, VH) {
 }
 
 // ---------------------------------------------------------------------
+//  狭い画面（スマートフォンなど）の HUD
+//   ・左上：HP・出力配分・両腕・回収鉱石 / 右上：ミニマップと地区・残敵・活動限界
+//   ・下：回路モニター（小）とレポートログ（短く）。操作は画面下の HTML のボタン（#battle-ctl）
+//   ・操作説明・回路モニターの見出し・ログの時刻などは省く
+// ---------------------------------------------------------------------
+const HUD_PAD = 8;
+
+// 幅 maxW に収まるよう末尾を「…」で切る
+function clipText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t + '…';
+}
+
+// 幅 maxW に収まる大きさの太字にする（size が上限）
+function fitFont(ctx, text, size, maxW) {
+  ctx.font = `bold ${size}px sans-serif`;
+  const tw = ctx.measureText(text).width;
+  if (tw > maxW) ctx.font = `bold ${Math.max(10, Math.floor(size * maxW / tw))}px sans-serif`;
+}
+
+// 小さな機体ステータス（左上 x0, y0 に幅 wd）。extra は呼び出し側が下に書き足す行の高さ。
+// 書き足す位置 y と枠の下端 bottom を返す
+function drawMechMini(ctx, P, x0, y0, wd, title, extra = 0) {
+  const JP = P.st.jump;
+  const h = 6 + (title ? 15 : 0) + 22 + 9 + 32 + (JP ? 14 : 0) + extra;
+  hudPanel(ctx, x0, y0, wd, h);
+  const x = x0 + 6, iw = wd - 12;
+  let y = y0 + 5;
+  ctx.textBaseline = 'top';
+  if (title) {
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#8fe0a8';
+    ctx.fillText(clipText(ctx, title, iw), x, y);
+    y += 15;
+  }
+  const hk = P.hp / P.maxHp, r = P.st.ratio;
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#e8f0ea';
+  ctx.fillText(`HP ${Math.ceil(P.hp)} / ${P.maxHp}`, x, y);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#cbd8d0';
+  ctx.fillText(T('B110' /* 腕{arm}% 脚{leg}% */, { arm: Math.round(r * 100), leg: Math.round((1 - r) * 100) }), x + iw, y);
+  hudBar(ctx, x, y + 14, iw, 6, hk, hk > 0.3 ? '#5dde7a' : '#ff5a4a');
+  y += 22;
+  ctx.fillStyle = '#e0604a';
+  ctx.fillRect(x, y, iw * r, 4);
+  ctx.fillStyle = '#4a9ae0';
+  ctx.fillRect(x + iw * r, y, iw * (1 - r), 4);
+  y += 9;
+  for (const arm of [P.arms.L, P.arms.R]) {
+    let st = '', col = '#cde', k = -1, bar = '#9cd6d6';
+    if (arm.def.type === 'none') { /* なし */ }
+    else if (arm.reloading > 0) { st = T('B035' /* リロード中 */); col = '#ffd24a'; k = 1 - arm.reloading / arm.perf.reload; bar = '#ffd24a'; }
+    else if (arm.def.mag > 0) { st = `${arm.ammo} / ${arm.def.mag}`; k = arm.ammo / arm.def.mag; }
+    else st = '∞';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = col;
+    ctx.fillText(st, x + iw, y);
+    const sw = st ? ctx.measureText(st).width + 8 : 0;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#e8f0ea';
+    ctx.fillText(clipText(ctx, `${arm.side} ${partLabel(arm.def)}`, iw - sw), x, y);
+    if (k >= 0) hudBar(ctx, x, y + 13, iw, 3, k, bar);
+    y += 16;
+  }
+  if (JP) {
+    const air = P.air > 0;
+    ctx.fillStyle = air ? '#8fe0ff' : P.jumpCd > 0 ? '#9fb5a5' : '#9fe0b0';
+    ctx.fillText(clipText(ctx, air ? T('B036' /* ジャンプ：跳躍中（無敵） */)
+      : P.jumpCd > 0 ? T('B037' /* ジャンプ：再使用まで {cd}s */, { cd: P.jumpCd.toFixed(1) })
+      : T('B038' /* ジャンプ：準備完了{manual} */, { manual: '' }), iw), x, y);
+    y += 14;
+  }
+  return { y, bottom: y0 + h };
+}
+
+// 画面下：回路モニター（右下）とレポートログ（左、操作ボタンの上）
+function drawCompactBottom(ctx, w, B, VW, VH, prog) {
+  const P = w.player, pad = HUD_PAD, ctl = B.ctl;
+  const grid = P.st.grid;
+  const cs = Math.max(6, Math.floor(clamp(Math.min(VW, VH) * 0.3, 90, 150) / grid)), cw = cs * grid;
+  // 操作ボタンの右に入りきれば最下段に、入らなければボタンの上に置く
+  const beside = ctl.w + cw + pad * 4 + 8 <= VW;
+  const ctlTop = VH - pad - ctl.h - (ctl.h ? pad : 0);
+  const cx = VW - pad - 4 - cw, cy = (beside ? VH - pad : ctlTop) - 4 - cw;
+  drawCircuit(ctx, prog, grid, cx, cy, cs, { pc: B.manual ? null : { x: P.vm.x, y: P.vm.y } });
+  if (B.manual) {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(cx, cy, cw, cw);
+    ctx.fillStyle = '#ffd24a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    fitFont(ctx, T('B046' /* 手動操作中 */), 12, cw - 4);
+    ctx.fillText(T('B046' /* 手動操作中 */), cx + cw / 2, cy + cw / 2);
+    ctx.textBaseline = 'top';
+  }
+  // ログ：低い画面では省く。時刻は付けない
+  if (VH < 340) return;
+  const n = VH > 700 ? 4 : 3, lh = 8 + n * 14;
+  const lw = Math.min(420, (beside ? VW - pad * 2 : cx - 4 - pad * 2));
+  if (lw < 140) return;
+  const lx = pad, ly = ctlTop - lh;
+  hudPanel(ctx, lx, ly, lw, lh);
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  w.log.slice(-n).forEach((l, i) => {
+    ctx.globalAlpha = w.time - l.t < 8 ? 1 : 0.55;
+    ctx.fillStyle = l.color;
+    ctx.fillText(clipText(ctx, l.msg, lw - 12), lx + 6, ly + 5 + i * 14);
+  });
+  ctx.globalAlpha = 1;
+}
+
+// 画面の高さ cy に大きな文字（一時停止・結果など）。文字は画面幅に収める
+function drawCompactCenter(ctx, VW, cy, text, col, size) {
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  fitFont(ctx, text, size, VW - 24);
+  ctx.fillStyle = col;
+  ctx.fillText(text, VW / 2, cy);
+  ctx.textBaseline = 'top';
+}
+
+function drawHUDCompact(ctx, w, B, VW, VH) {
+  const P = w.player, pad = HUD_PAD;
+  ctx.textBaseline = 'top';
+
+  // --- 右上：ミニマップ ---
+  const mm = drawMinimap(ctx, w, VW - pad, pad, Math.round(clamp(VW * 0.34, 100, 170)));
+
+  // --- 左上：機体ステータスと回収鉱石 ---
+  const lw = Math.min(230, VW - mm.w - pad * 3);
+  const m = drawMechMini(ctx, P, pad, pad, lw, null, 15);
+  let ox = pad + 6;
+  ORES.forEach(k => {
+    const pulse = w.orePulse[k.id] || 0, oy = m.y + 6;
+    ctx.save();
+    ctx.translate(ox + 4, oy);
+    ctx.rotate(Math.PI / 4);
+    const sz = 3.5 + pulse * 6;
+    ctx.fillStyle = k.color;
+    ctx.fillRect(-sz, -sz, sz * 2, sz * 2);
+    ctx.restore();
+    ctx.font = pulse > 0 ? 'bold 12px sans-serif' : '11px sans-serif';
+    ctx.fillStyle = pulse > 0 ? '#fff' : '#e8f0ea';
+    ctx.textAlign = 'left';
+    const t = String(w.ore[k.id]);
+    ctx.fillText(t, ox + 11, oy - 6);
+    ox += 11 + ctx.measureText(t).width + 12;
+  });
+
+  // --- 右：ミニマップの下に地区・残敵・活動限界 ---
+  const remain = w.enemies.filter(e => !e.def.boss).length + w.queue.length;
+  const bossPhase = w.phase === 'warn' || w.phase === 'boss';
+  const DS = w.field.districts, D = DS[w.district];
+  const rx = VW - pad, iw = VW - lw - pad * 3;
+  let y = mm.my + mm.h + 6;
+  ctx.textAlign = 'right';
+  const line = (text, font, col, h) => {
+    ctx.font = font;
+    ctx.fillStyle = col;
+    ctx.fillText(clipText(ctx, text, iw), rx, y);
+    y += h;
+  };
+  if (!bossPhase) line(`${floorName(w.floor)} ${districtLabel(D)} ${w.district + 1}/${DS.length}`, '11px sans-serif', '#f0c890', 15);
+  if (w.phase === 'fight') line(T('B039' /* 残敵 {remain} / {perDistrict} */, { remain, perDistrict: w.segTotal }), 'bold 14px sans-serif', '#f2e6c8', 18);
+  else if ((w.phase === 'confirm' || w.phase === 'done') && !w.timeUp) line(T('B040' /* 掃討完了 */), 'bold 14px sans-serif', '#f2e6c8', 18);
+  else if (remain > 0) line(T('B041' /* 眷属 {remain} */, { remain }), 'bold 14px sans-serif', '#f2e6c8', 18);
+  const actLeft = ACT_LIMIT - w.act;
+  const urgent = actLeft <= 10 && !w.result && w.phase !== 'confirm';
+  line(T('B090' /* 活動限界まで {total} */, { total: fmtClock(actLeft) }), urgent ? 'bold 12px sans-serif' : '11px sans-serif',
+    urgent ? `rgb(255,${(90 + 60 * (0.5 + 0.5 * Math.sin(w.time * 10))) | 0},60)` : '#cbbd9c', 15);
+  if (w.parts.length || w.loot.length) {
+    line(w.loot.length ? T('B080' /* ブースター {n}（+{loot}） */, { n: w.parts.length, loot: w.loot.length })
+      : T('B079' /* ブースター {n} */, { n: w.parts.length }), w.partPulse > 0 ? 'bold 12px sans-serif' : 'bold 11px sans-serif',
+    w.partPulse > 0 ? '#fff' : '#ffd84a', 15);
+  }
+  if (B.speed !== 1) line(`×${B.speed}`, 'bold 14px sans-serif', '#ffd24a', 18);
+
+  // --- ボスの体力（上の2つの下に画面幅いっぱい） ---
+  if (w.boss && w.boss.hp > 0) {
+    const bd = w.boss.def, by = Math.max(m.bottom, y) + 6, bw = VW - pad * 2;
+    const name = bd.name + (w.boss.phase2 ? T('B043' /* （{phase2Name}） */, { phase2Name: bd.phase2Name }) : '');
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = '#ffb090';
+    ctx.fillText(clipText(ctx, name, bw), VW / 2, by);
+    hudBar(ctx, pad, by + 16, bw, 10, w.boss.hp / w.boss.maxHp, bd.barColors[w.boss.phase2 ? 1 : 0], 'rgba(0,0,0,0.5)');
+    ctx.strokeStyle = '#ffb090';
+    ctx.strokeRect(pad + 0.5, by + 16.5, bw - 1, 9);
+  }
+
+  // --- 下：回路モニターとログ ---
+  drawCompactBottom(ctx, w, B, VW, VH, w.program);
+
+  // --- 中央の表示 ---
+  ctx.textAlign = 'center';
+  if (w.banner && !w.result) {
+    const a = Math.min(1, w.banner.t, (3 - w.banner.t) * 3), by = VH * 0.36;
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, by - 34, VW, 68);
+    fitFont(ctx, w.banner.title, 26, VW - 24);
+    ctx.fillStyle = '#f0c890';
+    ctx.fillText(w.banner.title, VW / 2, by - 26);
+    if (w.banner.sub) {
+      fitFont(ctx, w.banner.sub, 13, VW - 24);
+      ctx.fillStyle = '#ffd24a';
+      ctx.fillText(w.banner.sub, VW / 2, by + 8);
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (w.phase === 'warn' && !w.result) {
+    const a = 0.5 + 0.5 * Math.sin(w.time * 12), col = `rgba(255,80,50,${0.6 + 0.4 * a})`;
+    ctx.fillStyle = `rgba(160,20,10,${0.35 * a})`;
+    ctx.fillRect(0, VH / 2 - 44, VW, 88);
+    drawCompactCenter(ctx, VW, VH / 2 - 8, 'WARNING', col, 48);
+    fitFont(ctx, T('B044' /* 巨大生体反応 接近中 */), 14, VW - 24);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = col;
+    ctx.fillText(T('B044' /* 巨大生体反応 接近中 */), VW / 2, VH / 2 + 20);
+  }
+  if (B.paused) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, VW, VH);
+    drawCompactCenter(ctx, VW, VH / 2, 'PAUSE', '#fff', 36);
+  }
+  if (w.result) {
+    const txt = { win: 'MISSION COMPLETE', lose: 'MACHINE DOWN', retreat: 'RETREAT', return: 'RETURN TO BASE', timeout: 'ACTIVITY LIMIT' }[w.result];
+    const col = { win: '#9fffb0', lose: '#ff6a4a', retreat: '#ffd24a', return: '#9fe0ff', timeout: '#ffb070' }[w.result];
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, VH / 2 - 36, VW, 72);
+    drawCompactCenter(ctx, VW, VH / 2, txt, col, 38);
+  }
+  ctx.textAlign = 'left';
+}
+
+// ---------------------------------------------------------------------
 //  戦闘画面コントローラー
 // ---------------------------------------------------------------------
 const Battle = {
@@ -2439,7 +2690,8 @@ const Battle = {
     this.manual = false;
     this.jumpReq = false;   // 手動操作で Shift が押された（次のシミュレーションでジャンプ）
     this.xray = false;
-    this.zoom = vs ? 16 : 24;  // 1m あたりのピクセル数（ホイールで変更可）。対戦は闘技場が見渡せるよう引いて見る
+    this.vsMode = !!vs;
+    this.zoomK = 1;            // ホイール・ピンチで変えたズームの倍率（1m あたりのピクセル数 zoom は applyZoom で決める）
     this.cam = { x: this.world.player.x, y: this.world.player.y };
     this.camLead = { x: 0, y: 0 };  // 自機の前方へずらすカメラのオフセット（m）
     this.atkHold = 0;               // 攻撃後もしばらく前方を広く見せる残り時間
@@ -2449,6 +2701,7 @@ const Battle = {
     this.last = performance.now();
     this.resize();
     this.bind();
+    this.bindCtl();
     this.hideConfirm();
     document.getElementById('confirm-yes').onclick = () => this.answerConfirm(true);
     document.getElementById('confirm-no').onclick = () => this.answerConfirm(false);
@@ -2525,6 +2778,68 @@ const Battle = {
     this.canvas.height = Math.floor(this.VH * dpr);
     this.canvas.style.width = this.VW + 'px';
     this.canvas.style.height = this.VH + 'px';
+    // 狭い画面（スマートフォンなど）は情報を絞った HUD にする。タッチ操作の端末か狭い画面なら操作ボタンを出す
+    this.compact = this.VW < 900 || this.VH < 560;
+    this.touchUI = window.matchMedia('(pointer: coarse)').matches;
+    const bar = document.getElementById('battle-ctl');
+    bar.classList.toggle('show', this.compact || this.touchUI);
+    this.ctl = bar.classList.contains('show') ? { w: bar.offsetWidth, h: bar.offsetHeight } : { w: 0, h: 0 };
+    this.applyZoom();
+  },
+
+  // 1m あたりのピクセル数。小さい画面ほど引いて広く見せる（1920×1080 前後で 24、対戦は闘技場を見渡せるよう 16）
+  applyZoom() {
+    const fit = clamp(Math.sqrt(this.VW * this.VH) / 1300, 0.42, 1);
+    this.zoom = clamp((this.vsMode ? 16 : 24) * fit * this.zoomK, 4, 48);
+  },
+
+  setZoomK(k) {
+    this.zoomK = clamp(k, 0.4, 3);
+    this.applyZoom();
+  },
+
+  // 画面下の操作ボタン（スマートフォンなどキーの無い端末用。キー操作と同じことをする）
+  bindCtl() {
+    const bar = document.getElementById('battle-ctl');
+    bar.querySelector('[data-act=retreat]').textContent = this.vsMode ? T('B113' /* 降参 */) : T('B112' /* 撤退 */);
+    bar.querySelectorAll('button').forEach(b => {
+      b.onclick = () => {
+        b.blur();   // 押したボタンにフォーカスが残ると、Space キーでもう一度押されてしまう
+        const w = this.world;
+        switch (b.dataset.act) {
+          case 'pause': this.paused = !this.paused; Sound.play('pause', { on: this.paused }); break;
+          case 'speed': this.speed = this.speed === 1 ? 2 : this.speed === 2 ? 4 : 1; Sound.play('ui'); break;
+          case 'leg': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio - 0.05); break;
+          case 'arm': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio + 0.05); break;
+          case 'retreat': this.askRetreat(); break;
+        }
+        this.syncCtl();
+      };
+    });
+    this.syncCtl();
+  },
+
+  // 一時停止・速度のボタンの表示を今の状態に合わせる
+  syncCtl() {
+    const bar = document.getElementById('battle-ctl');
+    bar.querySelector('[data-act=pause]').textContent = this.paused ? '▶' : '❚❚';
+    bar.querySelector('[data-act=speed]').textContent = `×${this.speed}`;
+  },
+
+  // 撤退（対戦では降参）。ボタンは押し間違えやすいので、止めてから確かめる
+  async askRetreat() {
+    const w = this.world;
+    if (w.result || this.confirmOpen) return;
+    const was = this.paused;
+    this.paused = true;
+    this.syncCtl();
+    const ok = await Ask.open(w.vs ? T('B115' /* 降参しますか？ */) : T('B114' /* 撤退しますか？ フィールドに残っている鉱石とブースターは持ち… */));
+    this.paused = was;
+    this.syncCtl();
+    this.last = performance.now();
+    if (!ok || w.result || !this.running) return;
+    if (w.vs) vsEnd(w, 'lose', 'surrender');
+    else endBattle(w, 'retreat');
   },
 
   bind() {
@@ -2534,9 +2849,17 @@ const Battle = {
       move: (e) => { const r = this.canvas.getBoundingClientRect(); this.mouse.x = e.clientX - r.left; this.mouse.y = e.clientY - r.top; },
       down: (e) => { if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; },
       up: (e) => { if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; },
-      wheel: (e) => { e.preventDefault(); this.zoom = clamp(this.zoom * (e.deltaY > 0 ? 0.9 : 1.1), 6, 48); },
+      wheel: (e) => { e.preventDefault(); this.setZoomK(this.zoomK * (e.deltaY > 0 ? 0.9 : 1.1)); },
       ctx: (e) => e.preventDefault(),
       resize: () => this.resize(),
+      // 2本指のピンチでズーム
+      touch: (e) => {
+        if (e.touches.length !== 2) { this.pinch = null; return; }
+        e.preventDefault();
+        const [a, b] = e.touches, d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        if (e.type === 'touchstart' || !this.pinch) this.pinch = { d, k: this.zoomK };
+        else if (this.pinch.d > 0) this.setZoomK(this.pinch.k * d / this.pinch.d);
+      },
     };
     window.addEventListener('keydown', this.h.key);
     window.addEventListener('keyup', this.h.keyup);
@@ -2546,6 +2869,7 @@ const Battle = {
     this.canvas.addEventListener('wheel', this.h.wheel, { passive: false });
     this.canvas.addEventListener('contextmenu', this.h.ctx);
     window.addEventListener('resize', this.h.resize);
+    for (const t of ['touchstart', 'touchmove', 'touchend']) this.canvas.addEventListener(t, this.h.touch, { passive: false });
   },
 
   unbind() {
@@ -2558,6 +2882,7 @@ const Battle = {
     this.canvas.removeEventListener('wheel', this.h.wheel);
     this.canvas.removeEventListener('contextmenu', this.h.ctx);
     window.removeEventListener('resize', this.h.resize);
+    for (const t of ['touchstart', 'touchmove', 'touchend']) this.canvas.removeEventListener(t, this.h.touch);
     this.h = null;
   },
 
@@ -2592,6 +2917,7 @@ const Battle = {
         e.preventDefault();
         break;
     }
+    this.syncCtl();
   },
 
   input() {

@@ -118,8 +118,9 @@ const STRIP_SHAPE = {
   },
 
   // ミニマップの背景（右上 right, top に置く）。敵などを描くための位置と縮尺を返す
-  minimap(ctx, w, right, top) {
-    const F = w.field, mmw = 270, k = mmw / w.FW, mmh = w.H * k, mx = right - mmw, my = top;
+  // max：幅の上限（狭い画面で小さくする）。小さいときは地区名を省く
+  minimap(ctx, w, right, top, max = Infinity) {
+    const F = w.field, mmw = Math.min(270, max), k = mmw / w.FW, mmh = w.H * k, mx = right - mmw, my = top;
     const W = this.openW(w);
     hudPanel(ctx, mx, my, mmw, mmh);
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -131,6 +132,7 @@ const STRIP_SHAPE = {
         ctx.strokeStyle = 'rgba(255,220,170,0.25)';
         ctx.beginPath(); ctx.moveTo(mx + i * F.dw * k + 0.5, my); ctx.lineTo(mx + i * F.dw * k + 0.5, my + mmh); ctx.stroke();
       }
+      if (mmw < 200) return;
       const sealed = i >= w.open && !w.full, done = w.stats.res[i] === 'clear';
       ctx.fillStyle = mapLabelColor(sealed, done);
       ctx.fillText(`${D.name}${sealed ? T('B068' /* （封鎖） */) : done ? T('B069' /* （掃討済） */) : ''}`, mx + (i + 0.5) * F.dw * k, my + mmh + 3);
@@ -319,8 +321,8 @@ const DISC_SHAPE = {
     ctx.restore();
   },
 
-  minimap(ctx, w, right, top) {
-    const F = w.field, size = 170, k = size / w.FW, mx = right - size, my = top;
+  minimap(ctx, w, right, top, max = Infinity) {
+    const F = w.field, size = Math.min(170, max), k = size / w.FW, mx = right - size, my = top;
     const cx = mx + w.FW / 2 * k, cy = my + w.FW / 2 * k;
     hudPanel(ctx, mx, my, size, size);
     ctx.textAlign = 'center';
@@ -466,8 +468,8 @@ const ARENA_SHAPE = {
     ctx.restore();
   },
 
-  minimap(ctx, w, right, top) {
-    const size = 150, k = size / w.FW, mx = right - size, my = top;
+  minimap(ctx, w, right, top, max = Infinity) {
+    const size = Math.min(150, max), k = size / w.FW, mx = right - size, my = top;
     hudPanel(ctx, mx, my, size, size);
     ctx.strokeStyle = 'rgba(255,220,170,0.35)';
     circle(ctx, mx + w.FW / 2 * k, my + w.FW / 2 * k, w.arenaR * k); ctx.stroke();

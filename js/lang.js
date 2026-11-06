@@ -462,6 +462,16 @@ Ore gained: {txt}{warn}
   B107: { ja: '電磁柵の収縮まで {t}', en: 'Fence closes in {t}' },
   B108: { ja: '電磁柵 収縮中（半径 {r}m）', en: 'Fence closing (radius {r}m)' },
   B109: { ja: 'ルール：強化・ブースター無効', en: 'Rule: upgrades & boosters disabled' },
+  B110: { ja: '腕{arm}% 脚{leg}%', en: 'ARM {arm}% LEG {leg}%' },
+  B111: { ja: '脚＋', en: 'LEG+' },
+  B112: { ja: '撤退', en: 'Retreat' },
+  B113: { ja: '降参', en: 'Surrender' },
+  B114: {
+    ja: '撤退しますか？\nフィールドに残っている鉱石とブースターは持ち帰れません。',
+    en: 'Retreat?\nOre and boosters still lying on the field will be left behind.',
+  },
+  B115: { ja: '降参しますか？', en: 'Surrender?' },
+  B116: { ja: '腕＋', en: 'ARM+' },
 
   // ---------------------------------------------------------------- R：戦闘レポート
   R001: { ja: '任務完了 — {floor} 制圧・ボス撃破', en: 'Mission Complete — {floor} secured, boss destroyed' },

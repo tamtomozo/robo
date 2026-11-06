@@ -255,12 +255,15 @@ function drawCircuit(ctx, prog, grid, x0, y0, cs, opts = {}) {
           ctx.fillRect(px + 2, py + 2, cs - 4, cs - 4);
         }
       }
-      ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.max(8, Math.floor(cs * 0.36))}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const label = def.kind === 'cond' ? def.mini : def.icon;
-      ctx.fillText(label, px + cs / 2, py + cs / 2);
+      // 小さく描くとき（スマートフォンの回路モニターなど）は文字がはみ出すので、色と矢印だけにする
+      if (cs >= 16) {
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.max(8, Math.floor(cs * 0.36))}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = def.kind === 'cond' ? def.mini : def.icon;
+        ctx.fillText(label, px + cs / 2, py + cs / 2);
+      }
       drawArrowMini(ctx, px, py, cs, tile.d, def.kind === 'cond' ? '#5dff8a' : '#e8f0ea');
       if (def.kind === 'cond') drawArrowMini(ctx, px, py, cs, tile.n, '#ff5a4a');
     }
