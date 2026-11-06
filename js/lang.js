@@ -59,6 +59,7 @@ const TEXT = {
   C014: { ja: '{name}「{sub}」', en: '{name} "{sub}"' },
   C015: { ja: 'はい', en: 'Yes' },
   C016: { ja: 'キャンセル', en: 'Cancel' },
+  C017: { ja: 'OK', en: 'OK' },
 
   // ---------------------------------------------------------------- G：ガレージ
   G001: { ja: '① 組立', en: '① Assembly' },
@@ -291,6 +292,13 @@ Ore gained: {txt}{warn}
   G146: { ja: '第1〜{n}地区', en: ({ n }) => (n > 1 ? `Districts 1–${n}` : 'District 1') },
   G147: { ja: '回路{n}', en: 'Circuit {n}' },
   G148: { ja: '出撃では選んでいる回路を使います', en: 'The selected circuit is used for sorties' },
+  G149: { ja: 'ファイルに書き出す', en: 'Export to file' },
+  G150: { ja: 'ファイルから読み込む', en: 'Import from file' },
+  G151: { ja: '選んでいる回路をファイルに保存します', en: 'Save the selected circuit to a file' },
+  G152: { ja: '「{name}」を回路{n}に読み込みますか？ 今の回路は上書きされます（元に戻す で取り消せます）', en: 'Load "{name}" into Circuit {n}? The current circuit will be overwritten. (You can revert with Undo.)' },
+  G153: { ja: '「{name}」は回路のファイルとして読み込めませんでした。', en: '"{name}" could not be loaded as a circuit file.' },
+  G154: { ja: '読み込めないタイルが {n} 個あったため、空きマスにしました。', en: ({ n }) => `${n} tile${n === 1 ? '' : 's'} could not be loaded and ${n === 1 ? 'was' : 'were'} left empty.` },
+  G155: { ja: 'ファイルの回路を、選んでいる回路に読み込みます', en: 'Load a circuit from a file into the selected circuit' },
 
   // ---------------------------------------------------------------- B：戦闘（ログ・HUD・地区掃討後の確認）
   B001: { ja: '基地に帰還（N）', en: 'Return to base (N)' },

@@ -80,6 +80,10 @@ const Garage = {
       p[0] = { t: 'start', d: 2, n: 1, p: 0 };
       this.editProgram(() => { Game.save.program = p; this.sel = null; });
     };
+    document.getElementById('btn-prog-export').onclick = () => this.exportProgram();
+    const pf = document.getElementById('prog-file');
+    document.getElementById('btn-prog-import').onclick = () => { pf.value = ''; pf.click(); };
+    pf.onchange = () => { if (pf.files[0]) this.importProgram(pf.files[0]); };
     document.getElementById('btn-undo').onclick = () => this.undo();
     document.getElementById('btn-orphans').onclick = () => this.clearOrphans();
     document.getElementById('orphan-stay').onclick = () => this.answerOrphans('stay');
@@ -683,6 +687,30 @@ const Garage = {
     }
     this.renderCircuit();
     this.renderInspector();
+  },
+
+  // 選んでいる回路をファイルに書き出す（ブラウザのダウンロードとして保存される）
+  exportProgram() {
+    const d = new Date(), z = v => String(v).padStart(2, '0');
+    const name = `iron-wasteland-circuit${Game.save.progSlot + 1}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}.json`;
+    const url = URL.createObjectURL(new Blob([circuitToFile(Game.save.program)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    Sound.play('ui');
+  },
+
+  // ファイルの回路を、選んでいる回路枠に読み込む（元に戻す で取り消せる）
+  async importProgram(file) {
+    const r = file.size <= 200000 ? circuitFromFile(await file.text().catch(() => '')) : null;
+    if (!r) { await Ask.tell(T('G153' /* 「{name}」は回路のファイルとして読み込めませんでした。 */, { name: file.name })); return; }
+    if (!await Ask.open(T('G152' /* 「{name}」を回路{n}に読み込みますか？ 今の回路は上… */, { name: file.name, n: Game.save.progSlot + 1 }))) return;
+    this.editProgram(() => { Game.save.program = r.prog; this.sel = null; });
+    if (r.skipped) await Ask.tell(T('G154' /* 読み込めないタイルが {n} 個あったため、空きマスにしまし… */, { n: r.skipped }));
   },
 
   undo() {

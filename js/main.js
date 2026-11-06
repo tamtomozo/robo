@@ -143,6 +143,7 @@ const Game = {
 
 // =====================================================================
 //  ゲーム内の確認ダイアログ：if (!await Ask.open('〜しますか？')) return;
+//   ・知らせるだけのとき：await Ask.tell('〜しました');（「OK」ボタンだけ）
 //   ・ブラウザの confirm() は全画面表示（itch.io の全画面ボタンなど）を解除してしまうため代わりに使う
 //   ・文章の改行はそのまま表示する。Enter で「はい」、Esc で「キャンセル」
 //     （全画面中の Esc はブラウザが全画面の解除に使うので、ボタンでも選べるようにしてある）
@@ -166,14 +167,19 @@ const Ask = {
     }, true);
   },
 
-  open(text) {
+  // okOnly：知らせるだけ（「OK」ボタンだけ出す）。Ask.tell(text) と同じ
+  open(text, { okOnly = false } = {}) {
     this.close(false);   // 開いたままのものがあれば、キャンセル扱いで閉じる
     document.getElementById('ask-body').textContent = text;
+    document.getElementById('ask-no').style.display = okOnly ? 'none' : '';
+    document.getElementById('ask-yes').textContent = okOnly ? T('C017' /* OK */) : T('C015' /* はい */);
     document.getElementById('ask-dialog').classList.add('show');
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     Sound.play('ui');
     return new Promise(r => { this.resolve = r; });
   },
+
+  tell(text) { return this.open(text, { okOnly: true }); },
 
   close(ans) {
     if (!this.resolve) return;

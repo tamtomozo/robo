@@ -41,6 +41,48 @@ function orphanTiles(prog, grid) {
   return out;
 }
 
+// ---------------------------------------------------------------------
+//  回路のファイル（書き出し・読み込み）
+//   ・形式：{ game, kind: 'circuit', version, tiles: [{ x, y, t, d, n, p }, …] }（空きマスは書かない）
+//   ・回路盤の外のタイルも含め、10×10 をそのまま書き出す（小さい頭部で読み込んでも外側が使われないだけ）
+// ---------------------------------------------------------------------
+const CIRCUIT_FILE = { game: 'iron-wasteland', kind: 'circuit', version: 1 };
+
+function circuitToFile(prog) {
+  const tiles = [];
+  for (let y = 0; y < MAX_GRID; y++) {
+    for (let x = 0; x < MAX_GRID; x++) {
+      const t = prog[y * MAX_GRID + x];
+      if (t) tiles.push({ x, y, t: t.t, d: t.d, n: t.n, p: t.p });
+    }
+  }
+  // 中身を見て分かるよう、タイル1枚を1行にする
+  const head = JSON.stringify(CIRCUIT_FILE).slice(1, -1);
+  return `{${head},\n"tiles":[\n${tiles.map(t => JSON.stringify(t)).join(',\n')}\n]}\n`;
+}
+
+// ファイルの文字列から回路を作る。回路のファイルでなければ null
+// 他の人が作ったファイルや手で書き換えたファイルも読むので、タイルを1枚ずつ確かめ、おかしなものは空きマスにする
+//   → { prog, skipped（空きマスにしたタイルの数） }
+function circuitFromFile(text) {
+  let o;
+  try { o = JSON.parse(text); } catch (e) { return null; }
+  if (!o || o.game !== CIRCUIT_FILE.game || o.kind !== CIRCUIT_FILE.kind || !Array.isArray(o.tiles)) return null;
+  const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  const prog = new Array(MAX_GRID * MAX_GRID).fill(null);
+  let skipped = 0;
+  for (const s of o.tiles) {
+    const def = s && Object.prototype.hasOwnProperty.call(TILE_DEFS, s.t) && TILE_DEFS[s.t];
+    const i = def && isInt(s.x, 0, MAX_GRID - 1) && isInt(s.y, 0, MAX_GRID - 1) ? s.y * MAX_GRID + s.x : -1;
+    // START は左上に1つだけ（左上には必ず START を置く）。同じマスに2枚あれば後のものは捨てる
+    if (i < 0 || prog[i] || (s.t === 'start') !== (i === 0) || !isInt(s.d, 0, 3)) { skipped++; continue; }
+    const p = def.params ? (isInt(s.p, 0, def.params.length - 1) ? s.p : (def.dp || 0)) : 0;
+    prog[i] = { t: s.t, d: s.d, n: isInt(s.n, 0, 3) ? s.n : 1, p };
+  }
+  if (!prog[0]) prog[0] = { t: 'start', d: 2, n: 1, p: 0 };
+  return { prog, skipped };
+}
+
 function angDiff(a, b) {
   let d = a - b;
   while (d > Math.PI) d -= Math.PI * 2;
