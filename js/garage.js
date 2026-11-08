@@ -44,7 +44,8 @@ function statChips(cat, p) {
     case 'arm':
       if (p.type === 'none') return c(T('G030' /* 重量 */), 0);
       return c(T('G036' /* 威力 */), fmtNum(p.dmg) + (p.shots > 1 ? T('G037' /* ×{shots}発 */, { shots: p.shots }) : '')) + c(p.type === 'melee' ? T('G038' /* 振り */) : T('G039' /* 連射 */), `${p.rate}/s`) + c(T('G040' /* 射程 */), `${p.range}m`) +
-        (p.mag ? c(T('G041' /* 弾数 */), p.mag) + c(T('G042' /* 装填 */), `${p.reload}s`) : '') + (p.splash ? c(T('G043' /* 爆風 */), `${p.splash}m`) : '') + c(T('G029' /* 耐久 */), p.hp) + c(T('G030' /* 重量 */), p.weight);
+        (p.mag ? c(T('G041' /* 弾数 */), p.mag) + c(T('G042' /* 装填 */), `${p.reload}s`) : '') + (p.splash ? c(T('G043' /* 爆風 */), `${p.splash}m`) : '') +
+        (p.pierce ? c(T('upgrade.arm.special' /* 特性 */), T('upgrade.arm.sp.cannon' /* 貫通 */)) : '') + c(T('G029' /* 耐久 */), p.hp) + c(T('G030' /* 重量 */), p.weight);
     case 'legs': return c(T('G044' /* 速度 */), `${fmtNum(p.speed)}m/s`) + c(T('G045' /* 旋回 */), `${Math.round(p.turn * 57.3)}°/s`) + c(T('G046' /* 横移動 */), `${Math.round(p.strafe * 100)}%`) +
       c(T('G047' /* 積載 */), p.cap) + c(T('G029' /* 耐久 */), p.hp) + c(T('G030' /* 重量 */), p.weight) + (p.defBonus ? c(T('G048' /* 防御+ */), p.defBonus) : '') +
       (p.jump ? c(T('G049' /* ジャンプ */), T('G050' /* {dist}m / 待ち{cd}s */, { dist: p.jump.dist, cd: fmtNum(p.jump.cd) })) : '');

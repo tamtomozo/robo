@@ -144,6 +144,13 @@ function jumpPerf(lv) {
   return { dist: 8 + j, cd: 5 - 0.5 * j, dur: 0.55 + 0.02 * j };
 }
 
+// 腕の強化 Lv6〜 で弾数+1 に加えて付く、武器ごとの特性
+const ARM_SPECIAL = {
+  cannon: { label: T('upgrade.arm.sp.cannon' /* 貫通 */), apply(p) { p.pierce = true; } },   // 敵を貫いて飛び、当たった敵ごとに爆発
+  flamer: { label: T('upgrade.arm.sp.flamer' /* 射程×2 */), apply(p) { p.range *= 2; p.speed *= 2; } },   // 炎は減速するので初速も倍にして届く距離を倍に
+  blade: { label: T('upgrade.arm.sp.blade' /* 威力×3 */), apply(p) { p.dmg *= 3; } },
+};
+
 const UPGRADES = {
   arm: {
     label: T('upgrade.arm.label' /* 攻撃力 */), where: T('upgrade.arm.where' /* 腕パーツ */),
@@ -151,10 +158,17 @@ const UPGRADES = {
     cost: L => ({ iron: 40 * L, crystal: 10 * L }),
     apply(p, lv) {
       p.dmg *= armUpgradeMult(lv);
-      if (lv >= UPGRADE_SHOT_LV) p.shots = 2;
+      if (lv >= UPGRADE_SHOT_LV) {
+        p.shots = 2;
+        if (ARM_SPECIAL[p.id]) ARM_SPECIAL[p.id].apply(p);
+      }
     },
     stat: p => [T('upgrade.arm.stat' /* 威力 */), p.dmg, p.shots > 1 ? T('upgrade.arm.shots' /* ×{shots}発 */, { shots: p.shots }) : ''],
-    note: (p, lv) => lv + 1 === UPGRADE_SHOT_LV ? T('upgrade.arm.next' /* 次の強化で弾数+1 */) : '',
+    note: (p, lv) => {
+      const sp = ARM_SPECIAL[p.id];
+      if (lv + 1 === UPGRADE_SHOT_LV) return sp ? T('upgrade.arm.nextSp' /* 次の強化で弾数+1・{sp} */, { sp: sp.label }) : T('upgrade.arm.next' /* 次の強化で弾数+1 */);
+      return sp && lv >= UPGRADE_SHOT_LV ? T('upgrade.arm.hasSp' /* 特性：{sp} */, { sp: sp.label }) : '';
+    },
   },
   torso: {
     label: T('upgrade.torso.label' /* 防御力 */), where: T('upgrade.torso.where' /* 胴体 */), per: T('upgrade.torso.per' /* 1段階ごとに 防御 +2（被ダメージ軽減） */),

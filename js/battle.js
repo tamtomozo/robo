@@ -692,6 +692,7 @@ function fireArm(w, P, arm) {
       shot.r = d.fuse || shot.r;   // 近接信管：敵にこの距離まで近づいたら起爆
     } else if (d.type === 'shell') {
       shot.r = 0.35;
+      if (d.pierce) { shot.pierce = true; shot.hitSet = new Set(); }   // 強化 Lv6〜：敵を貫いて飛ぶ
       w.shake = Math.max(w.shake, 0.25);
     }
     w.pshots.push(shot);
@@ -840,6 +841,14 @@ function updatePlayerShots(w, dt) {
       const hx = sx0 + sdx * tt, hy = sy0 + sdy * tt;
       const dx = e.x - hx, dy = e.y - hy;
       if (dx * dx + dy * dy > rr * rr) continue;
+      if (s.pierce) {
+        // 貫通弾：当たった敵ごとにその場で爆発し、止まらずに飛び続ける（同じ敵には1回だけ）
+        if (s.hitSet.has(e)) continue;
+        s.hitSet.add(e);
+        if (!s.counted) { s.counted = true; w.stats.hits[s.arm]++; }
+        explode(w, hx, hy, s.splash, s.dmg, s.arm, e, s);
+        continue;
+      }
       if (s.kind !== 'flame') { s.x = hx; s.y = hy; }
       if (s.kind === 'flame') {
         if (s.hitSet.has(e)) continue;
