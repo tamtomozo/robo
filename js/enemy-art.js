@@ -783,10 +783,15 @@ const ENEMY_ART = {
     gibColor: '#8fd8ff',
     scorchColor: 'rgba(60,110,160,0.45)',
     mapColor: '#4ad8ff', mapSize: 6,
+    // 高さ（0 = 接地）：跳躍は放物線、出現は天井から降りてくる。1 あたり 4m
+    lift(e) {
+      const p = bossWind(e);
+      return e.state === 'leap' ? Math.sin(Math.PI * p) : e.state === 'emerge' ? (1 - p) * 2.2 : 0;
+    },
+    // ctx.liftByCaller（3D 表示 view3d.js）のときは、高さを絵の中で表さない（呼び出し側が板ごと持ち上げる）
     draw(ctx, e) {
       const t = e.anim, p = bossWind(e), st = e.state, p2 = e.phase2;
-      // 高さ（0 = 接地）：跳躍は放物線、出現は天井から降りてくる
-      const h = st === 'leap' ? Math.sin(Math.PI * p) : st === 'emerge' ? (1 - p) * 2.2 : 0;
+      const h = this.lift(e), hs = ctx.liftByCaller ? 0 : h;   // hs = 絵の中で表す高さ
       const crouch = st === 'leap_wind' ? p : 0;                                          // しゃがみ込み
       const rear = st === 'fan_wind' || st === 'sweep_wind' || st === 'web_wind' ? p : st === 'rage' ? 0.6 : 0;  // 立ち上がり
       const glow = st === 'fan_wind' ? p : st === 'rage' ? 0.7 + 0.3 * Math.sin(t * 30) : st === 'fan' ? 0.8 : 0;
@@ -799,14 +804,14 @@ const ENEMY_ART = {
       // 接地影（高いほど小さく薄い）
       groundShadow(ctx, 0, 0.4, 5.6 * (1 - 0.25 * h), 4.6 * (1 - 0.25 * h), 0.36 * (1 - 0.35 * h));
       // 出現：天井から垂れる糸
-      if (st === 'emerge') {
+      if (st === 'emerge' && !ctx.liftByCaller) {
         ctx.strokeStyle = 'rgba(230,240,255,0.6)';
         ctx.lineWidth = 0.08;
         ctx.beginPath(); ctx.moveTo(0, -h * 4); ctx.lineTo(0, -60); ctx.stroke();
       }
 
-      ctx.translate(jit, -h * 4 + jit * 0.5);
-      const sc = 1 + 0.3 * h - 0.06 * crouch;
+      ctx.translate(jit, -hs * 4 + jit * 0.5);
+      const sc = 1 + 0.3 * hs - 0.06 * crouch;
       ctx.scale(sc, sc);
       ctx.rotate(e.a);
       ctx.translate(-0.9 * rear, 0);   // 立ち上がると体が後ろへ下がる

@@ -12,6 +12,7 @@ const Game = {
     Sound.init();
     Ask.init();
     Garage.init();
+    View3D.initUI();   // 戦闘画面の 2D / 3D 表示の設定（view3d.js）
     document.getElementById('btn-reload').onclick = () => location.reload();
     // 開きっぱなしのタブに戻ってきたときも確認する
     document.addEventListener('visibilitychange', () => {

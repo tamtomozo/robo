@@ -627,7 +627,7 @@ const Sound = {
   mute: { bgm: false, se: false },
   last: {},          // 効果音ごとの最終再生時刻（連打の間引き）
   voices: [],        // 鳴っている効果音の終了予定時刻
-  lis: { x: 0, y: 0, r: 30 },
+  lis: { x: 0, y: 0, r: 30, rx: 1, ry: 0 },
   want: null,        // 鳴らしたい BGM（音声の有効化前に指定されたもの）
   cur: null,         // 再生中の BGM { name, tr, gain, step, next }
   ducked: false,
@@ -752,7 +752,8 @@ const Sound = {
   },
 
   // ------------------------------------------------------------ 効果音
-  listen(x, y, r) { this.lis.x = x; this.lis.y = y; this.lis.r = r; },
+  // 聞く位置と範囲。rx, ry = 聞き手の右の向き（3D 表示ではカメラとともに回る）
+  listen(x, y, r, rx = 1, ry = 0) { const L = this.lis; L.x = x; L.y = y; L.r = r; L.rx = rx; L.ry = ry; },
 
   play(name, o = {}) {
     const ctx = this.ctx;
@@ -765,10 +766,10 @@ const Sound = {
     if (this.voices.length > 28) return;
     let g = o.vol == null ? 1 : o.vol, pan = 0;
     if (o.x != null) {
-      const L = this.lis, dx = o.x - L.x, d = Math.hypot(dx, o.y - L.y);
+      const L = this.lis, dx = o.x - L.x, dy = o.y - L.y, d = Math.hypot(dx, dy);
       if (d > L.r) g *= Math.max(0, 1 - (d - L.r) / (L.r * 1.5));
       if (g < 0.05) return;
-      pan = clamp(dx / L.r, -1, 1) * 0.7;
+      pan = clamp((dx * L.rx + dy * L.ry) / L.r, -1, 1) * 0.7;
     }
     this.last[name] = now;
     const out = ctx.createGain();

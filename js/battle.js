@@ -497,6 +497,11 @@ function updatePlayer(w, P, dt, inp) {
     let my = (inp.keys.KeyS ? 1 : 0) - (inp.keys.KeyW ? 1 : 0);
     const l = Math.hypot(mx, my);
     if (l > 0) { mx /= l; my /= l; }
+    // 3D 表示：W = カメラの奥（前進）・A/D = カメラから見た左右（inp.camYaw = カメラの向き）
+    if (inp.camYaw != null) {
+      const fx = Math.cos(inp.camYaw), fy = Math.sin(inp.camYaw);
+      [mx, my] = [mx * -fy - my * fx, mx * fx - my * fy];
+    }
     manualVel = [mx * st.speed, my * st.speed];
     if (inp.jump) { inp.jump = false; startJump(w, P, l > 0 ? Math.atan2(my, mx) : P.a); }   // 移動キーの方向（なければ正面）へ
     if (inp.aim) faceTo = Math.atan2(inp.aim.y - P.y, inp.aim.x - P.x);
@@ -1644,22 +1649,94 @@ function drawBossTelegraph(ctx, w, b) {
 function drawWorld(ctx, w, B, VW, VH) {
   const z = B.zoom;
   const P = w.player;
+  const rot = B.viewRot();   // 背後の向きでは、カメラの向きが画面の上になるよう回す（北が上なら 0）
   const sx = w.shake > 0 ? rand(-1, 1) * w.shake * 6 : 0;
   const sy = w.shake > 0 ? rand(-1, 1) * w.shake * 6 : 0;
   ctx.fillStyle = w.field.dark ? '#141216' : '#3b2a1c';
   ctx.fillRect(0, 0, VW, VH);
   ctx.save();
   ctx.translate(VW / 2 + sx, VH / 2 + sy);
+  if (rot) ctx.rotate(rot);
   ctx.scale(z, z);
   ctx.translate(-B.cam.x, -B.cam.y);
 
-  const vx0 = B.cam.x - VW / 2 / z - 4, vy0 = B.cam.y - VH / 2 / z - 4;
-  const vx1 = B.cam.x + VW / 2 / z + 4, vy1 = B.cam.y + VH / 2 / z + 4;
+  // 描く範囲（回しているときは画面の対角線を直径とする正方形）
+  const hw = (rot ? Math.hypot(VW, VH) : VW) / 2 / z + 4, hh = (rot ? Math.hypot(VW, VH) : VH) / 2 / z + 4;
+  const vx0 = B.cam.x - hw, vy0 = B.cam.y - hh;
+  const vx1 = B.cam.x + hw, vy1 = B.cam.y + hh;
   const inView = (x, y, m = 0) => x > vx0 - m && x < vx1 + m && y > vy0 - m && y < vy1 + m;
 
-  w.geo.drawGround(ctx, w, { x0: vx0, y0: vy0, x1: vx1, y1: vy1 });
+  drawFloor(ctx, w, { x0: vx0, y0: vy0, x1: vx1, y1: vy1 }, inView);
+
+  // 岩
+  for (const k of w.rocks) {
+    if (!inView(k.x, k.y, k.r)) continue;
+    drawRock(ctx, k);
+  }
+
+  drawFloorItems(ctx, w, inView);
+
+  // 敵（脈動中は足元に赤い揺らめき）
   const sk = w.surge.k, sb = sk > 0 ? surgeBreath(w) : 0;
-  if (sk > 0) drawSurgeGround(ctx, w, sk, sb, vx0, vy0, vx1, vy1, inView);
+  for (const e of w.enemies) {
+    if (e.robot) { drawMech(ctx, w, e, false); continue; }   // 対戦相手の機体
+    if (!inView(e.x, e.y, e.def.boss ? 20 : 3)) continue;
+    if (sk > 0.05 && !e.buried) drawSurgeAura(ctx, e, sk, sb);
+    if (e.rare) drawRareAura(ctx, e, w.time, false);
+    drawEnemy(ctx, e, !rot);   // 回しているときの HP バーは、あとで画面に対して水平に描く
+    if (e.rare) drawRareAura(ctx, e, w.time, true);
+  }
+
+  // プレイヤー
+  drawMech(ctx, w, P, B.xray);
+
+  drawShotsFx(ctx, w, inView);
+
+  w.geo.drawSealed(ctx, w);
+  ctx.restore();
+
+  if (rot) {
+    drawEnemyBars(ctx, w, e => {
+      const p = B.toScreen(e.x, e.y);
+      return p.x < -60 || p.x > VW + 60 || p.y < -60 || p.y > VH + 60 ? null : { x: p.x, top: p.y - e.r * z, k: z };
+    });
+  }
+  const ps = B.toScreen(P.x, P.y);
+  drawScreenTint(ctx, w, VW, VH, ps.x, ps.y);
+}
+
+// エネミーの HP バーを画面に対して水平に描く（2D の背後の向き・3D 表示）。
+// place(e) = { x: 画面の横位置, top: エネミーの上の縁の画面の高さ, k: その場所の 1m あたりのピクセル数 }。描かないなら null
+function drawEnemyBars(ctx, w, place) {
+  for (const e of w.enemies) {
+    if (e.robot || e.buried || e.hp >= e.maxHp || !enemyArtOf(e.type).hpBar) continue;
+    const p = place(e);
+    if (!p) continue;
+    const bw = Math.max(16, e.r * 2 * p.k), bh = Math.max(3, 0.25 * p.k);
+    const x = p.x - bw / 2, y = p.top - bh - Math.max(3, 0.45 * p.k);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(x, y, bw, bh);
+    ctx.fillStyle = '#ff6a4a';
+    ctx.fillRect(x, y, bw * Math.max(0, e.hp / e.maxHp), bh);
+  }
+}
+
+// カメラの向きを機体の向きに遅れてついていかせる（背後からの視点：3D 表示と 2D の背後の向き）。yaw = いまのカメラの向き
+// 少しの向きの変化（狙いの微調整など）では回らない。手動操作中は遊びを広くとる（マウスで狙う向きにカメラが回り続けないように）
+function chaseYaw(yaw, P, manual, dt) {
+  if (yaw == null) return P.a;
+  if (P.dead) return yaw;
+  const d = angDiff(P.a, yaw), ex = Math.abs(d) - (manual ? 0.6 : 0.26);
+  return ex > 0 ? yaw + Math.sign(d) * Math.min(ex, Math.min(ex * 2.5 + 0.3, 1.8) * dt) : yaw;
+}
+
+// 地面とそこに描くもの（地面・脈動・装飾・焦げ跡・蜘蛛の巣・センサー範囲・ボスの予兆）。
+// v = 描く範囲 { x0, y0, x1, y1 }（m）。3D 表示（view3d.js）も地面の絵としてこれを使う
+function drawFloor(ctx, w, v, inView) {
+  const P = w.player;
+  w.geo.drawGround(ctx, w, v);
+  const sk = w.surge.k, sb = sk > 0 ? surgeBreath(w) : 0;
+  if (sk > 0) drawSurgeGround(ctx, w, sk, sb, v.x0, v.y0, v.x1, v.y1, inView);
 
   // 地面の装飾
   for (const d of w.decor) {
@@ -1695,13 +1772,10 @@ function drawWorld(ctx, w, B, VW, VH) {
   const boss = w.boss;
   if (boss && boss.hp > 0 && !w.result) BOSS_KINDS[boss.type].telegraph(ctx, w, boss);
   if (w.hazards.length) drawHazards(ctx, w);
+}
 
-  // 岩
-  for (const k of w.rocks) {
-    if (!inView(k.x, k.y, k.r)) continue;
-    drawRock(ctx, k);
-  }
-
+// 地面に落ちているもの（土煙・鉱石・ブースター）
+function drawFloorItems(ctx, w, inView) {
   for (const f of w.fx) if (f.type === 'dust' && inView(f.x, f.y, 3)) drawFx(ctx, f);
 
   // 鉱石
@@ -1711,33 +1785,21 @@ function drawWorld(ctx, w, B, VW, VH) {
   for (const o of w.loot) {
     if (inView(o.x, o.y, 4)) drawLoot(ctx, o, w.time);
   }
+}
 
-  // 敵（脈動中は足元に赤い揺らめき）
-  for (const e of w.enemies) {
-    if (e.robot) { drawMech(ctx, w, e, false); continue; }   // 対戦相手の機体
-    if (!inView(e.x, e.y, e.def.boss ? 20 : 3)) continue;
-    if (sk > 0.05 && !e.buried) drawSurgeAura(ctx, e, sk, sb);
-    if (e.rare) drawRareAura(ctx, e, w.time, false);
-    drawEnemy(ctx, e);
-    if (e.rare) drawRareAura(ctx, e, w.time, true);
-  }
-
-  // プレイヤー
-  drawMech(ctx, w, P, B.xray);
-
-  // 弾（対戦では相手の弾も機体の弾）
+// 弾（対戦では相手の弾も機体の弾）と爆発などの効果
+function drawShotsFx(ctx, w, inView) {
   for (const s of w.pshots) drawPShot(ctx, s);
   for (const s of w.eshots) {
     if (inView(s.x, s.y)) w.vs ? drawPShot(ctx, s) : drawEnemyShot(ctx, s);
   }
   for (const f of w.fx) if (f.type !== 'dust' && inView(f.x, f.y, 12)) drawFx(ctx, f);
+}
 
-  w.geo.drawSealed(ctx, w);
-  ctx.restore();
-
+// 画面全体にかける色（洞窟の暗さ・大地の脈動）。px, py = 自機の画面上の位置
+function drawScreenTint(ctx, w, VW, VH, px, py) {
   // 洞窟：機体のまわり以外を暗くする
   if (w.field.dark) {
-    const px = VW / 2 + (P.x - B.cam.x) * z, py = VH / 2 + (P.y - B.cam.y) * z;
     const g = ctx.createRadialGradient(px, py, Math.min(VW, VH) * 0.3, px, py, Math.max(VW, VH) * 0.75);
     g.addColorStop(0, 'rgba(0,0,6,0)');
     g.addColorStop(1, 'rgba(0,0,6,0.62)');
@@ -1745,7 +1807,9 @@ function drawWorld(ctx, w, B, VW, VH) {
     ctx.fillRect(0, 0, VW, VH);
   }
   // 大地の脈動：画面の縁が呼吸に合わせて赤く脈打つ
+  const sk = w.surge.k;
   if (sk > 0) {
+    const sb = surgeBreath(w);
     const g = ctx.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * (0.42 - 0.08 * sb), VW / 2, VH / 2, Math.max(VW, VH) * 0.72);
     g.addColorStop(0, 'rgba(120,0,0,0)');
     g.addColorStop(1, `rgba(110,0,0,${sk * (0.3 + 0.3 * sb)})`);
@@ -2040,7 +2104,8 @@ function enemyShotArtOf(kind) {
   return PLACEHOLDER_SHOT_ART;
 }
 
-function drawEnemy(ctx, e) {
+// bar = false なら HP バーを描かない（呼び出し側が画面に対して水平に描く）
+function drawEnemy(ctx, e, bar = true) {
   const art = enemyArtOf(e.type);
   ctx.save();
   ctx.translate(e.x, e.y);
@@ -2051,7 +2116,7 @@ function drawEnemy(ctx, e) {
   }
   art.draw(ctx, e);
   ctx.restore();
-  if (art.hpBar && e.hp < e.maxHp) {
+  if (bar && art.hpBar && e.hp < e.maxHp) {
     const bw = e.r * 2;
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(-bw / 2, -e.r - 0.7, bw, 0.25);
@@ -2285,6 +2350,17 @@ function drawMinimap(ctx, w, right, top, max) {
   ctx.lineWidth = 1;
   ctx.strokeStyle = 'rgba(140,255,190,0.35)';
   circle(ctx, mx + P.x * k, my + P.y * k, P.st.sensor * k); ctx.stroke();
+  // 背後からの視点（3D 表示・2D の背後の向き）：カメラの向いている方へ扇形の印
+  const yaw = Battle.viewYaw();
+  if (yaw != null) {
+    const px = mx + P.x * k, py = my + P.y * k;
+    ctx.fillStyle = 'rgba(125,255,154,0.28)';
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.arc(px, py, 16, yaw - 0.5, yaw + 0.5);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.fillStyle = '#7dff9a';
   circle(ctx, mx + P.x * k, my + P.y * k, 3); ctx.fill();
   return { mx, my, k, w: right - mx, h: w.H * k };
@@ -2572,12 +2648,27 @@ function drawHUDCompact(ctx, w, B, VW, VH) {
   const P = w.player, pad = HUD_PAD;
   ctx.textBaseline = 'top';
 
+  // --- 最上段：ボスの体力（中央に画面幅の半分ほど。狭い画面でも 180px は取る）。ボスがいる間は、ほかの表示をその下に置く ---
+  const boss = w.boss && w.boss.hp > 0 ? w.boss : null;
+  const top = pad + (boss ? 34 : 0);
+  if (boss) {
+    const bd = boss.def, bw = Math.round(Math.min(VW - pad * 2, Math.max(180, VW * 0.5))), bx = Math.round((VW - bw) / 2);
+    const name = bd.name + (boss.phase2 ? T('B043' /* （{phase2Name}） */, { phase2Name: bd.phase2Name }) : '');
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = '#ffb090';
+    ctx.fillText(clipText(ctx, name, bw), VW / 2, pad);
+    hudBar(ctx, bx, pad + 16, bw, 10, boss.hp / boss.maxHp, bd.barColors[boss.phase2 ? 1 : 0], 'rgba(0,0,0,0.5)');
+    ctx.strokeStyle = '#ffb090';
+    ctx.strokeRect(bx + 0.5, pad + 16.5, bw - 1, 9);
+  }
+
   // --- 右上：ミニマップ ---
-  const mm = drawMinimap(ctx, w, VW - pad, pad, Math.round(clamp(VW * 0.34, 100, 170)));
+  const mm = drawMinimap(ctx, w, VW - pad, top, Math.round(clamp(VW * 0.34, 100, 170)));
 
   // --- 左上：機体ステータスと回収鉱石 ---
   const lw = Math.min(230, VW - mm.w - pad * 3);
-  const m = drawMechMini(ctx, P, pad, pad, lw, null, 15);
+  const m = drawMechMini(ctx, P, pad, top, lw, null, 15);
   let ox = pad + 6;
   ORES.forEach(k => {
     const pulse = w.orePulse[k.id] || 0, oy = m.y + 6;
@@ -2623,19 +2714,6 @@ function drawHUDCompact(ctx, w, B, VW, VH) {
     w.partPulse > 0 ? '#fff' : '#ffd84a', 15);
   }
   if (B.speed !== 1) line(`×${B.speed}`, 'bold 14px sans-serif', '#ffd24a', 18);
-
-  // --- ボスの体力（上の2つの下に画面幅いっぱい） ---
-  if (w.boss && w.boss.hp > 0) {
-    const bd = w.boss.def, by = Math.max(m.bottom, y) + 6, bw = VW - pad * 2;
-    const name = bd.name + (w.boss.phase2 ? T('B043' /* （{phase2Name}） */, { phase2Name: bd.phase2Name }) : '');
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillStyle = '#ffb090';
-    ctx.fillText(clipText(ctx, name, bw), VW / 2, by);
-    hudBar(ctx, pad, by + 16, bw, 10, w.boss.hp / w.boss.maxHp, bd.barColors[w.boss.phase2 ? 1 : 0], 'rgba(0,0,0,0.5)');
-    ctx.strokeStyle = '#ffb090';
-    ctx.strokeRect(pad + 0.5, by + 16.5, bw - 1, 9);
-  }
 
   // --- 下：回路モニターとログ ---
   drawCompactBottom(ctx, w, B, VW, VH, w.program);
@@ -2702,6 +2780,7 @@ const Battle = {
     this.vsMode = !!vs;
     this.zoomK = 1;            // ホイール・ピンチで変えたズームの倍率（1m あたりのピクセル数 zoom は applyZoom で決める）
     this.cam = { x: this.world.player.x, y: this.world.player.y };
+    this.yaw2d = null;   // 2D の背後の向きのカメラの向き（null = 機体の向きに合わせる）
     this.camLead = { x: 0, y: 0 };  // 自機の前方へずらすカメラのオフセット（m）
     this.atkHold = 0;               // 攻撃後もしばらく前方を広く見せる残り時間
     this.keys = {};
@@ -2715,12 +2794,14 @@ const Battle = {
     document.getElementById('confirm-yes').onclick = () => this.answerConfirm(true);
     document.getElementById('confirm-no').onclick = () => this.answerConfirm(false);
     this.running = true;
+    View3D.attach(this);   // 設定が 3D なら 3D で描く（view3d.js）
     Sound.playBgm(vs ? 'boss' : 'battle');
     requestAnimationFrame(this.loop);
   },
 
   stop() {
     this.running = false;
+    View3D.detach();
     Sound.duck(false);
     this.unbind();
     this.hideConfirm();
@@ -2800,6 +2881,7 @@ const Battle = {
   applyZoom() {
     const fit = clamp(Math.sqrt(this.VW * this.VH) / 1300, 0.42, 1);
     this.zoom = clamp((this.vsMode ? 16 : 24) * fit * this.zoomK, 4, 48);
+    View3D.resize();
   },
 
   setZoomK(k) {
@@ -2919,6 +3001,14 @@ const Battle = {
       case 'KeyQ': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio - 0.05); break;
       case 'KeyE': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio + 0.05); break;
       case 'KeyX': this.xray = !this.xray; break;
+      case 'KeyV': View3D.toggle(); break;   // 2D / 3D の表示切替（view3d.js）
+      case 'KeyC':   // 2D の向き：北が上 / 背後（3D は常に背後からの視点）
+        if (View3D.on) break;
+        Sound.play('ui');
+        View3D.setTurn2d(!View3D.turn2d);
+        this.yaw2d = View3D.turn2d ? -Math.PI / 2 : null;   // 北が上から、機体の後ろへ回っていく
+        addLog(w, View3D.turn2d ? T('B123' /* 2D の向き：背後 */) : T('B122' /* 2D の向き：北が上 */), '#ffd24a');
+        break;
       case 'ShiftLeft': case 'ShiftRight': if (this.manual) this.jumpReq = true; break;
       // 撤退は BackSpace。全画面中の Esc はブラウザが全画面の解除に使ってゲームに届かないため（Esc も全画面でなければ使える）
       case 'Backspace': case 'Escape':
@@ -2929,12 +3019,37 @@ const Battle = {
     this.syncCtl();
   },
 
+  // 2D の画面の回転（背後の向きでは、カメラの向きが画面の上になるよう回す）。北が上なら 0
+  viewRot() {
+    return !View3D.on && this.yaw2d != null ? -Math.PI / 2 - this.yaw2d : 0;
+  },
+
+  // カメラの向き（3D 表示・2D の背後の向き）。北が上の 2D なら null
+  viewYaw() {
+    return View3D.on ? View3D.yaw : this.yaw2d;
+  },
+
+  // 2D：ワールドの位置（m）→ 画面の位置（px）
+  toScreen(x, y) {
+    const r = this.viewRot(), c = Math.cos(r), s = Math.sin(r), z = this.zoom;
+    const dx = (x - this.cam.x) * z, dy = (y - this.cam.y) * z;
+    return { x: this.VW / 2 + dx * c - dy * s, y: this.VH / 2 + dx * s + dy * c };
+  },
+
+  // 2D：画面の位置（px）→ ワールドの位置（m）
+  toWorld(mx, my) {
+    const r = this.viewRot(), c = Math.cos(r), s = Math.sin(r), z = this.zoom;
+    const dx = (mx - this.VW / 2) / z, dy = (my - this.VH / 2) / z;
+    return { x: this.cam.x + dx * c + dy * s, y: this.cam.y - dx * s + dy * c };
+  },
+
   input() {
-    const z = this.zoom;
     return {
       manual: this.manual,
       keys: this.keys,
-      aim: { x: this.cam.x + (this.mouse.x - this.VW / 2) / z, y: this.cam.y + (this.mouse.y - this.VH / 2) / z },
+      // 照準：マウスの下の地点（3D 表示では視線と地面の交点）
+      aim: View3D.on ? View3D.screenToWorld(this.mouse.x, this.mouse.y) : this.toWorld(this.mouse.x, this.mouse.y),
+      camYaw: this.viewYaw(),   // 背後からの視点では移動キーをカメラの向きに合わせる
       fireL: this.mouse.l,
       fireR: this.mouse.r,
       jump: this.jumpReq,
@@ -2970,10 +3085,20 @@ const Battle = {
     });
     if (attacking) this.atkHold = 1.2;
     else this.atkHold = Math.max(0, this.atkHold - dt);
-    const lead = this.atkHold > 0 ? 0.38 : 0.1;  // 画面半分に対する前方オフセット比
     const z = this.zoom;
-    const tx = Math.cos(P.a) * this.VW / 2 / z * lead;
-    const ty = Math.sin(P.a) * this.VH / 2 / z * lead;
+    let tx, ty;
+    if (!View3D.on && View3D.turn2d) {
+      // 2D の背後の向き：カメラは機体の向きに遅れて回り、機体を画面の下寄りに置いて前方を広く見せる
+      this.yaw2d = chaseYaw(this.yaw2d, P, this.manual, dt);
+      const lead = this.atkHold > 0 ? 0.42 : 0.3;   // 画面の高さの半分に対する前方オフセット比
+      tx = Math.cos(this.yaw2d) * this.VH / 2 / z * lead;
+      ty = Math.sin(this.yaw2d) * this.VH / 2 / z * lead;
+    } else {
+      this.yaw2d = null;
+      const lead = this.atkHold > 0 ? 0.38 : 0.1;  // 画面半分に対する前方オフセット比
+      tx = Math.cos(P.a) * this.VW / 2 / z * lead;
+      ty = Math.sin(P.a) * this.VH / 2 / z * lead;
+    }
     const fl = Math.min(1, dt * 2.5);
     this.camLead.x += (tx - this.camLead.x) * fl;
     this.camLead.y += (ty - this.camLead.y) * fl;
@@ -2984,12 +3109,23 @@ const Battle = {
     this.cam.x += (cx - this.cam.x) * f;
     this.cam.y += (cy - this.cam.y) * f;
 
-    Sound.listen(this.cam.x, this.cam.y, this.VW / 2 / z);
+    // 効果音の聞こえ方：画面の中心で聞き、左右はカメラから見た左右（背後からの視点ではカメラの向きで変わる）
+    const lis = View3D.on ? { x: View3D.tx, y: View3D.ty } : this.cam, yaw = this.viewYaw();
+    Sound.listen(lis.x, lis.y, this.VW / 2 / z, yaw == null ? 1 : -Math.sin(yaw), yaw == null ? 0 : Math.cos(yaw));
     Sound.duck(this.paused || this.confirmOpen);
 
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    drawWorld(ctx, w, this, this.VW, this.VH);
+    if (View3D.on) {
+      // 3D 表示：世界は下の WebGL キャンバスに描き、このキャンバスには画面の色と HUD だけを重ねる
+      ctx.clearRect(0, 0, this.VW, this.VH);
+      View3D.render(w, this);
+      const p = View3D.screenPos(P.x, P.y);
+      drawScreenTint(ctx, w, this.VW, this.VH, p.x, p.y);
+      View3D.drawOverlay(ctx, w);   // エネミーの HP バー
+    } else {
+      drawWorld(ctx, w, this, this.VW, this.VH);
+    }
     if (w.vs) drawVersusHUD(ctx, w, this, this.VW, this.VH);
     else drawHUD(ctx, w, this, this.VW, this.VH);
 

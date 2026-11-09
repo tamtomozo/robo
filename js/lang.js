@@ -89,11 +89,11 @@ const TEXT = {
   G020: { ja: '出 撃', en: 'SORTIE' },
   G021: {
     ja: `<h4>戦闘中の操作</h4>
-<p>ロボットは<b>回路プログラム</b>に従って自律戦闘します。<kbd>Space</kbd> 一時停止 / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 速度 ×1・×2・×4 / <kbd>Q</kbd><kbd>E</kbd> 出力配分 / ホイール ズーム / <kbd>BackSpace</kbd> 撤退</p>
-<p><kbd>M</kbd> で手動操作に切替：<kbd>WASD</kbd> 移動・マウス照準・左クリック 左腕・右クリック 右腕・<kbd>Shift</kbd> ジャンプ（脚部 強化Lv6以上）</p>`,
+<p>ロボットは<b>回路プログラム</b>に従って自律戦闘します。<kbd>Space</kbd> 一時停止 / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 速度 ×1・×2・×4 / <kbd>Q</kbd><kbd>E</kbd> 出力配分 / ホイール ズーム / <kbd>V</kbd> 2D・3D 表示 / <kbd>C</kbd> 2D の向き（北が上・背後） / <kbd>BackSpace</kbd> 撤退</p>
+<p><kbd>M</kbd> で手動操作に切替：<kbd>WASD</kbd> 移動（3D と 2D の背後の向きではカメラの向きが前）・マウス照準・左クリック 左腕・右クリック 右腕・<kbd>Shift</kbd> ジャンプ（脚部 強化Lv6以上）</p>`,
     en: `<h4>Battle Controls</h4>
-<p>The robot fights on its own, following its <b>circuit program</b>. <kbd>Space</kbd> pause / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> speed ×1·×2·×4 / <kbd>Q</kbd><kbd>E</kbd> output split / Wheel zoom / <kbd>Backspace</kbd> retreat</p>
-<p><kbd>M</kbd> toggles manual control: <kbd>WASD</kbd> move · mouse aim · left click left arm · right click right arm · <kbd>Shift</kbd> jump (legs upgrade Lv6+)</p>`,
+<p>The robot fights on its own, following its <b>circuit program</b>. <kbd>Space</kbd> pause / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> speed ×1·×2·×4 / <kbd>Q</kbd><kbd>E</kbd> output split / Wheel zoom / <kbd>V</kbd> 2D/3D view / <kbd>C</kbd> 2D facing (north up / behind) / <kbd>Backspace</kbd> retreat</p>
+<p><kbd>M</kbd> toggles manual control: <kbd>WASD</kbd> move (forward = camera direction in 3D and the 2D behind view) · mouse aim · left click left arm · right click right arm · <kbd>Shift</kbd> jump (legs upgrade Lv6+)</p>`,
   },
   G022: { ja: '未接続のタイルがあります', en: 'There are unconnected tiles' },
   G023: { ja: '回路に戻る（N）', en: 'Back to circuit (N)' },
@@ -340,6 +340,12 @@ Ore gained: {txt}{warn}
     en: ({ name, n }) => `${n} tile${n === 1 ? '' : 's'} in the circuit of "${name}" could not be loaded and ${n === 1 ? 'was' : 'were'} left empty.`,
   },
   G178: { ja: 'HP {hp} / 速度 {speed}m/s / 火力 {dps}', en: 'HP {hp} / Speed {speed}m/s / Firepower {dps}' },
+  G179: { ja: '戦闘画面の表示', en: 'Battle view' },
+  G180: { ja: '3D（試作）', en: '3D (beta)' },
+  G181: { ja: '戦闘中も V キー（2D/3D）・C キー（2D の向き）で切り替えられます。3D は自機の背後からの視点です', en: 'You can also switch during battle: V (2D/3D) / C (2D facing). 3D views from behind your machine' },
+  G185: { ja: '2D の向き', en: '2D facing' },
+  G186: { ja: '北が上', en: 'North up' },
+  G187: { ja: '背後', en: 'Behind' },
 
   // ---------------------------------------------------------------- B：戦闘（ログ・HUD・地区掃討後の確認）
   B001: { ja: '基地に帰還（N）', en: 'Return to base (N)' },
@@ -386,8 +392,8 @@ Ore gained: {txt}{warn}
   B045: { ja: '回路モニター {grid}×{grid} @{clock}Hz', en: 'CIRCUIT MONITOR {grid}×{grid} @{clock}Hz' },
   B046: { ja: '手動操作中', en: 'MANUAL CONTROL' },
   B047: {
-    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]撤退',
-    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Retreat',
+    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [V]2D/3D  [C]2Dの向き  [BackSpace]撤退',
+    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [V] 2D/3D  [C] 2D facing  [Backspace] Retreat',
   },
   B048: { ja: 'リロード中', en: 'reloading' },
   B049: {
@@ -456,8 +462,8 @@ Ore gained: {txt}{warn}
   B104: { ja: '自機：{name}', en: 'YOU: {name}' },
   B105: { ja: '相手の回路 {grid}×{grid} @{clock}Hz', en: 'OPPONENT CIRCUIT {grid}×{grid} @{clock}Hz' },
   B106: {
-    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]降参',
-    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Surrender',
+    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [V]2D/3D  [C]2Dの向き  [BackSpace]降参',
+    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [V] 2D/3D  [C] 2D facing  [Backspace] Surrender',
   },
   B107: { ja: '電磁柵の収縮まで {t}', en: 'Fence closes in {t}' },
   B108: { ja: '電磁柵 収縮中（半径 {r}m）', en: 'Fence closing (radius {r}m)' },
@@ -472,6 +478,11 @@ Ore gained: {txt}{warn}
   },
   B115: { ja: '降参しますか？', en: 'Surrender?' },
   B116: { ja: '腕＋', en: 'ARM+' },
+  B117: { ja: '表示切替：2D', en: 'View: 2D' },
+  B118: { ja: '表示切替：3D（試作）', en: 'View: 3D (beta)' },
+  B119: { ja: '3D 表示を始められませんでした。2D で表示します', en: 'Could not start the 3D view. Showing 2D instead' },
+  B122: { ja: '2D の向き：北が上', en: '2D facing: north up' },
+  B123: { ja: '2D の向き：背後', en: '2D facing: behind' },
 
   // ---------------------------------------------------------------- R：戦闘レポート
   R001: { ja: '任務完了 — {floor} 制圧・ボス撃破', en: 'Mission Complete — {floor} secured, boss destroyed' },

@@ -156,6 +156,7 @@ const Garage = {
 
   onShow() {
     this.renderAll();
+    this.scrollToTop();   // 戦闘・レポートから戻ったときも先頭から見せる
     cancelAnimationFrame(this.raf);
     let last = performance.now();
     const loop = (now) => {
@@ -189,6 +190,21 @@ const Garage = {
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
     this.renderAll();
+    this.scrollToTop();
+  },
+
+  // ガレージの画面と、表示中のタブの中（パーツ一覧・回路のパレットなど）のスクロールを先頭に戻す
+  // （タブを切り替えたとき・ガレージに戻ったとき）
+  scrollToTop() {
+    const scr = document.getElementById('screen-garage');
+    scr.scrollTop = 0;
+    scr.scrollLeft = 0;
+    const tab = document.querySelector('.tab.active');
+    if (!tab) return;
+    tab.querySelectorAll('*').forEach(el => {
+      if (el.scrollTop) el.scrollTop = 0;
+      if (el.scrollLeft) el.scrollLeft = 0;
+    });
   },
 
   renderAll() {

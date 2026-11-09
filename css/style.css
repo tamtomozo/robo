@@ -347,6 +347,11 @@ small.up { color: #7dff9a; } small.down { color: #ff7a5a; }
 .cnt-row { display: flex; align-items: center; gap: 14px; font-size: 16px; }
 .cnt-row input { flex: 1; accent-color: #e08a3a; }
 .cnt-row b { width: 70px; font-size: 22px; color: #ffb050; text-align: right; }
+.view-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 14px; flex-wrap: wrap; }
+.view-row button { padding: 3px 14px; }
+.view-row button:disabled { opacity: 0.4; }
+.view-row .view-sep { margin-left: 10px; }
+.view-row button.sel { border-color: #e08a3a; color: #ffd8a0; background: #4a3420; }
 #composition { margin: 14px 0; }
 .enemy-row { padding: 6px 10px; border-left: 4px solid #8a6a3c; background: rgba(255,255,255,0.04); margin-bottom: 4px; }
 .enemy-row span { margin-left: 12px; color: #a89a80; font-size: 12px; }
@@ -391,7 +396,11 @@ small.up { color: #7dff9a; } small.down { color: #ff7a5a; }
 
 /* ===================== 戦闘 ===================== */
 #screen-battle { background: #000; }
-#battle { display: block; cursor: crosshair; }
+#battle { display: block; cursor: crosshair; position: relative; }
+/* 3D 表示（view3d.js）：WebGL のキャンバスを #battle の前に置いて下に敷き、#battle（HUD）を透明にして重ねる。
+   重なりは HTML の順（#battle3d → #battle → ダイアログ）で決まる。z-index を付けると地区掃討後の確認ダイアログ（#confirm）より
+   キャンバスが手前に来てダイアログが隠れるので付けない */
+#battle3d { display: none; position: absolute; left: 0; top: 0; }
 .dialog { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.45); align-items: center; justify-content: center; }
 .dialog.show { display: flex; }
 .dialog-box {
