@@ -2492,14 +2492,9 @@ function drawHUD(ctx, w, B, VW, VH) {
     ctx.fillStyle = '#ffd24a';
     ctx.fillText(`×${B.speed}`, VW / 2, 100);
   }
-  if (B.paused) {
+  if (B.paused) {   // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(0, 0, VW, VH);
-    ctx.font = 'bold 40px sans-serif';
-    ctx.fillStyle = '#fff';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('PAUSE', VW / 2, VH / 2);
-    ctx.textBaseline = 'top';
   }
   if (w.result) {
     const txt = { win: 'MISSION COMPLETE', lose: 'MACHINE DOWN', retreat: 'RETREAT', return: 'RETURN TO BASE', timeout: 'ACTIVITY LIMIT' }[w.result];
@@ -2748,7 +2743,7 @@ function drawHUDCompact(ctx, w, B, VW, VH) {
   if (B.paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(0, 0, VW, VH);
-    drawCompactCenter(ctx, VW, VH / 2, 'PAUSE', '#fff', 36);
+    // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
   }
   if (w.result) {
     const txt = { win: 'MISSION COMPLETE', lose: 'MACHINE DOWN', retreat: 'RETREAT', return: 'RETURN TO BASE', timeout: 'ACTIVITY LIMIT' }[w.result];
@@ -2801,6 +2796,7 @@ const Battle = {
 
   stop() {
     this.running = false;
+    this.syncPauseMenu();
     View3D.detach();
     Sound.duck(false);
     this.unbind();
@@ -2908,6 +2904,15 @@ const Battle = {
       };
     });
     this.syncCtl();
+    // 一時停止メニューの「再開」
+    const resume = document.querySelector('#pause-menu .pm-resume');
+    resume.onclick = () => {
+      resume.blur();
+      if (!this.paused) return;
+      this.paused = false;
+      Sound.play('pause', { on: false });
+      this.syncCtl();
+    };
   },
 
   // 一時停止・速度のボタンの表示を今の状態に合わせる
@@ -2915,6 +2920,24 @@ const Battle = {
     const bar = document.getElementById('battle-ctl');
     bar.querySelector('[data-act=pause]').textContent = this.paused ? '▶' : '❚❚';
     bar.querySelector('[data-act=speed]').textContent = `×${this.speed}`;
+  },
+
+  // 2D の向き：北が上 / 背後（一時停止メニューから。3D は常に背後からの視点）
+  setTurn2d(v) {
+    if (View3D.on || v === View3D.turn2d) return;
+    Sound.play('ui');
+    View3D.setTurn2d(v);
+    this.yaw2d = v ? -Math.PI / 2 : null;   // 北が上から、機体の後ろへ回っていく
+    addLog(this.world, v ? T('B123' /* 2D の向き：背後 */) : T('B122' /* 2D の向き：北が上 */), '#ffd24a');
+  },
+
+  // 一時停止メニュー：一時停止中だけ出す（地区掃討後の確認・撤退の確認・結果の表示の間は出さない）
+  syncPauseMenu() {
+    const show = this.running && this.paused && !this.confirmOpen && !this.world.result && !Ask.resolve;
+    if (show !== this.pmShown) {
+      this.pmShown = show;
+      document.getElementById('pause-menu').classList.toggle('show', show);
+    }
   },
 
   // 撤退（対戦では降参）。ボタンは押し間違えやすいので、止めてから確かめる
@@ -3001,14 +3024,6 @@ const Battle = {
       case 'KeyQ': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio - 0.05); break;
       case 'KeyE': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio + 0.05); break;
       case 'KeyX': this.xray = !this.xray; break;
-      case 'KeyV': View3D.toggle(); break;   // 2D / 3D の表示切替（view3d.js）
-      case 'KeyC':   // 2D の向き：北が上 / 背後（3D は常に背後からの視点）
-        if (View3D.on) break;
-        Sound.play('ui');
-        View3D.setTurn2d(!View3D.turn2d);
-        this.yaw2d = View3D.turn2d ? -Math.PI / 2 : null;   // 北が上から、機体の後ろへ回っていく
-        addLog(w, View3D.turn2d ? T('B123' /* 2D の向き：背後 */) : T('B122' /* 2D の向き：北が上 */), '#ffd24a');
-        break;
       case 'ShiftLeft': case 'ShiftRight': if (this.manual) this.jumpReq = true; break;
       // 撤退は BackSpace。全画面中の Esc はブラウザが全画面の解除に使ってゲームに届かないため（Esc も全画面でなければ使える）
       case 'Backspace': case 'Escape':
@@ -3077,6 +3092,7 @@ const Battle = {
       if (n >= 12 || w.phase === 'confirm') this.acc = 0;
     }
     if (w.phase === 'confirm' && !this.confirmOpen && !w.result) this.showConfirm();
+    this.syncPauseMenu();
     const P = w.player;
     // 攻撃中は機体の向いている方向へカメラを先行させ、前方の視界を広げる
     const attacking = ['L', 'R'].some(s => {

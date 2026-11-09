@@ -12,9 +12,8 @@
 //            （少し浮かせて置く。ジャンプ・蜘蛛の跳躍は板ごと持ち上げる）。HP バーは画面に重ねて描く（drawOverlay）
 //   ・弾・爆発 … 機体の板より少し上の、地面と平行な透明な板に描く
 //   ・HUD・画面の色（洞窟の暗さなど）は今までどおり 2D のキャンバス（#battle）に描き、3D の上に重ねる
-//   ・設定は localStorage（VIEW_KEY：'2d' / '3d'）。出撃画面のボタンと、戦闘中の V キーで切り替える
-//     2D の向き（TURN2D_KEY：'north' 北が上 / 'behind' 背後。画面ごと回す。描くのは battle.js の drawWorld）の設定もここで持つ。
-//     戦闘中は C キーで切り替える
+//   ・設定は localStorage（VIEW_KEY：'2d' / '3d'）。戦闘中の一時停止メニュー（#pause-menu）で切り替える
+//     2D の向き（TURN2D_KEY：'north' 北が上 / 'behind' 背後。画面ごと回す。描くのは battle.js の drawWorld）の設定もここで持つ
 //   ・Three.js（js/lib/three.min.js・r128）は 3D を選んだときだけ読み込む。読めない環境では 2D のまま
 // =====================================================================
 
@@ -42,21 +41,18 @@ const View3D = {
   tx: 0, ty: 0,        // カメラの注視点（m）
 
   // ------------------------------------------------------------ 設定
-  // 起動時に一度だけ呼ぶ（main.js の Game.init）。出撃画面の 2D / 3D と 2D の向きのボタンをつなぐ
+  // 起動時に一度だけ呼ぶ（main.js の Game.init）。一時停止メニューの 2D / 3D と 2D の向きのボタンをつなぐ
   initUI() {
-    document.querySelectorAll('#view-ctl button[data-view]').forEach(b => {
+    document.querySelectorAll('#pause-menu button[data-view]').forEach(b => {
       b.onclick = () => {
-        b.blur();
-        Sound.play('ui');
-        this.setWant(b.dataset.view === '3d');
-        if (this.want) this.load();
+        b.blur();   // 押したボタンにフォーカスが残ると、Space キー（再開）でもう一度押されてしまう
+        if ((b.dataset.view === '3d') !== this.want) this.toggle();
       };
     });
-    document.querySelectorAll('#view-ctl button[data-turn]').forEach(b => {
+    document.querySelectorAll('#pause-menu button[data-turn]').forEach(b => {
       b.onclick = () => {
         b.blur();
-        Sound.play('ui');
-        this.setTurn2d(b.dataset.turn === 'behind');
+        Battle.setTurn2d(b.dataset.turn === 'behind');
       };
     });
     this.syncUI();
@@ -64,8 +60,8 @@ const View3D = {
   },
 
   syncUI() {
-    document.querySelectorAll('#view-ctl button[data-view]').forEach(b => b.classList.toggle('sel', (b.dataset.view === '3d') === this.want));
-    document.querySelectorAll('#view-ctl button[data-turn]').forEach(b => {
+    document.querySelectorAll('#pause-menu button[data-view]').forEach(b => b.classList.toggle('sel', (b.dataset.view === '3d') === this.want));
+    document.querySelectorAll('#pause-menu button[data-turn]').forEach(b => {
       b.classList.toggle('sel', (b.dataset.turn === 'behind') === this.turn2d);
       b.disabled = this.want;   // 2D の向きは 2D のときだけ（3D は常に背後からの視点）
     });
@@ -118,7 +114,7 @@ const View3D = {
     this.clearWorld();
   },
 
-  // 戦闘中の V キー：2D / 3D
+  // 2D / 3D の切り替え（一時停止メニューから）
   toggle() {
     const B = this.B;
     if (!B) return;

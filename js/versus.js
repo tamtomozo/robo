@@ -381,12 +381,9 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
     ctx.fillText(w.banner.title, VW / 2, VH * 0.28);
     ctx.globalAlpha = 1;
   }
-  if (B.paused) {
+  if (B.paused) {   // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(0, 0, VW, VH);
-    ctx.font = 'bold 40px sans-serif';
-    ctx.fillStyle = '#fff';
-    ctx.fillText('PAUSE', VW / 2, VH / 2);
   }
   if (w.result) {
     const txt = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW' }[w.result];
@@ -464,7 +461,7 @@ function drawVersusHUDCompact(ctx, w, B, VW, VH) {
   if (B.paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(0, 0, VW, VH);
-    drawCompactCenter(ctx, VW, VH / 2, 'PAUSE', '#fff', 36);
+    // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
   }
   if (w.result) {
     const txt = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW' }[w.result];
