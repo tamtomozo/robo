@@ -29,6 +29,19 @@ function enemyFlash(ctx, e, alpha) {
   ctx.restore();
 }
 
+// 発光のにじみ：半透明の円を加算で3枚重ね、中心ほど明るくする。shadowBlur（ぼかしの計算が重い）の代わりに、数の多い雑魚と弾で使う。
+// 光らせる形を描く直前に呼ぶ（ぼかしと同じく、形の下にまわりの光が広がる）
+function glowDot(ctx, x, y, r, color, alpha = 0.35) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = color;
+  ctx.globalAlpha *= alpha / 3;
+  circle(ctx, x, y, r); ctx.fill();
+  circle(ctx, x, y, r * 0.7); ctx.fill();
+  circle(ctx, x, y, r * 0.45); ctx.fill();
+  ctx.restore();
+}
+
 // 接地影（地面に落とす柔らかい陰影）
 function groundShadow(ctx, cx, cy, rx, ry, alpha = 0.32) {
   ctx.save();
@@ -151,10 +164,9 @@ const ENEMY_ART = {
       }
 
       // 複眼LEDセンサー（真紅の発光グロー）
+      for (const s of [-1, 1]) glowDot(ctx, 0.46, s * 0.12, 0.15, '#ff3311', 0.5);
       ctx.save();
       ctx.fillStyle = '#ff2818';
-      ctx.shadowColor = '#ff3311';
-      ctx.shadowBlur = 6;
       for (const s of [-1, 1]) {
         ctx.beginPath();
         ctx.moveTo(0.42, s * 0.08);
@@ -249,9 +261,8 @@ const ENEMY_ART = {
       grad.addColorStop(0.35, '#a4f527');
       grad.addColorStop(0.75, 'rgba(80, 180, 20, 0.85)');
       grad.addColorStop(1, 'rgba(30, 80, 10, 0.95)');
+      glowDot(ctx, -0.35, 0, tankR + 0.22, '#99ff11', 0.35);
       ctx.fillStyle = grad;
-      ctx.shadowColor = '#99ff11';
-      ctx.shadowBlur = 12;
       circle(ctx, -0.35, 0, tankR);
       ctx.fill();
 
@@ -286,10 +297,9 @@ const ENEMY_ART = {
       ctx.fill();
 
       // ノズル先端のチャージ光
+      glowDot(ctx, 0.72 + e.lunge * 0.18, 0, 0.22 + e.lunge * 0.1, '#aaff00', 0.45);
       ctx.save();
       ctx.fillStyle = '#d5ff4f';
-      ctx.shadowColor = '#aaff00';
-      ctx.shadowBlur = 8;
       circle(ctx, 0.72 + e.lunge * 0.18, 0, 0.09 + e.lunge * 0.08);
       ctx.fill();
       ctx.restore();
@@ -427,24 +437,28 @@ const ENEMY_ART = {
       // 体内マグマコア＆クラック（ひび割れから漏れ出す高熱エネルギー）
       const magmaPulse = 0.65 + 0.35 * Math.sin(t * 3.2);
       ctx.save();
-      ctx.shadowColor = '#ff6611';
-      ctx.shadowBlur = 12;
+      // ひび割れ：太く薄い線（光のにじみ）を下に敷いてから細い線を描く（shadowBlur の代わり）
+      const crack = () => {
+        ctx.beginPath();
+        ctx.moveTo(0.9, 0);
+        ctx.lineTo(0.3, -0.35);
+        ctx.lineTo(-0.2, -0.05);
+        ctx.lineTo(-0.8, -0.2);
+        ctx.moveTo(0.3, -0.35);
+        ctx.lineTo(0.1, 0.4);
+        ctx.lineTo(-0.4, 0.55);
+        ctx.stroke();
+      };
+      ctx.strokeStyle = `rgba(255, 102, 17, ${0.3 * magmaPulse})`;
+      ctx.lineWidth = 0.32;
+      crack();
       ctx.strokeStyle = `rgba(255, 110, 20, ${magmaPulse})`;
       ctx.lineWidth = 0.09;
-      ctx.beginPath();
-      ctx.moveTo(0.9, 0);
-      ctx.lineTo(0.3, -0.35);
-      ctx.lineTo(-0.2, -0.05);
-      ctx.lineTo(-0.8, -0.2);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(0.3, -0.35);
-      ctx.lineTo(0.1, 0.4);
-      ctx.lineTo(-0.4, 0.55);
-      ctx.stroke();
+      crack();
 
       // コア中心の熱源
+      glowDot(ctx, 0.3, -0.1, 0.32, '#ff6611', 0.45 * magmaPulse);
+      glowDot(ctx, -0.1, 0.2, 0.26, '#ff6611', 0.45 * magmaPulse);
       ctx.fillStyle = `rgba(255, 230, 100, ${magmaPulse * 0.9})`;
       circle(ctx, 0.3, -0.1, 0.14); ctx.fill();
       circle(ctx, -0.1, 0.2, 0.1); ctx.fill();
@@ -461,10 +475,9 @@ const ENEMY_ART = {
       ctx.fill();
 
       // ギラリと光るデュアルアイ（琥珀色の眼光）
+      for (const s of [-1, 1]) glowDot(ctx, 1.38, s * 0.33, 0.2, '#ff8800', 0.4);
       ctx.save();
       ctx.fillStyle = '#ffaa11';
-      ctx.shadowColor = '#ff8800';
-      ctx.shadowBlur = 10;
       for (const s of [-1, 1]) {
         ctx.beginPath();
         ctx.moveTo(1.25, s * 0.25);
@@ -953,10 +966,9 @@ const ENEMY_SHOT_ART = {
       ctx.fill();
 
       // 高輝度コア
+      glowDot(ctx, s.r * 0.2, 0, s.r * 1.05, '#99ff00', 0.35);
       ctx.save();
       ctx.fillStyle = '#f0ff99';
-      ctx.shadowColor = '#99ff00';
-      ctx.shadowBlur = 8;
       circle(ctx, s.r * 0.2, 0, s.r * 0.7);
       ctx.fill();
       ctx.restore();
@@ -1002,9 +1014,10 @@ const ENEMY_SHOT_ART = {
 
       // 赤熱した摩擦エッジ
       ctx.save();
+      ctx.strokeStyle = 'rgba(255, 85, 0, 0.35)';   // 光のにじみ（shadowBlur の代わりに太く薄い線を下に敷く）
+      ctx.lineWidth = s.r * 0.5;
+      ctx.stroke();
       ctx.strokeStyle = '#ff9430';
-      ctx.shadowColor = '#ff5500';
-      ctx.shadowBlur = 6;
       ctx.lineWidth = s.r * 0.18;
       ctx.stroke();
       ctx.restore();

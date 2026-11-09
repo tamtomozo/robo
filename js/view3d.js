@@ -171,9 +171,12 @@ const View3D = {
       cv.id = 'battle3d';
       b2.parentNode.insertBefore(cv, b2);
       this.cv = cv;
-      const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' });
+      // 軽くするため、縁のなめらか処理（antialias）は粗さが目立つ等倍の画面（PC のふつうの画面）だけで使う。
+      // 影は柔らかい影（PCFSoftShadowMap）より軽い PCFShadowMap にする
+      const aa = !this.lowSpec() && this.B.dpr < 1.5;
+      const r = new THREE.WebGLRenderer({ canvas: cv, antialias: aa, powerPreference: 'high-performance' });
       r.shadowMap.enabled = true;
-      r.shadowMap.type = THREE.PCFSoftShadowMap;
+      r.shadowMap.type = THREE.PCFShadowMap;
       this.r = r;
 
       const scene = this.scene = new THREE.Scene();
@@ -246,12 +249,12 @@ const View3D = {
   resize() {
     if (!this.ready || !this.B) return;
     const B = this.B;
-    this.r.setPixelRatio(Math.min(B.dpr, this.lowSpec() ? 1.5 : 2));
+    this.r.setPixelRatio(Math.min(B.dpr, 1.5));   // 3D は 1.5 倍まで（それ以上は重さの割に見た目が変わらない）
     this.r.setSize(B.VW, B.VH);
     this.cam.aspect = B.VW / B.VH;
     this.cam.updateProjectionMatrix();
     const low = this.lowSpec();
-    const ms = low ? 1024 : 2048;
+    const ms = 1024;   // 影の画像の大きさ（2048 は重い）
     if (this.sun.shadow.mapSize.x !== ms) {
       this.sun.shadow.mapSize.set(ms, ms);
       if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }

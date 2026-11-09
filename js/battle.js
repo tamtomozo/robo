@@ -2856,10 +2856,12 @@ const Battle = {
   },
 
   resize() {
-    const dpr = window.devicePixelRatio || 1;
-    this.dpr = dpr;
     this.VW = window.innerWidth;
     this.VH = window.innerHeight;
+    // 画面の細かさ（devicePixelRatio）には上限をつける。3倍の画面をそのまま描くと 9倍のピクセル数になり重い。
+    // 狭い画面（スマートフォン）は 1.5、それ以外は 2 まで（違いはほとんど目に見えない）
+    const dpr = Math.min(window.devicePixelRatio || 1, this.VW < 900 || this.VH < 560 ? 1.5 : 2);
+    this.dpr = dpr;
     this.canvas.width = Math.floor(this.VW * dpr);
     this.canvas.height = Math.floor(this.VH * dpr);
     this.canvas.style.width = this.VW + 'px';
