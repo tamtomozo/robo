@@ -60,6 +60,32 @@ const TEXT = {
   C015: { ja: 'はい', en: 'Yes' },
   C016: { ja: 'キャンセル', en: 'Cancel' },
   C017: { ja: 'OK', en: 'OK' },
+  C018: { ja: 'セーブを書き出す', en: 'Export Save' },
+  C019: { ja: 'セーブを読み込む', en: 'Import Save' },
+  C020: {
+    ja: '進み具合（パーツ・回路・鉱石・強化・対戦相手など）をファイルに保存します。音量・言語・表示の設定は含みません',
+    en: 'Saves your progress (parts, circuits, ores, upgrades, rivals, etc.) to a file. Volume, language and display settings are not included',
+  },
+  C021: { ja: 'ファイルに保存した進み具合を読み込みます。今の進み具合は置き換わります', en: 'Loads progress from a save file. Your current progress will be replaced' },
+  C022: {
+    ja: 'この環境ではセーブファイルを使えません。\nhttps で開いたページか、新しいブラウザでお試しください。',
+    en: 'Save files are not available in this environment.\nPlease try a page opened over https, or a newer browser.',
+  },
+  C023: { ja: 'セーブファイルを書き出せませんでした。', en: 'Could not export the save file.' },
+  C024: {
+    ja: '「{name}」はセーブファイルとして読み込めませんでした。\nファイルが壊れているか、書き換えられています。',
+    en: '"{name}" could not be loaded as a save file.\nThe file is damaged or has been modified.',
+  },
+  C025: {
+    ja: '「{name}」は新しい版のゲームで書き出されたセーブファイルです。\nページを読み込み直してから、もう一度お試しください。',
+    en: '"{name}" was exported from a newer version of the game.\nPlease reload the page and try again.',
+  },
+  C026: {
+    ja: '{date} に書き出したセーブを読み込みます。\n今の進み具合はすべて置き換わります。よろしいですか？',
+    en: 'Load the save exported on {date}?\nAll of your current progress will be replaced.',
+  },
+  C027: { ja: 'セーブを読み込みました。', en: 'Save loaded.' },
+  C028: { ja: 'セーブを保存できませんでした。（ブラウザの保存領域が使えません）', en: 'Could not store the save. (Browser storage is unavailable.)' },
 
   // ---------------------------------------------------------------- G：ガレージ
   G001: { ja: '① 組立', en: '① Assembly' },

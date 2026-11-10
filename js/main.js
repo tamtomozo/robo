@@ -13,6 +13,7 @@ const Game = {
     Ask.init();
     Garage.init();
     View3D.initUI();   // 戦闘画面の 2D / 3D 表示の設定（view3d.js）
+    SaveFile.init();   // タイトル画面のセーブファイルの書き出し・読み込み（savefile.js）
     document.getElementById('btn-reload').onclick = () => location.reload();
     // 開きっぱなしのタブに戻ってきたときも確認する
     document.addEventListener('visibilitychange', () => {
@@ -30,7 +31,7 @@ const Game = {
     inner.style.animationDuration = ((inner.offsetHeight + crawl.offsetHeight) / 42) + 's';
     const start = (e) => {
       if (e.type === 'keydown' && (e.repeat || ['Shift', 'Control', 'Alt', 'Meta'].includes(e.key))) return;
-      if (e.type === 'keydown' && document.activeElement && document.activeElement.closest('#sound-ctl, #lang-ctl')) return;
+      if (e.type === 'keydown' && document.activeElement && document.activeElement.closest('#sound-ctl, #lang-ctl, #save-ctl')) return;
       if (e.type === 'keydown') e.preventDefault();
       scr.removeEventListener('pointerdown', start);
       window.removeEventListener('keydown', start);
@@ -43,48 +44,61 @@ const Game = {
 
   load() {
     try {
-      const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-      if (s && s.build && Array.isArray(s.program) && s.program.length === MAX_GRID * MAX_GRID) {
-        const d = defaultSave();
-        const stock = Array.isArray(s.stock) ? s.stock.filter(it => it && PARTS[it.cat] && PARTS[it.cat].some(p => p.id === it.id)) : [];
-        for (const it of stock) it.bonus = clamp(it.bonus | 0, BONUS_MIN, BONUS_MAX);   // 範囲を変える前のものは範囲内に丸める
-        const build = Object.assign(d.build, s.build);
-        // 差し込んだブースターが手元に無ければ（分解済みなど）外す
-        const gear = {};
-        for (const [k, g] of Object.entries(build.gear || {})) {
-          const it = g && stock.find(x => x.uid === g.uid);
-          if (it && build[k] === g.id) gear[k] = { uid: it.uid, id: it.id, bonus: it.bonus };
-        }
-        build.gear = gear;
-        // 階層：解放済みの層と出撃する層（階層の無い頃のセーブは第1層から）
-        const reached = d.reached, floor = d.floor;
-        for (const f of FIELDS) {
-          reached[f.id] = clamp((s.reached && s.reached[f.id]) | 0, 1, FLOORS);
-          floor[f.id] = clamp((s.floor && s.floor[f.id]) | 0, 1, reached[f.id]);
-        }
-        // 回路：保存枠（枠の無い頃のセーブは今の回路を1番に入れる）
-        const okProg = p => Array.isArray(p) && p.length === MAX_GRID * MAX_GRID;
-        const progSlot = clamp(s.progSlot | 0, 0, PROG_SLOTS - 1);
-        const programs = d.programs.map((p, i) => (Array.isArray(s.programs) && okProg(s.programs[i]) ? s.programs[i] : p));
-        programs[progSlot] = s.program;
-        // 対戦相手：読み込んだときと同じ確かめ方で読み直す（読めなくなったものは捨てる）
-        const rivals = [];
-        for (const r of Array.isArray(s.rivals) ? s.rivals : []) {
-          const v = r && versusFromObj(r.data);
-          if (!v || rivals.length >= VS.rivals) continue;
-          const rec = r.rec || {};
-          rivals.push({ id: String(r.id), data: machineToData(v.m), rec: { w: rec.w | 0, l: rec.l | 0, d: rec.d | 0 }, got: +r.got || 0 });
-        }
-        return {
-          build, program: s.program, programs, progSlot, enemyCount: s.enemyCount || d.enemyCount,
-          field: fieldById(s.field).id, floor, reached,
-          ore: Object.assign(d.ore, s.ore), upgrades: Object.assign(d.upgrades, s.upgrades),
-          stock, nextUid: Math.max(s.nextUid || 1, ...stock.map(it => it.uid + 1)),
-          pilot: cleanName(s.pilot), rivals, vsSel: typeof s.vsSel === 'string' ? s.vsSel : d.vsSel, vsFlat: !!s.vsFlat,
-        };
-      }
+      const s = this.fromObj(JSON.parse(localStorage.getItem(SAVE_KEY)));
+      if (s) return s;
     } catch (e) { /* 壊れたセーブは無視 */ }
     return defaultSave();
+  },
+
+  // セーブの中身を確かめて整える（localStorage とセーブファイル savefile.js の両方で使う）。読めなければ null
+  //   古い版のセーブは今の形に直す。数やパーツの id など、おかしな値は範囲内に丸めるか初期値にする
+  fromObj(s) {
+    if (!s || !s.build || typeof s.build !== 'object' || !Array.isArray(s.program) || s.program.length !== MAX_GRID * MAX_GRID) return null;
+    const d = defaultSave();
+    const stock = Array.isArray(s.stock) ? s.stock.filter(it => it && Number.isInteger(it.uid) && PARTS[it.cat] && PARTS[it.cat].some(p => p.id === it.id)) : [];
+    for (const it of stock) it.bonus = clamp(it.bonus | 0, BONUS_MIN, BONUS_MAX);   // 範囲を変える前のものは範囲内に丸める
+    const build = Object.assign({}, d.build, s.build);
+    // 知らないパーツ（無くなったパーツなど）は初期のパーツに戻す
+    for (const sl of SLOTS) if (!PARTS[sl.cat].some(p => p.id === build[sl.key])) build[sl.key] = d.build[sl.key];
+    // 鉱石は 0 以上の整数、強化レベルは 1〜UPGRADE_MAX
+    const ore = d.ore, upgrades = d.upgrades;
+    for (const k of ORES) ore[k.id] = Math.max(0, Math.floor(+(s.ore && s.ore[k.id]) || 0));
+    for (const [id, lv] of Object.entries(s.upgrades && typeof s.upgrades === 'object' ? s.upgrades : {})) {
+      if ((lv | 0) > 0) upgrades[id] = Math.min(UPGRADE_MAX, lv | 0);
+    }
+    // 差し込んだブースターが手元に無ければ（分解済みなど）外す
+    const gear = {};
+    for (const [k, g] of Object.entries(build.gear || {})) {
+      const it = g && stock.find(x => x.uid === g.uid);
+      if (it && build[k] === g.id) gear[k] = { uid: it.uid, id: it.id, bonus: it.bonus };
+    }
+    build.gear = gear;
+    // 階層：解放済みの層と出撃する層（階層の無い頃のセーブは第1層から）
+    const reached = d.reached, floor = d.floor;
+    for (const f of FIELDS) {
+      reached[f.id] = clamp((s.reached && s.reached[f.id]) | 0, 1, FLOORS);
+      floor[f.id] = clamp((s.floor && s.floor[f.id]) | 0, 1, reached[f.id]);
+    }
+    // 回路：保存枠（枠の無い頃のセーブは今の回路を1番に入れる）
+    const okProg = p => Array.isArray(p) && p.length === MAX_GRID * MAX_GRID;
+    const progSlot = clamp(s.progSlot | 0, 0, PROG_SLOTS - 1);
+    const programs = d.programs.map((p, i) => (Array.isArray(s.programs) && okProg(s.programs[i]) ? s.programs[i] : p));
+    programs[progSlot] = s.program;
+    // 対戦相手：読み込んだときと同じ確かめ方で読み直す（読めなくなったものは捨てる）
+    const rivals = [];
+    for (const r of Array.isArray(s.rivals) ? s.rivals : []) {
+      const v = r && versusFromObj(r.data);
+      if (!v || rivals.length >= VS.rivals) continue;
+      const rec = r.rec || {};
+      rivals.push({ id: String(r.id), data: machineToData(v.m), rec: { w: rec.w | 0, l: rec.l | 0, d: rec.d | 0 }, got: +r.got || 0 });
+    }
+    return {
+      build, program: s.program, programs, progSlot, enemyCount: clamp((s.enemyCount | 0) || d.enemyCount, 1, 100),
+      field: fieldById(s.field).id, floor, reached,
+      ore, upgrades,
+      stock, nextUid: Math.max((s.nextUid | 0) || 1, ...stock.map(it => it.uid + 1)),
+      pilot: cleanName(s.pilot), rivals, vsSel: typeof s.vsSel === 'string' ? s.vsSel : d.vsSel, vsFlat: !!s.vsFlat,
+    };
   },
 
   persist() {

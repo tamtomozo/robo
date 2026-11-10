@@ -55,7 +55,12 @@ function statChips(cat, p) {
 
 // 文字列をファイルとして保存させる（ブラウザのダウンロード）
 function downloadText(name, text) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  downloadBlob(name, new Blob([text], { type: 'application/json' }));
+}
+
+// Blob をファイルとして保存させる（セーブファイル savefile.js でも使う）
+function downloadBlob(name, blob) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
