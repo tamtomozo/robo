@@ -416,6 +416,7 @@ const View3D = {
     g.beginPath();
     g.ellipse(P.x + 0.35 + 1.2 * lift, P.y + 0.45 + 1.5 * lift, 1.5 * (1 - 0.2 * lift), 1.35 * (1 - 0.2 * lift), 0, 0, Math.PI * 2);
     g.fill();
+    if (P.skin && w.surge.k > 0.05) drawSurgeAura(g, P, w.surge.k, surgeBreath(w));   // 脈動に共鳴する地底のマシン
     if (w.vs) {   // 対戦：足元に色の輪（自機は青、相手は赤）
       g.strokeStyle = P.rival ? 'rgba(255,90,70,0.8)' : 'rgba(90,180,255,0.8)';
       g.lineWidth = 0.18;
@@ -478,7 +479,7 @@ const View3D = {
           g.translate(P.x, P.y);
           g.rotate(P.a);
           drawRobot(g, P.st.parts, {
-            time: w.time, walk: P.walk, hit: P.hit, xray, noShadow: true,
+            time: w.time, walk: P.walk, hit: P.hit, xray, noShadow: true, skin: P.skin, surge: w.surge.k,
             armL: { recoil: P.arms.L.recoil, flash: P.arms.L.flash },
             armR: { recoil: P.arms.R.recoil, flash: P.arms.R.flash },
           });

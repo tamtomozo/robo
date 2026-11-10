@@ -50,6 +50,7 @@ const Report = {
     }
     if (w.unlocked) notes.push(T('R008' /* {name}の{floor}が解放されました。次の出撃は{f… */, { name: w.field.name, floor: floorName(w.unlocked), hp: fmtMul(floorMul(w.unlocked).hp), dmg: fmtMul(floorMul(w.unlocked).dmg) }));
     else if (w.result === 'win' && w.floor >= FLOORS) notes.push(T('R009' /* {name}の最深部 {floor}を制圧しました。 */, { name: w.field.name, floor: floorName(FLOORS) }));
+    if (w.templeOpened) notes.unshift(`<b class="temple-open">${T('R083' /* 荒野と洞窟の最深部を制圧した。地の底への道が開く……出撃タブ… */, { name: FIELDS.find(f => f.duel).name })}</b>`);
     if (w.result === 'timeout') notes.push(T('R056' /* 活動限界（{min}分）に達しました。地区を早く掃討するほど… */, { min: ACT_LIMIT / 60 }));
     const timeN = s.res.filter(r => r === 'time').length;
     if (timeN) notes.push(T('R057' /* {n}地区は活動時間の区切りまでに掃討しきれませんでした。火… */, { n: timeN }));
@@ -125,8 +126,8 @@ const Report = {
   showVersus(w) {
     Game.show('report');
     Sound.playBgm('garage');
-    const P = w.player, R = w.rival, foe = w.opp.name;
-    const title = w.vsReason === 'surrender' ? T('R063' /* 降参 — {name} との対戦を中断 */, { name: foe })
+    const P = w.player, R = w.rival, foe = w.opp.name, A = w.abyss;   // A = 地底エリア（abyss.js）
+    const title = w.vsReason === 'surrender' ? (A ? T('R073' /* 撤退 — {name} との戦いを中断 */, { name: foe }) : T('R063' /* 降参 — {name} との対戦を中断 */, { name: foe }))
       : w.result === 'draw' ? T('R062' /* 引き分け — {name} と互角 */, { name: foe })
       : w.vsReason === 'time' ? (w.result === 'win' ? T('R060' /* 判定勝ち — {name} より多くHPが残った */, { name: foe }) : T('R061' /* 判定負け — {name} のほうがHPが多く残った */, { name: foe }))
       : w.result === 'win' ? T('R058' /* 勝利 — {name} を撃破 */, { name: foe }) : T('R059' /* 敗北 — {name} に撃破された */, { name: foe });
@@ -134,7 +135,7 @@ const Report = {
     const mmss = (t) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
     const sides = [
       { M: P, s: w.stats, name: w.meName, head: T('R066' /* 自機 */) },
-      { M: R, s: w.rv.stats, name: foe, head: T('R067' /* 相手 */) },
+      { M: R, s: w.rv.stats, name: foe, head: A ? T('R075' /* 地底のマシン */) : T('R067' /* 相手 */) },
     ];
     const acc = (s, k) => s.shots[k] ? Math.round(s.hits[k] / s.shots[k] * 100) + '%' : '—';
     const row = (label, f) => `<tr><th>${label}</th>${sides.map(o => `<td>${f(o)}</td>`).join('')}</tr>`;
@@ -157,17 +158,32 @@ const Report = {
         notes.push(L ? T('R051' /* 左腕の命中率が低め（{acc}）。「前方に敵」の角度を狭める… */, { acc: acc(s, side) }) : T('R052' /* 右腕の命中率が低め（{acc}）。「前方に敵」の角度を狭める… */, { acc: acc(s, side) }));
       }
     }
-    if (w.vsT > 0 && w.stats.lost > Math.min(w.vsT, VS.time) * 0.3) notes.push(T('R070' /* 相手をセンサーで捉えられない時間が長めでした（{t}秒）。セ… */, { t: Math.round(w.stats.lost) }));
+    const time = mmss(clamp(w.vsT, 0, w.cfg.time));
+    if (w.vsT > 0 && w.stats.lost > Math.min(w.vsT, w.cfg.time) * 0.3) notes.push(T('R070' /* 相手をセンサーで捉えられない時間が長めでした（{t}秒）。セ… */, { t: Math.round(w.stats.lost) }));
     if (P.st.over) notes.push(T('R007' /* 過積載状態で出撃しています。脚部の積載量を見直してください。 */));
-    if (w.rec) notes.push(T('R068' /* {name} との戦績：{w}勝 {l}敗 {d}分 */, { name: escHTML(foe), w: w.rec.w, l: w.rec.l, d: w.rec.d }));
+    if (A) {
+      const M = A.mech;
+      if (w.unlocked) {
+        const N = abyssMech(w.unlocked);
+        notes.push(T('R077' /* {floor}「{sub}」が解放されました。次の相手は {… */, { floor: floorName(w.unlocked), sub: N.sub, name: N.name }));
+      } else if (w.result === 'win' && A.floor >= ABYSS.floors) notes.push(T('R078' /* {field}の最深部を制圧しました。{name} を倒した… */, { field: w.field.name, name: M.name }));
+      if (w.lvUnlocked) notes.push(T('R081' /* {name}の{level}が解放されました。 */, { name: M.name, level: T('C029' /* レベル{n} */, { n: w.lvUnlocked }) }));
+      if (w.result !== 'win') notes.push(T('R079' /* 脈動中の{name}は回路の処理速度が×{k}になり、回避や… */, { name: M.name, k: ABYSS.surge }));
+    } else if (w.rec) notes.push(T('R068' /* {name} との戦績：{w}勝 {l}敗 {d}分 */, { name: escHTML(foe), w: w.rec.w, l: w.rec.l, d: w.rec.d }));
     else notes.push(T('R071' /* 練習相手との対戦は戦績に残りません。 */));
+    // 地底エリアで勝って持ち帰ったもの
+    const rw = w.reward;
+    const loot = rw ? `<h3>${T('R076' /* 持ち帰り */)}</h3>
+          <p class="ore-line">${oreHTML(rw.ore)}</p>
+          <div class="rep-parts">${partTagHTML(rw.part)}</div>` : '';
 
     document.getElementById('report').innerHTML = `
       <div class="rep-head ${cls}"><h1>${escHTML(title)}</h1>
-        <p>${T('R064' /* {field} / 対戦時間 {time}{rule} */, { field: w.field.name, time: mmss(clamp(w.vsT, 0, VS.time)), rule: w.flat ? T('R065' /* （強化・ブースター無効） */) : '' })}</p></div>
+        <p>${A ? T('R074' /* {field} {floor}「{sub}」 {level}… */, { field: w.field.name, floor: floorName(A.floor), sub: A.mech.sub, level: T('C029' /* レベル{n} */, { n: A.lv }), time })
+          : T('R064' /* {field} / 対戦時間 {time}{rule} */, { field: w.field.name, time, rule: w.flat ? T('R065' /* （強化・ブースター無効） */) : '' })}</p></div>
       <div class="rep-body">
         <div class="rep-col">
-          <h3>${T('R072' /* 対戦データ */)}</h3>
+          <h3>${A ? T('R032' /* 戦闘データ */) : T('R072' /* 対戦データ */)}</h3>
           <table class="rep vs-rep">
             <tr><th></th>${sides.map(o => `<td class="${o.M.rival ? 'foe' : 'me'}">${o.head}<br><b>${escHTML(o.name)}</b></td>`).join('')}</tr>
             ${row(T('R035' /* 残りHP */), o => `${Math.ceil(o.M.hp)} / ${o.M.maxHp}（${Math.round(o.M.hp / o.M.maxHp * 100)}%）`)}
@@ -177,6 +193,7 @@ const Report = {
             ${row(T('R036' /* 移動距離 */), o => `${Math.round(o.s.distance)} m`)}
             ${row(T('R037' /* 回路 実行ステップ数 */), o => o.M.vm.steps)}
           </table>
+          ${loot}
           <h3>${T('R046' /* 頭部ユニット所見 */)}</h3>
           <ul class="notes">${notes.map(n => `<li>${n}</li>`).join('')}</ul>
         </div>
@@ -188,13 +205,14 @@ const Report = {
       </div>
       <div class="rep-btns">
         <button id="rep-garage">${T('R047' /* ガレージへ戻る */)}</button>
-        <button id="rep-retry" class="primary">${T('R069' /* 再戦 */)}</button>
+        <button id="rep-retry" class="primary">${A && w.unlocked ? T('R080' /* 次の層へ出撃 */) : A && w.lvUnlocked ? T('R082' /* 次のレベルへ出撃 */) : T('R069' /* 再戦 */)}</button>
       </div>`;
     sides.forEach((o, i) => {
       const g = o.M.st.grid, cs = Math.floor(210 / g);
       drawCircuit(document.getElementById('rep-heat' + i).getContext('2d'), o.M.vm.prog, g, 10, 10, cs, { counts: o.M.vm.counts });
     });
     document.getElementById('rep-garage').onclick = () => Game.toGarage();
-    document.getElementById('rep-retry').onclick = () => Game.versus();
+    // 地底エリアは出撃（解放された層があれば、そこが次の出撃先になっている）
+    document.getElementById('rep-retry').onclick = () => (A ? Game.sortie() : Game.versus());
   },
 };

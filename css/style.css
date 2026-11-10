@@ -466,6 +466,7 @@ table.vs-rep td b { color: #f0c890; }
 .vs-heat > div { text-align: center; }
 .vs-heat p { margin: 4px 0 0; }
 .notes { padding-left: 18px; line-height: 1.7; font-size: 13px; }
+.notes .temple-open { color: #e0c8ff; }
 .rep-btns { display: flex; gap: 12px; justify-content: center; margin: 20px 0 40px; }
 .rep-btns button { font-size: 16px; padding: 10px 26px; }
 
@@ -498,6 +499,29 @@ table.vs-rep td b { color: #f0c890; }
 .floor-select p { margin: 0; }
 .floor-select b { color: #ffb050; }
 .floor-select small { display: block; color: #a89a80; font-size: 11px; margin-top: 2px; }
+/* 地底エリア（abyss.js）：フィールドのカードは下の段に横いっぱい。出撃タブにその層の地底のマシンを紹介する */
+.field-select { flex-wrap: wrap; }
+.field-card.duel { flex-basis: 100%; border-color: #5a4470; background: #221a2c; }
+.field-card.duel b { color: #e0c8ff; }
+.field-card.duel.sel { border-color: #b070ff; background: #33244a; box-shadow: 0 0 0 1px #b070ff inset; }
+.abyss-lv { margin: 10px 0 4px; font-size: 13px; color: #cfc4ac; }
+.abyss-lv > b { display: block; margin-bottom: 6px; color: #e0c8ff; }
+.abyss-lv .floor-btns button.sel { border-color: #b070ff; background: #33244a; color: #ead8ff; box-shadow: 0 0 0 1px #b070ff inset; }
+.abyss-lv small { display: block; color: #a89a80; font-size: 11px; }
+.abyss-foe { display: flex; gap: 16px; align-items: flex-start; margin: 10px 0 12px; }
+.abyss-foe canvas { flex: none; background: radial-gradient(circle, #2c2436 0%, #121016 72%); border: 1px solid #4a3e5c; border-radius: 6px; }
+.abyss-info { flex: 1; min-width: 0; }
+.abyss-info h3 { margin: 0 0 4px; color: #e8d0ff; font-size: 17px; }
+.abyss-info h3 small { color: #a89ab8; font-size: 12px; font-weight: normal; margin-left: 6px; }
+.abyss-info > p { margin: 0 0 8px; font-size: 13px; color: #cbbd9c; line-height: 1.6; }
+.abyss-tbl { border-collapse: collapse; font-size: 12px; width: 100%; }
+.abyss-tbl th { text-align: left; color: #a89a80; font-weight: normal; padding: 2px 10px 2px 0; white-space: nowrap; width: 1%; }
+.abyss-tbl td { padding: 2px 0; color: #e8e0d0; }
+.abyss-tbl td small { color: #ffb050; }
+.abyss-tbl td b { color: #ff9a8a; }
+@media (max-width: 600px) {
+  .abyss-foe { flex-direction: column; align-items: center; }
+}
 
 /* ===================== 更新のお知らせ ===================== */
 .update-banner {

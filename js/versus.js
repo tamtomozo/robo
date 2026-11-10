@@ -113,29 +113,40 @@ function newVsStats() {
 }
 
 function createVersusWorld(save, opp, flat) {
-  const F = VS_FIELD, geo = FIELD_SHAPES[F.shape];
-  const { FW, H } = geo.size(F);
   const me = flat ? flatMachine(myMachine(save)) : myMachine(save);
   const foe = flat ? flatMachine(opp.m) : opp.m;
+  const w = createDuelWorld(VS_FIELD, VS, me, foe);
+  w.flat = flat;
+  w.opp = { id: opp.id, self: opp.self, name: foe.name };
+  addLog(w, T('B096' /* 対戦開始：{me} VS {foe} */, { me: me.name, foe: foe.name }), '#9fe0b0');
+  if (flat) addLog(w, T('B109' /* ルール：強化・ブースター無効 */), '#c9a0ff');
+  return w;
+}
+
+// 1対1の世界（対戦・地底エリア abyss.js で共通）。F = フィールド、cfg = 時間と広さ（VS / ABYSS）、me / foe = 機体
+function createDuelWorld(F, cfg, me, foe) {
+  const geo = FIELD_SHAPES[F.shape];
+  const { FW, H } = geo.size(F);
   const w = {
-    vs: true, field: F, floor: 1, fm: floorMul(1), geo, FW, H, district: 0, open: 1, full: true, perDistrict: 0,
+    vs: true, cfg, field: F, floor: 1, fm: floorMul(1), geo, FW, H, district: 0, open: 1, full: true, perDistrict: 0,
     time: 0, act: 0, enemies: [], pshots: [], fx: [], scorch: [], rocks: [], decor: [], webs: [], hazards: [], queue: [],
     phase: 'fight', boss: null, log: [], result: null, endT: 0, shake: 0, banner: null,
     program: me.program, ores: [], ore: emptyOre(), orePulse: {}, loot: [], parts: [], partPulse: 0,
-    veins: [], surge: { state: 'idle', t: Infinity, k: 0, ph: 0 },   // 対戦に大地の脈動は起きない
+    veins: [], surge: { state: 'idle', t: Infinity, k: 0, ph: 0 },   // 対戦に大地の脈動は起きない（地底エリアは abyss.js で起こす）
     stats: newVsStats(),
-    vsT: -VS.count,            // 対戦の経過時間（開始前のカウントダウン中は負）
-    arenaR: VS.r0,             // 電磁柵の内側の半径
-    flat, opp: { id: opp.id, self: opp.self, name: foe.name }, meName: me.name, shrinkLogged: false,
+    vsT: -cfg.count,           // 対戦の経過時間（開始前のカウントダウン中は負）
+    arenaR: cfg.r0,            // 電磁柵の内側の半径
+    flat: false, opp: { name: foe.name }, meName: me.name, shrinkLogged: false,
   };
   w.root = w;
   const c = FW / 2;
-  w.start = { x: c - VS.gap / 2, y: c, a: 0 };
+  w.start = { x: c - cfg.gap / 2, y: c, a: 0 };
+  geo.init(w);
 
   const P = w.player = createPlayer(me);
   const R = w.rival = createPlayer(foe);
-  P.x = c - VS.gap / 2; P.y = c; P.a = 0;
-  R.x = c + VS.gap / 2; R.y = c; R.a = Math.PI;
+  P.x = c - cfg.gap / 2; P.y = c; P.a = 0;
+  R.x = c + cfg.gap / 2; R.y = c; R.a = Math.PI;
   P.robot = R.robot = true;
   R.rival = true;
   w.enemies = [R];
@@ -153,29 +164,27 @@ function createVersusWorld(save, opp, flat) {
 
   // 岩：中心に対して点対称に置く（どちらの開始位置からも同じ地形になる）
   for (let i = 0, tries = 0; i < F.rockPairs && tries < 300; tries++) {
-    const r = rand(F.rockR[0], F.rockR[1]), d = rand(7, VS.r0 - r - 4), a = rand(0, Math.PI * 2);
+    const r = rand(F.rockR[0], F.rockR[1]), d = rand(7, cfg.r0 - r - 4), a = rand(0, Math.PI * 2);
     const x = c + Math.cos(a) * d, y = c + Math.sin(a) * d, mx = 2 * c - x, my = 2 * c - y;
     if (Math.hypot(x - mx, y - my) < 2 * r + 4.5) continue;
     if ([P, R].some(o => Math.hypot(o.x - x, o.y - y) < r + 7 || Math.hypot(o.x - mx, o.y - my) < r + 7)) continue;
     if (w.rocks.some(k => Math.hypot(k.x - x, k.y - y) < k.r + r + 4.5 || Math.hypot(k.x - mx, k.y - my) < k.r + r + 4.5)) continue;
-    const pts = rockPoints(r);
-    w.rocks.push({ x, y, r, pts });
-    w.rocks.push({ x: mx, y: my, r, pts: pts.map(([px, py]) => [-px, -py]) });
+    const pts = rockPoints(r), cave = !!F.dark;
+    w.rocks.push({ x, y, r, pts, cave });
+    w.rocks.push({ x: mx, y: my, r, pts: pts.map(([px, py]) => [-px, -py]), cave });
     i++;
   }
   for (let i = 0; i < F.decorN; i++) {
     const { x, y } = geo.randomPoint(w, 0, 0.5);
     w.decor.push({ x, y, s: rand(0.5, 1.5), rot: rand(0, 6.283), type: pick(F.decor) });
   }
-  addLog(w, T('B096' /* 対戦開始：{me} VS {foe} */, { me: me.name, foe: foe.name }), '#9fe0b0');
-  if (flat) addLog(w, T('B109' /* ルール：強化・ブースター無効 */), '#c9a0ff');
   return w;
 }
 
-// 経過時間 t の電磁柵の半径
-function vsArenaR(t) {
-  const k = clamp((t - VS.shrinkAt) / (VS.shrinkEnd - VS.shrinkAt), 0, 1);
-  return VS.r0 + (VS.rMin - VS.r0) * k;
+// 経過時間 t の電磁柵の半径（cfg = VS / ABYSS）
+function vsArenaR(cfg, t) {
+  const k = clamp((t - cfg.shrinkAt) / (cfg.shrinkEnd - cfg.shrinkAt), 0, 1);
+  return cfg.r0 + (cfg.rMin - cfg.r0) * k;
 }
 
 const RIVAL_INPUT = { manual: false };
@@ -184,7 +193,7 @@ function simulateVersus(w, dt, inp) {
   w.time += dt;
   w.shake = Math.max(0, w.shake - dt * 2.5);
   if (w.banner) { w.banner.t -= dt; if (w.banner.t <= 0) w.banner = null; }
-  const P = w.player, R = w.rival, rv = w.rv;
+  const P = w.player, R = w.rival, rv = w.rv, C = w.cfg;
   if (w.vsT < 0) {
     // 開始前のカウントダウン（3・2・1 → FIGHT）
     const before = Math.ceil(-w.vsT);
@@ -195,20 +204,23 @@ function simulateVersus(w, dt, inp) {
     w.vsT += dt;
     w.act = w.vsT;
     updatePlayer(w, P, dt, inp);
+    // 地底エリア：脈動中の地底のマシンは回路の処理速度が最大 ×ABYSS.surge（abyss.js）
+    if (w.abyss) R.vm.period = 1 / (R.st.clock * abyssSurgeMul(w));
     updatePlayer(rv, R, dt, RIVAL_INPUT);
     // 相手をセンサーで捉えられていない時間（レポートの所見に使う）
     const d = Math.hypot(P.x - R.x, P.y - R.y);
     if (d - R.r > P.st.sensor) w.stats.lost += dt;
     if (d - P.r > R.st.sensor) rv.stats.lost += dt;
-    // 電磁柵が狭まる
-    w.arenaR = vsArenaR(w.vsT);
-    if (!w.shrinkLogged && w.vsT >= VS.shrinkAt) {
+    // 電磁柵（地底エリアでは結界）が狭まる
+    w.arenaR = vsArenaR(C, w.vsT);
+    if (!w.shrinkLogged && w.vsT >= C.shrinkAt) {
       w.shrinkLogged = true;
-      addLog(w, T('B097' /* 外周の電磁柵が収縮を開始！ */), '#ffb070');
-      w.banner = { title: T('B097' /* 外周の電磁柵が収縮を開始！ */), sub: '', t: 2.5 };
+      const msg = w.abyss ? T('B133' /* 聖域の結界が収縮を開始！ */) : T('B097' /* 外周の電磁柵が収縮を開始！ */);
+      addLog(w, msg, '#ffb070');
+      w.banner = { title: msg, sub: '', t: 2.5 };
       Sound.play('siren');
     }
-    if (w.vsT >= VS.time) {
+    if (w.vsT >= C.time) {
       // 時間切れ：残りHPの割合で判定（差が 0.5% 未満なら引き分け）
       const kp = P.hp / P.maxHp, kr = R.hp / R.maxHp;
       addLog(w, T('B100' /* 時間切れ。残りHPの割合で判定する。 */), '#ffd24a');
@@ -217,6 +229,7 @@ function simulateVersus(w, dt, inp) {
   } else {
     for (const o of [P, R]) { o.vx *= 0.9; o.vy *= 0.9; o.action = null; }
   }
+  if (w.abyss && w.vsT >= 0) updateSurge(w, dt);   // 地底エリア：大地の脈動（abyss.js）
   updatePlayerShots(w, dt);
   updatePlayerShots(rv, dt);
   // 機体どうしの押し合い（ジャンプ中は飛び越える）
@@ -240,7 +253,7 @@ function simulateVersus(w, dt, inp) {
 function hurtRobot(w, R, dmg, side) {
   const root = w.root;
   if (root.result || R.dead || R.air > 0) return;
-  const real = Math.min(R.hp, dmg * VS.dmg * 100 / (100 + R.st.def * 4));
+  const real = Math.min(R.hp, dmg * root.cfg.dmg * 100 / (100 + R.st.def * 4));
   if (real <= 0) return;
   R.hp -= real;
   R.hit = 0.12;
@@ -281,7 +294,7 @@ function vsEnd(w, result, reason) {
   w.vsReason = reason;
   w.endT = 0;
   const foe = w.opp.name, me = w.meName;
-  if (reason === 'surrender') addLog(w, T('B101' /* 降参した。 */), '#ffd24a');
+  if (reason === 'surrender') addLog(w, w.abyss ? T('B020' /* 撤退信号を受信。戦域を離脱する。 */) : T('B101' /* 降参した。 */), '#ffd24a');
   else if (result === 'win') addLog(w, T('B098' /* {name} を撃破！ */, { name: foe }), '#9fffb0');
   else if (result === 'lose') addLog(w, T('B099' /* 機体大破……{name} の勝利。 */, { name: foe }), '#ff6a4a');
   else addLog(w, T('B102' /* 引き分け。{me} と {foe} は互角だった。 */, { me, foe }), '#ffd24a');
@@ -292,6 +305,36 @@ function vsEnd(w, result, reason) {
 // ---------------------------------------------------------------------
 //  HUD
 // ---------------------------------------------------------------------
+// 相手の枠の見出し
+function vsFoeTitle(w) {
+  return w.abyss ? T('B134' /* 地底のマシン：{name} */, { name: w.opp.name }) : T('B103' /* 対戦相手：{name} */, { name: w.opp.name });
+}
+
+// 柵（地底エリアでは結界）の状態 { txt, col }
+function vsFenceLine(w) {
+  const C = w.cfg, t = Math.max(0, w.vsT);
+  if (t < C.shrinkAt) {
+    const left = fmtClock(C.shrinkAt - t);
+    return { col: '#9adcf0', txt: w.abyss ? T('B135' /* 結界の収縮まで {t} */, { t: left }) : T('B107' /* 電磁柵の収縮まで {t} */, { t: left }) };
+  }
+  const r = Math.round(w.arenaR);
+  return { col: '#ff9a6a', txt: w.abyss ? T('B136' /* 結界 収縮中（半径 {r}m） */, { r }) : T('B108' /* 電磁柵 収縮中（半径 {r}m） */, { r }) };
+}
+
+// 残り時間・柵の下に並べる行：ルール / 地底エリアの層と脈動共鳴
+function vsInfoLines(w) {
+  const L = [];
+  if (w.flat) L.push({ txt: T('B109' /* ルール：強化・ブースター無効 */), col: '#c9a0ff' });
+  if (w.abyss) {
+    L.push({ txt: `${T('C014' /* {name}「{sub}」 */, { name: floorName(w.abyss.floor), sub: w.abyss.mech.sub })}  ${T('C029' /* レベル{n} */, { n: w.abyss.lv })}`, col: '#cbbd9c' });
+    if (w.surge.k > 0.05 && !w.result) {
+      const p = 0.5 + 0.5 * Math.sin(w.time * 8);
+      L.push({ txt: T('B137' /* 脈動共鳴：{name} 回路の処理速度×{k} */, { name: w.opp.name, k: ABYSS.surge }), col: `rgb(255,${(70 + 70 * p) | 0},${(50 + 40 * p) | 0})` });
+    }
+  }
+  return L;
+}
+
 function drawVersusHUD(ctx, w, B, VW, VH) {
   if (B.compact) { drawVersusHUDCompact(ctx, w, B, VW, VH); return; }
   const P = w.player, R = w.rival;
@@ -299,26 +342,24 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
   ctx.textAlign = 'left';
   // 2機のステータス（左上 = 自機、右上 = 相手）
   drawMechPanel(ctx, P, 12, 12, T('B104' /* 自機：{name} */, { name: w.meName }), B.manual);
-  drawMechPanel(ctx, R, VW - 322, 12, T('B103' /* 対戦相手：{name} */, { name: w.opp.name }), false);
+  drawMechPanel(ctx, R, VW - 322, 12, vsFoeTitle(w), false);
 
   // 上の中央：残り時間と電磁柵
   ctx.textAlign = 'center';
-  const left = VS.time - Math.max(0, w.vsT);
+  const left = w.cfg.time - Math.max(0, w.vsT);
   const urgent = left <= 10 && !w.result && w.vsT > 0;
   ctx.font = 'bold 26px sans-serif';
   ctx.fillStyle = urgent ? `rgb(255,${(90 + 60 * (0.5 + 0.5 * Math.sin(w.time * 10))) | 0},60)` : '#f2e6c8';
   ctx.fillText(fmtClock(left), VW / 2, 12);
   ctx.font = 'bold 12px sans-serif';
-  if (w.vsT < VS.shrinkAt) {
-    ctx.fillStyle = '#9adcf0';
-    ctx.fillText(T('B107' /* 電磁柵の収縮まで {t} */, { t: fmtClock(VS.shrinkAt - Math.max(0, w.vsT)) }), VW / 2, 44);
-  } else {
-    ctx.fillStyle = '#ff9a6a';
-    ctx.fillText(T('B108' /* 電磁柵 収縮中（半径 {r}m） */, { r: Math.round(w.arenaR) }), VW / 2, 44);
-  }
-  if (w.flat) {
-    ctx.fillStyle = '#c9a0ff';
-    ctx.fillText(T('B109' /* ルール：強化・ブースター無効 */), VW / 2, 62);
+  const fl = vsFenceLine(w);
+  ctx.fillStyle = fl.col;
+  ctx.fillText(fl.txt, VW / 2, 44);
+  let iy = 62;
+  for (const ln of vsInfoLines(w)) {
+    ctx.fillStyle = ln.col;
+    ctx.fillText(ln.txt, VW / 2, iy);
+    iy += 18;
   }
 
   // 回路モニター（右下 = 自機、その左 = 相手）
@@ -340,7 +381,7 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
     ctx.font = 'bold 14px sans-serif';
     ctx.fillText(T('B046' /* 手動操作中 */), VW - 16 - cw / 2, VH - cw / 2 - 48);
   }
-  mon(R, x1 - 12, T('B105' /* 相手の回路 {grid}×{grid} @{clock}Hz */, { grid: R.st.grid, clock: fmtNum(R.st.clock) }), { x: R.vm.x, y: R.vm.y });
+  mon(R, x1 - 12, T('B105' /* 相手の回路 {grid}×{grid} @{clock}Hz */, { grid: R.st.grid, clock: fmtNum(Math.round(1 / R.vm.period * 10) / 10) }), { x: R.vm.x, y: R.vm.y });   // 脈動中は速くなった処理速度
 
   drawLogPanel(ctx, w, VW, VH);
 
@@ -348,12 +389,12 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
   ctx.font = '12px sans-serif';
   ctx.fillStyle = 'rgba(240,230,210,0.8)';
   ctx.textAlign = 'center';
-  if (!B.touchUI) ctx.fillText(T('B106' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
+  if (!B.touchUI) ctx.fillText(w.abyss ? T('B138' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */) : T('B106' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
   if (B.manual) ctx.fillText(P.st.jump ? T('B082' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */) : T('B081' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */), VW / 2, VH - 40);
   if (B.speed !== 1) {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = '#ffd24a';
-    ctx.fillText(`×${B.speed}`, VW / 2, 80);
+    ctx.fillText(`×${B.speed}`, VW / 2, Math.max(80, iy + 2));
   }
 
   // 開始前のカウントダウン → FIGHT
@@ -375,10 +416,16 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
     const a = Math.min(1, w.banner.t, (2.5 - w.banner.t) * 3);
     ctx.globalAlpha = Math.max(0, a);
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(0, VH * 0.28 - 30, VW, 60);
+    const sub = w.banner.sub;
+    ctx.fillRect(0, VH * 0.28 - 30, VW, sub ? 84 : 60);
     ctx.font = 'bold 26px sans-serif';
     ctx.fillStyle = '#ffb070';
     ctx.fillText(w.banner.title, VW / 2, VH * 0.28);
+    if (sub) {
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillStyle = '#ffd0b0';
+      ctx.fillText(sub, VW / 2, VH * 0.28 + 32);
+    }
     ctx.globalAlpha = 1;
   }
   if (B.paused) {   // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
@@ -404,28 +451,23 @@ function drawVersusHUDCompact(ctx, w, B, VW, VH) {
   const P = w.player, R = w.rival, pad = HUD_PAD;
   const pw = Math.min(230, (VW - pad * 3) / 2);
   const a = drawMechMini(ctx, P, pad, pad, pw, T('B104' /* 自機：{name} */, { name: w.meName }));
-  const b = drawMechMini(ctx, R, VW - pad - pw, pad, pw, T('B103' /* 対戦相手：{name} */, { name: w.opp.name }));
+  const b = drawMechMini(ctx, R, VW - pad - pw, pad, pw, vsFoeTitle(w));
   // 2機の枠の間に入りきれば上の中央、入らなければ枠の下に残り時間
   const gap = VW - pw * 2 - pad * 4;
   let y = gap >= 110 ? pad : Math.max(a.bottom, b.bottom) + 6;
   const tw = gap >= 110 ? gap : VW - pad * 2;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  const left = VS.time - Math.max(0, w.vsT);
+  const left = w.cfg.time - Math.max(0, w.vsT);
   const urgent = left <= 10 && !w.result && w.vsT > 0;
   ctx.font = 'bold 22px sans-serif';
   ctx.fillStyle = urgent ? `rgb(255,${(90 + 60 * (0.5 + 0.5 * Math.sin(w.time * 10))) | 0},60)` : '#f2e6c8';
   ctx.fillText(fmtClock(left), VW / 2, y);
   y += 26;
   ctx.font = 'bold 11px sans-serif';
-  const fence = w.vsT < VS.shrinkAt;
-  ctx.fillStyle = fence ? '#9adcf0' : '#ff9a6a';
-  ctx.fillText(clipText(ctx, fence ? T('B107' /* 電磁柵の収縮まで {t} */, { t: fmtClock(VS.shrinkAt - Math.max(0, w.vsT)) })
-    : T('B108' /* 電磁柵 収縮中（半径 {r}m） */, { r: Math.round(w.arenaR) }), tw), VW / 2, y);
-  y += 15;
-  if (w.flat) {
-    ctx.fillStyle = '#c9a0ff';
-    ctx.fillText(clipText(ctx, T('B109' /* ルール：強化・ブースター無効 */), tw), VW / 2, y);
+  for (const ln of [vsFenceLine(w), ...vsInfoLines(w)]) {
+    ctx.fillStyle = ln.col;
+    ctx.fillText(clipText(ctx, ln.txt, tw), VW / 2, y);
     y += 15;
   }
   if (B.speed !== 1) {
@@ -454,8 +496,9 @@ function drawVersusHUDCompact(ctx, w, B, VW, VH) {
     const al = Math.min(1, w.banner.t, (2.5 - w.banner.t) * 3);
     ctx.globalAlpha = Math.max(0, al);
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(0, VH * 0.36 - 26, VW, 52);
+    ctx.fillRect(0, VH * 0.36 - 26, VW, w.banner.sub ? 76 : 52);
     drawCompactCenter(ctx, VW, VH * 0.36, w.banner.title, '#ffb070', 22);
+    if (w.banner.sub) drawCompactCenter(ctx, VW, VH * 0.36 + 30, w.banner.sub, '#ffd0b0', 13);
     ctx.globalAlpha = 1;
   }
   if (B.paused) {

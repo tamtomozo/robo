@@ -193,6 +193,7 @@ function armMuzzle(armDef) {
 }
 
 function drawRobot(ctx, parts, o = {}) {
+  if (o.skin) { drawAbyssRobot(ctx, parts, o); return; }   // 地底文明のマシン（abyss.js）は専用の見た目
   const s = { t: o.time || 0, walk: o.walk || 0, side: 0 };
   ctx.save();
   ctx.lineJoin = 'round';

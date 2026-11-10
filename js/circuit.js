@@ -184,7 +184,7 @@ function evalCond(tile, P, w) {
     case 'c_ready_l': return armReady(P.arms.L);
     case 'c_ready_r': return armReady(P.arms.R);
     case 'c_jump': return canJump(P);
-    case 'c_boss': return !!(w.boss && w.boss.hp > 0);
+    case 'c_boss': return !!(w.boss && w.boss.hp > 0) || !!w.abyss;   // 地底エリアの相手はボス扱い
     case 'c_rand': return Math.random() * 100 < prm;
     case 'c_proj': {
       for (const s of w.eshots) {

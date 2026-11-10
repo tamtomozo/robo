@@ -188,6 +188,15 @@ function makeCavePattern(ctx, base, blots, specks, cracks) {
   return pat;
 }
 
+// 洞窟の床と岩壁の模様（初めて使うときに作る。地底エリアの岩壁にも使う）
+function makeCavePatterns(ctx) {
+  if (caveFloorPattern) return;
+  caveFloorPattern = makeCavePattern(ctx, '#3e3b42',
+    ['rgba(20,18,26,0.25)', 'rgba(95,95,115,0.16)'], [[90, 88, 100], [40, 38, 46], [120, 125, 140]], 'rgba(15,12,18,0.35)');
+  caveWallPattern = makeCavePattern(ctx, '#1f1c21',
+    ['rgba(0,0,0,0.35)', 'rgba(70,64,74,0.25)'], [[60, 56, 64], [10, 8, 12], [90, 86, 96]], 'rgba(0,0,0,0.5)');
+}
+
 // 中心 (cx,cy)、半径 r0〜r1 の輪（r0 = 0 なら円）
 function annulusPath(ctx, cx, cy, r0, r1) {
   ctx.beginPath();
@@ -258,12 +267,7 @@ const DISC_SHAPE = {
 
   drawGround(ctx, w, v) {
     const F = w.field, c = w.FW / 2;
-    if (!caveFloorPattern) {
-      caveFloorPattern = makeCavePattern(ctx, '#3e3b42',
-        ['rgba(20,18,26,0.25)', 'rgba(95,95,115,0.16)'], [[90, 88, 100], [40, 38, 46], [120, 125, 140]], 'rgba(15,12,18,0.35)');
-      caveWallPattern = makeCavePattern(ctx, '#1f1c21',
-        ['rgba(0,0,0,0.35)', 'rgba(70,64,74,0.25)'], [[60, 56, 64], [10, 8, 12], [90, 86, 96]], 'rgba(0,0,0,0.5)');
-    }
+    makeCavePatterns(ctx);
     // 岩壁（視界全体を塗ってから床の円を描く）
     ctx.fillStyle = caveWallPattern;
     ctx.fillRect(v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0);
@@ -477,11 +481,207 @@ const ARENA_SHAPE = {
   },
 };
 
-const FIELD_SHAPES = { strip: STRIP_SHAPE, disc: DISC_SHAPE, arena: ARENA_SHAPE };
+// ---------------------------------------------------------------------
+//  abyss：地底エリアの聖域（abyss.js）。半径 ABYSS.r0 の石板の床を、光る結界と石柱が囲む
+//  動ける範囲は w.arenaR（時間がたつと結界が狭まる）。床の紋様は大地の脈動で赤く光る
+// ---------------------------------------------------------------------
+const ABYSS_PAD = 14;   // 聖域の外側に描く岩壁の幅（m）
+let abyssSlabPattern = null;
+
+// 4m 四方に 2m 角の石板を 2×2 並べた模様
+function makeSlabPattern(ctx) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#1c1a20';
+  g.fillRect(0, 0, 64, 64);
+  for (const [x, y] of [[0, 0], [32, 0], [0, 32], [32, 32]]) {
+    g.fillStyle = pick(['#2e2b35', '#29262f', '#312e39', '#2b2832']);
+    g.fillRect(x + 1, y + 1, 30, 30);
+    for (let i = 0; i < 40; i++) {
+      g.fillStyle = `rgba(${pick(['120,115,135', '10,8,14', '80,76,92'])},${rand(0.1, 0.3)})`;
+      g.fillRect(x + 1 + Math.random() * 29, y + 1 + Math.random() * 29, rand(0.6, 1.6), rand(0.6, 1.6));
+    }
+    g.strokeStyle = 'rgba(150,145,170,0.08)';
+    g.strokeRect(x + 2.5, y + 2.5, 27, 27);
+  }
+  const pat = ctx.createPattern(c, 'repeat');
+  if (pat.setTransform) pat.setTransform(new DOMMatrix().scale(1 / 16));
+  return pat;
+}
+
+// 紋様の色：ふだんは青緑、脈動中は赤（a = 不透明度）
+function abyssRuneColor(w, a) {
+  const k = w.surge.k, b = k > 0 ? surgeBreath(w) : 0.5;
+  const r = 90 + (255 - 90) * k, g = 210 + (60 - 210) * k, bl = 230 + (40 - 230) * k;
+  return `rgba(${r | 0},${g | 0},${bl | 0},${a * (0.55 + 0.45 * (k > 0 ? b : 0.5 + 0.5 * Math.sin(w.time * 1.2)))})`;
+}
+
+const ABYSS_SHAPE = {
+  size() { const s = 2 * (ABYSS.r0 + ABYSS_PAD); return { FW: s, H: s }; },
+  start() { const c = ABYSS.r0 + ABYSS_PAD; return { x: c, y: c, a: 0 }; },
+  // 聖域の外周に並ぶ石柱（見た目だけ。結界の外なので当たり判定は要らない）
+  init(w) {
+    const c = w.FW / 2;
+    w.pillars = [];
+    for (let i = 0; i < 12; i++) {
+      const a = (i + 0.5) / 12 * Math.PI * 2;
+      w.pillars.push({ x: c + Math.cos(a) * (ABYSS.r0 + 5), y: c + Math.sin(a) * (ABYSS.r0 + 5), a });
+    }
+  },
+  openR(w) { return w.arenaR; },
+  inside(w, x, y, m) {
+    const c = w.FW / 2;
+    return Math.hypot(x - c, y - c) <= w.arenaR - m;
+  },
+  clamp(w, o) {
+    const c = w.FW / 2, dx = o.x - c, dy = o.y - c, d = Math.hypot(dx, dy), lim = w.arenaR - o.r;
+    if (d > lim && d > 0) {
+      o.x = c + dx / d * lim;
+      o.y = c + dy / d * lim;
+    }
+  },
+  randomPoint(w, di, m) {
+    const c = w.FW / 2, r = Math.sqrt(rand(0, (ABYSS.r0 - m) ** 2)), a = rand(0, Math.PI * 2);
+    return { x: c + Math.cos(a) * r, y: c + Math.sin(a) * r };
+  },
+  rockOk() { return true; },
+  los() { return true; },
+  dirTo(w, e, tx, ty) {
+    const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 0.001;
+    return [dx / d, dy / d];
+  },
+
+  drawGround(ctx, w, v) {
+    const c = w.FW / 2, R = ABYSS.r0;
+    makeCavePatterns(ctx);
+    if (!abyssSlabPattern) abyssSlabPattern = makeSlabPattern(ctx);
+    ctx.fillStyle = caveWallPattern;
+    ctx.fillRect(v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0);
+    ctx.save();
+    circle(ctx, c, c, R);
+    ctx.fillStyle = abyssSlabPattern;
+    ctx.fill();
+    ctx.clip();
+    // 床の紋様：同心円・放射状の溝・中央の星・円周の古代文字
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = abyssRuneColor(w, 0.32);
+    ctx.lineWidth = 0.22;
+    for (const k of [0.22, 0.48, 0.74]) { circle(ctx, c, c, R * k); ctx.stroke(); }
+    ctx.lineWidth = 0.14;
+    ctx.beginPath();
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2, r0 = R * (i % 2 ? 0.48 : 0.22), r1 = R * 0.74;
+      ctx.moveTo(c + Math.cos(a) * r0, c + Math.sin(a) * r0);
+      ctx.lineTo(c + Math.cos(a) * r1, c + Math.sin(a) * r1);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = abyssRuneColor(w, 0.5);
+    ctx.lineWidth = 0.2;
+    for (const off of [0, Math.PI]) {
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = off - Math.PI / 2 + i / 3 * Math.PI * 2, r = R * 0.18;
+        if (i === 0) ctx.moveTo(c + Math.cos(a) * r, c + Math.sin(a) * r); else ctx.lineTo(c + Math.cos(a) * r, c + Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.strokeStyle = abyssRuneColor(w, 0.42);
+    ctx.lineWidth = 0.12;
+    ctx.beginPath();
+    for (let i = 0; i < 40; i++) {
+      const a = i / 40 * Math.PI * 2, r = R * 0.61, ca = Math.cos(a), sa = Math.sin(a);
+      const x = c + ca * r, y = c + sa * r, tx = -sa, ty = ca;   // 円周の向き（tx, ty）と外向き（ca, sa）
+      const h = 0.9, s = 0.4, form = (i * 7) % 5;   // 文字の形は5通り
+      ctx.moveTo(x - ca * h, y - sa * h); ctx.lineTo(x + ca * h, y + sa * h);
+      if (form === 0 || form === 3) { ctx.moveTo(x - ca * h, y - sa * h); ctx.lineTo(x - ca * h + tx * s, y - sa * h + ty * s); }
+      if (form === 1 || form === 3) { ctx.moveTo(x + ca * h, y + sa * h); ctx.lineTo(x + ca * h - tx * s, y + sa * h - ty * s); }
+      if (form === 2) { ctx.moveTo(x - tx * s, y - ty * s); ctx.lineTo(x + tx * s, y + ty * s); }
+      if (form === 4) { ctx.moveTo(x + tx * s, y + ty * s); ctx.lineTo(x + ca * h * 0.3, y + sa * h * 0.3); }
+    }
+    ctx.stroke();
+    ctx.restore();
+    // 縁石
+    ctx.strokeStyle = '#121016';
+    ctx.lineWidth = 1.4;
+    circle(ctx, c, c, R + 0.7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(210,190,140,0.28)';
+    ctx.lineWidth = 0.18;
+    circle(ctx, c, c, R); ctx.stroke();
+    // 石柱：八角の柱頭と、紋様と同じ色に灯る頂
+    for (const p of w.pillars || []) {
+      if (p.x < v.x0 - 3 || p.x > v.x1 + 3 || p.y < v.y0 - 3 || p.y > v.y1 + 3) continue;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.ellipse(p.x + 0.8, p.y + 1.0, 1.9, 1.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = p.a + i / 8 * Math.PI * 2;
+        if (i === 0) ctx.moveTo(p.x + Math.cos(a) * 1.7, p.y + Math.sin(a) * 1.7); else ctx.lineTo(p.x + Math.cos(a) * 1.7, p.y + Math.sin(a) * 1.7);
+      }
+      ctx.closePath();
+      ctx.fillStyle = '#3a3642'; ctx.fill();
+      ctx.strokeStyle = '#141218'; ctx.lineWidth = 0.15; ctx.stroke();
+      ctx.fillStyle = '#4c4757';
+      circle(ctx, p.x - 0.2, p.y - 0.2, 1.05); ctx.fill();
+      const g = ctx.createRadialGradient(p.x - 0.2, p.y - 0.2, 0, p.x - 0.2, p.y - 0.2, 1.4);
+      g.addColorStop(0, abyssRuneColor(w, 1));
+      g.addColorStop(1, abyssRuneColor(w, 0));
+      ctx.fillStyle = g;
+      circle(ctx, p.x - 0.2, p.y - 0.2, 1.4); ctx.fill();
+    }
+  },
+
+  // 外周の結界。狭まった外側は暗くして、結界を赤紫に光らせる
+  drawSealed(ctx, w) {
+    const c = w.FW / 2, R = w.arenaR, closing = R < ABYSS.r0 - 0.01;
+    ctx.save();
+    if (closing) {
+      annulusPath(ctx, c, c, R, ABYSS.r0 + ABYSS_PAD * 2);
+      ctx.fillStyle = 'rgba(30,4,30,0.5)';
+      ctx.fill('evenodd');
+    }
+    const pulse = 0.55 + 0.45 * Math.sin(w.time * (closing ? 7 : 2.5));
+    ctx.strokeStyle = closing ? `rgba(255,80,190,${0.55 + 0.4 * pulse})` : `rgba(120,230,255,${0.3 + 0.3 * pulse})`;
+    ctx.shadowColor = closing ? '#ff4ab0' : '#6adcff';
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = closing ? 0.45 : 0.3;
+    circle(ctx, c, c, R); ctx.stroke();
+    ctx.lineWidth = 0.12;
+    ctx.setLineDash([0.6, 1.4]);
+    circle(ctx, c, c, R - 0.6); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+    // 結界の要石（ゆっくり回る）
+    ctx.fillStyle = closing ? '#ff8ad0' : '#a8ecff';
+    for (let i = 0; i < 18; i++) {
+      const a = i / 18 * Math.PI * 2 + w.time * 0.08;
+      const x = c + Math.cos(a) * R, y = c + Math.sin(a) * R;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * 0.5, y + Math.sin(a) * 0.5);
+      ctx.lineTo(x - Math.sin(a) * 0.28, y + Math.cos(a) * 0.28);
+      ctx.lineTo(x - Math.cos(a) * 0.5, y - Math.sin(a) * 0.5);
+      ctx.lineTo(x + Math.sin(a) * 0.28, y - Math.cos(a) * 0.28);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+
+  minimap(ctx, w, right, top, max = Infinity) {
+    const size = Math.min(150, max), k = size / w.FW, mx = right - size, my = top;
+    hudPanel(ctx, mx, my, size, size);
+    ctx.strokeStyle = 'rgba(150,220,255,0.4)';
+    circle(ctx, mx + w.FW / 2 * k, my + w.FW / 2 * k, w.arenaR * k); ctx.stroke();
+    return { mx, my, k };
+  },
+};
+
+const FIELD_SHAPES = { strip: STRIP_SHAPE, disc: DISC_SHAPE, arena: ARENA_SHAPE, abyss: ABYSS_SHAPE };
 
 // 出撃タブのフィールド選択カードに描く見取り図（地区の並びと進む向き）
 function drawFieldThumb(cv, F) {
-  const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, n = F.districts.length;
+  const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, n = F.districts ? F.districts.length : 0;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = F.dark ? '#18161b' : '#3b2a1c';
   ctx.fillRect(0, 0, W, H);
@@ -489,7 +689,30 @@ function drawFieldThumb(cv, F) {
   ctx.font = 'bold 10px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if (F.shape === 'disc') {
+  if (F.shape === 'abyss') {
+    // 地底エリア：石の円と、内側へ狭まる結界、向かい合う2機（青 = 自機、赤 = 地底のマシン）
+    const cx = W / 2, cy = H / 2, R = H / 2 - 5;
+    ctx.fillStyle = '#2c2933';
+    circle(ctx, cx, cy, R); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,230,255,0.75)';
+    circle(ctx, cx, cy, R); ctx.stroke();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = 'rgba(255,90,190,0.8)';
+    circle(ctx, cx, cy, R * 0.55); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(255,90,190,0.5)';
+    for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      const x0 = cx + Math.cos(a) * R * 0.92, y0 = cy + Math.sin(a) * R * 0.92, x1 = cx + Math.cos(a) * R * 0.66, y1 = cy + Math.sin(a) * R * 0.66;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+      ctx.lineTo(x1 + Math.cos(a + 2.6) * 4, y1 + Math.sin(a + 2.6) * 4);
+      ctx.moveTo(x1, y1); ctx.lineTo(x1 + Math.cos(a - 2.6) * 4, y1 + Math.sin(a - 2.6) * 4);
+      ctx.stroke();
+    }
+    for (const [k, col] of [[-1, '#5ab0ff'], [1, '#ff5a4a']]) {
+      ctx.fillStyle = col;
+      circle(ctx, cx + k * R * 0.3, cy, 3.5); ctx.fill();
+    }
+  } else if (F.shape === 'disc') {
     const cx = W / 2, cy = H / 2, R = H / 2 - 4, k = R / F.radii[n - 1];
     for (let i = n - 1; i >= 0; i--) {
       ctx.beginPath();

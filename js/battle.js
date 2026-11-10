@@ -119,6 +119,7 @@ function fmtClock(t) {
 function createWorld(save) {
   // field = 出撃するフィールド、geo = その形の処理（field.js）。FW × H = フィールド全体の大きさ
   const F = fieldById(save.field), geo = FIELD_SHAPES[F.shape];
+  if (F.duel) return createAbyssWorld(save, F);   // （地底エリアは templeOpen のときだけ選べる。garage.js / main.js）   // 地底エリア：地底文明のマシンと1対1（abyss.js）
   const { FW, H } = geo.size(F);
   const floor = clamp(save.floor[F.id] | 0, 1, FLOORS);
   const w = {
@@ -246,7 +247,7 @@ const SURGE = {
 
 // 地面に走る亀裂（脈動中に赤く光る）。各地区に枝分かれした線を散らす
 function makeVeins(w) {
-  const nd = w.field.districts.length;
+  const nd = w.field.districts ? w.field.districts.length : 3;   // 地区の無いフィールド（地底エリア）は全体に3地区ぶん
   const grow = (x, y, a, n) => {
     const pts = [[x, y]];
     for (let k = 0; k < n; k++) {
@@ -276,6 +277,7 @@ function surgeBreath(w) { return 0.5 - 0.5 * Math.cos(w.surge.ph * Math.PI * 2);
 function updateSurge(w, dt) {
   const S = w.surge;
   const ok = !w.result && (w.phase === 'fight' || w.phase === 'boss');
+  const dur = w.surgeDur || SURGE.dur, gap = w.surgeGap || SURGE.gap;   // 地底エリアは長さ・間隔が違う（abyss.js）
   if (S.state === 'idle') {
     if (ok) S.t -= dt;
     if (S.t <= 0) {
@@ -288,9 +290,15 @@ function updateSurge(w, dt) {
     if (!ok) S.state = 'fall';
     else if (S.k >= 1) {
       S.state = 'active';
-      S.t = rand(SURGE.dur[0], SURGE.dur[1]);
-      w.banner = { title: T('B010' /* 大地脈動 */), sub: T('B011' /* 赤く脈打つ大地に呼応し、敵性生体が活性化！ */), t: 3 };
-      addLog(w, T('B012' /* 大地が脈動している。敵性生体の活性化を確認！ */), '#ff5a3a');
+      S.t = rand(dur[0], dur[1]);
+      if (w.abyss) {
+        const name = w.abyss.mech.name, k = ABYSS.surge;
+        w.banner = { title: T('B010' /* 大地脈動 */), sub: T('B139' /* {name} が脈動に共鳴！ 回路の処理速度×{k} */, { name, k }), t: 3 };
+        addLog(w, T('B140' /* 大地が脈動している。{name} の回路が加速した！ */, { name }), '#ff5a3a');
+      } else {
+        w.banner = { title: T('B010' /* 大地脈動 */), sub: T('B011' /* 赤く脈打つ大地に呼応し、敵性生体が活性化！ */), t: 3 };
+        addLog(w, T('B012' /* 大地が脈動している。敵性生体の活性化を確認！ */), '#ff5a3a');
+      }
       Sound.play('roar');
     }
   } else if (S.state === 'active') {
@@ -300,7 +308,7 @@ function updateSurge(w, dt) {
     S.k = Math.max(0, S.k - dt / SURGE.fall);
     if (S.k <= 0) {
       S.state = 'idle';
-      S.t = rand(SURGE.gap[0], SURGE.gap[1]);
+      S.t = rand(gap[0], gap[1]);
       if (!w.result) addLog(w, T('B013' /* 大地の脈動が鎮まった。 */), '#9fe0b0');
     }
   }
@@ -1829,6 +1837,7 @@ function drawMech(ctx, w, P, xray) {
     ctx.ellipse(P.x + 0.6 * lift, P.y + 1.4 * lift, 1.5 * (1 - 0.25 * lift), 1.4 * (1 - 0.25 * lift), 0, 0, Math.PI * 2);
     ctx.fill();
   }
+  if (P.skin && w.surge.k > 0.05) drawSurgeAura(ctx, P, w.surge.k, surgeBreath(w));   // 脈動に共鳴する地底のマシン
   if (w.vs) {
     ctx.save();
     ctx.strokeStyle = P.rival ? 'rgba(255,90,70,0.8)' : 'rgba(90,180,255,0.8)';
@@ -1841,7 +1850,7 @@ function drawMech(ctx, w, P, xray) {
   ctx.rotate(P.a);
   if (lift > 0) ctx.scale(1 + 0.35 * lift, 1 + 0.35 * lift);
   drawRobot(ctx, P.st.parts, {
-    time: w.time, walk: P.walk, hit: P.hit, xray, noShadow: lift > 0,
+    time: w.time, walk: P.walk, hit: P.hit, xray, noShadow: lift > 0, skin: P.skin, surge: w.surge.k,
     armL: { recoil: P.arms.L.recoil, flash: P.arms.L.flash },
     armR: { recoil: P.arms.R.recoil, flash: P.arms.R.flash },
   });
@@ -2772,7 +2781,7 @@ const Battle = {
     this.manual = false;
     this.jumpReq = false;   // 手動操作で Shift が押された（次のシミュレーションでジャンプ）
     this.xray = false;
-    this.vsMode = !!vs;
+    this.vsMode = !!this.world.vs;   // 1対1（対戦・地底エリア）
     this.zoomK = 1;            // ホイール・ピンチで変えたズームの倍率（1m あたりのピクセル数 zoom は applyZoom で決める）
     this.cam = { x: this.world.player.x, y: this.world.player.y };
     this.yaw2d = null;   // 2D の背後の向きのカメラの向き（null = 機体の向きに合わせる）
@@ -2790,7 +2799,7 @@ const Battle = {
     document.getElementById('confirm-no').onclick = () => this.answerConfirm(false);
     this.running = true;
     View3D.attach(this);   // 設定が 3D なら 3D で描く（view3d.js）
-    Sound.playBgm(vs ? 'boss' : 'battle');
+    Sound.playBgm(this.vsMode ? 'boss' : 'battle');
     requestAnimationFrame(this.loop);
   },
 
@@ -2875,10 +2884,10 @@ const Battle = {
     this.applyZoom();
   },
 
-  // 1m あたりのピクセル数。小さい画面ほど引いて広く見せる（1920×1080 前後で 24、対戦は闘技場を見渡せるよう 16）
+  // 1m あたりのピクセル数。小さい画面ほど引いて広く見せる（1920×1080 前後で 24、対戦は闘技場を見渡せるよう 16、地底エリアは 14）
   applyZoom() {
     const fit = clamp(Math.sqrt(this.VW * this.VH) / 1300, 0.42, 1);
-    this.zoom = clamp((this.vsMode ? 16 : 24) * fit * this.zoomK, 4, 48);
+    this.zoom = clamp((this.vsMode ? (this.world.abyss ? 14 : 16) : 24) * fit * this.zoomK, 4, 48);
     View3D.resize();
   },
 
@@ -2890,7 +2899,7 @@ const Battle = {
   // 画面下の操作ボタン（スマートフォンなどキーの無い端末用。キー操作と同じことをする）
   bindCtl() {
     const bar = document.getElementById('battle-ctl');
-    bar.querySelector('[data-act=retreat]').textContent = this.vsMode ? T('B113' /* 降参 */) : T('B112' /* 撤退 */);
+    bar.querySelector('[data-act=retreat]').textContent = this.vsMode && !this.world.abyss ? T('B113' /* 降参 */) : T('B112' /* 撤退 */);
     bar.querySelectorAll('button').forEach(b => {
       b.onclick = () => {
         b.blur();   // 押したボタンにフォーカスが残ると、Space キーでもう一度押されてしまう
@@ -2949,7 +2958,8 @@ const Battle = {
     const was = this.paused;
     this.paused = true;
     this.syncCtl();
-    const ok = await Ask.open(w.vs ? T('B115' /* 降参しますか？ */) : T('B114' /* 撤退しますか？ フィールドに残っている鉱石とブースターは持ち… */));
+    const ok = await Ask.open(w.abyss ? T('B141' /* 撤退しますか？ この層の戦いは負けになります。 */)
+      : w.vs ? T('B115' /* 降参しますか？ */) : T('B114' /* 撤退しますか？ フィールドに残っている鉱石とブースターは持ち… */));
     this.paused = was;
     this.syncCtl();
     this.last = performance.now();
@@ -3149,7 +3159,8 @@ const Battle = {
 
     if (w.vs && w.result && w.endT > 3.2) {
       this.stop();
-      Game.endVersus(w);
+      if (w.abyss) Game.endAbyss(w);
+      else Game.endVersus(w);
       return;
     }
     if (w.result && w.endT > 3.2) {
@@ -3157,7 +3168,7 @@ const Battle = {
       const res = finishOre(w);
       Game.addOre(res.gain);
       Game.addParts(res.parts);
-      if (w.result === 'win') w.unlocked = Game.unlockFloor(w.field.id, w.floor);
+      if (w.result === 'win') Game.recordWin(w);
       Report.show(w);
       return;
     }

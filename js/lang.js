@@ -86,6 +86,7 @@ const TEXT = {
   },
   C027: { ja: 'セーブを読み込みました。', en: 'Save loaded.' },
   C028: { ja: 'セーブを保存できませんでした。（ブラウザの保存領域が使えません）', en: 'Could not store the save. (Browser storage is unavailable.)' },
+  C029: { ja: 'レベル{n}', en: 'Level {n}' },
 
   // ---------------------------------------------------------------- G：ガレージ
   G001: { ja: '① 組立', en: '① Assembly' },
@@ -366,6 +367,30 @@ Ore gained: {txt}{warn}
     en: ({ name, n }) => `${n} tile${n === 1 ? '' : 's'} in the circuit of "${name}" could not be loaded and ${n === 1 ? 'was' : 'were'} left empty.`,
   },
   G178: { ja: 'HP {hp} / 速度 {speed}m/s / 火力 {dps}', en: 'HP {hp} / Speed {speed}m/s / Firepower {dps}' },
+  G179: { ja: '出撃準備 — {name} {floor}「{sub}」', en: 'Sortie Prep — {name} {floor} "{sub}"' },
+  G180: { ja: '全{floors}層 × 地底のマシンと1対1（到達 {reached}）', en: '{floors} floors × 1-on-1 vs. a subterranean machine (reached {reached})' },
+  G181: { ja: 'ひとつ上の層の地底のマシンを倒すと解放', en: 'Defeat the subterranean machine of the floor above to unlock' },
+  G182: {
+    ja: '{floor}「{sub}」の相手：<b>{name}</b> <small>倒すと次の層が解放されます。</small>',
+    en: 'Opponent on {floor} "{sub}": <b>{name}</b> <small>Defeat it to unlock the next floor.</small>',
+  },
+  G183: { ja: '耐久', en: 'HP' },
+  G184: { ja: '回路', en: 'Circuit' },
+  G185: { ja: '勝利報酬：{ore} ＋ ブースター1個', en: 'Victory reward: {ore} + 1 booster' },
+  G187: { ja: 'マシンのレベル', en: 'Machine level' },
+  G188: { ja: 'パーツ強化 Lv{lv} / 勝利報酬 ×{mul}', en: 'Parts upgraded to Lv{lv} / Victory reward ×{mul}' },
+  G189: {
+    ja: '{level}：強化できるパーツがすべて Lv{lv}。レベルが高いほど勝利報酬の鉱石が多く、ブースターの +値も出やすい。',
+    en: '{level}: every upgradable part is Lv{lv}. Higher levels give more ore and better odds of high-bonus boosters.',
+  },
+  G190: { ja: 'レベル{n}をクリアすると解放', en: 'Clear level {n} to unlock' },
+
+  G186: {
+    ja: `聖域の半径は{r}m。{at}秒から結界が狭まり、{end}秒で半径{min}mになる。{time}秒で決着がつかなければ残りHPの割合で勝敗を決める。<br>
+      <b style="color:#ff7a5a">大地の脈動</b>が起きると、地底のマシンは脈動に共鳴して<b>回路の処理速度が×{k}</b>になり、判断と反応が速くなる。脈動の間はしのぎ、鎮まってから攻めるのが定石。`,
+    en: `The sanctum is {r}m in radius. From {at}s the barrier closes in, reaching a {min}m radius at {end}s. If there is no winner by {time}s, the remaining HP percentage decides.<br>
+      When an <b style="color:#ff7a5a">earth pulse</b> occurs, the subterranean machine resonates with it: <b>its circuit runs ×{k} faster</b>, so it decides and reacts faster. Hold out while it pulses and strike once it subsides.`,
+  },
 
   // ---------------------------------------------------------------- B：戦闘（ログ・HUD・地区掃討後の確認）
   B001: { ja: '基地に帰還（N）', en: 'Return to base (N)' },
@@ -510,6 +535,21 @@ Ore gained: {txt}{warn}
   B128: { ja: '背後', en: 'Behind' },
   B129: { ja: '3D は自機の背後からの視点です', en: '3D views from behind your machine' },
   B130: { ja: '再開（Space）', en: 'Resume (Space)' },
+  B131: { ja: '{field} {floor}「{sub}」へ降下。', en: 'Descended to {field} {floor} "{sub}".' },
+  B132: { ja: '地底文明のマシン {name} が起動した。', en: 'The subterranean machine {name} has awakened.' },
+  B133: { ja: '聖域の結界が収縮を開始！', en: 'The sanctum barrier is closing in!' },
+  B134: { ja: '地底のマシン：{name}', en: 'SUBTERRANEAN: {name}' },
+  B135: { ja: '結界の収縮まで {t}', en: 'Barrier closes in {t}' },
+  B136: { ja: '結界 収縮中（半径 {r}m）', en: 'Barrier closing (radius {r}m)' },
+  B137: { ja: '脈動共鳴：{name} 回路の処理速度×{k}', en: 'Pulse resonance: {name} circuit speed ×{k}' },
+  B138: {
+    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]撤退',
+    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Retreat',
+  },
+  B139: { ja: '{name} が脈動に共鳴！ 回路の処理速度×{k}', en: '{name} resonates with the pulse! Circuit speed ×{k}' },
+  B140: { ja: '大地が脈動している。{name} の回路が加速した！', en: 'The ground is pulsing. The circuit of {name} has sped up!' },
+  B141: { ja: '撤退しますか？ この層の戦いは負けになります。', en: 'Retreat? This floor\'s battle will count as a loss.' },
+  B142: { ja: '{name} のレベル：{level}（パーツ強化 Lv{lv}）', en: '{name} level: {level} (parts upgraded to Lv{lv})' },
 
   // ---------------------------------------------------------------- R：戦闘レポート
   R001: { ja: '任務完了 — {floor} 制圧・ボス撃破', en: 'Mission Complete — {floor} secured, boss destroyed' },
@@ -614,6 +654,29 @@ Ore gained: {txt}{warn}
   },
   R071: { ja: '練習相手との対戦は戦績に残りません。', en: 'Matches against sparring partners are not recorded.' },
   R072: { ja: '対戦データ', en: 'Match Data' },
+  R073: { ja: '撤退 — {name} との戦いを中断', en: 'Retreat — battle with {name} abandoned' },
+  R074: { ja: '{field} {floor}「{sub}」 {level} / 戦闘時間 {time}', en: '{field} {floor} "{sub}" {level} / Battle time {time}' },
+  R075: { ja: '地底のマシン', en: 'Subterranean' },
+  R076: { ja: '持ち帰り', en: 'Brought Back' },
+  R077: {
+    ja: '{floor}「{sub}」が解放されました。次の相手は {name}。出撃タブで層を選び直せます。',
+    en: '{floor} "{sub}" is now unlocked. Your next opponent is {name}. You can pick a different floor on the Sortie tab.',
+  },
+  R078: {
+    ja: '{field}の最深部を制圧しました。{name} を倒した今も、地の底の鼓動は止まらない……',
+    en: 'You secured the deepest level of {field}. Even with {name} defeated, the heartbeat beneath the earth goes on...',
+  },
+  R079: {
+    ja: '脈動中の{name}は回路の処理速度が×{k}になり、回避や攻撃の判断が速くなります。脈動の間は「敵弾」「HP残量」の判定で距離を取ってしのぎ、鎮まってから攻めると有利です。',
+    en: 'While the earth pulses, the circuit of {name} runs ×{k} faster, so it dodges and attacks more quickly. Use "Enemy shot" and "HP" checks to keep your distance until it subsides, then go on the offensive.',
+  },
+  R080: { ja: '次の層へ出撃', en: 'Sortie to Next Floor' },
+  R081: { ja: '{name}の{level}が解放されました。', en: '{level} of {name} is now unlocked.' },
+  R082: { ja: '次のレベルへ出撃', en: 'Sortie at Next Level' },
+  R083: {
+    ja: '荒野と洞窟の最深部を制圧した。地の底への道が開く……出撃タブに「{name}」が現れました。',
+    en: 'You have conquered the depths of both the wasteland and the cave. A path into the earth opens... "{name}" has appeared on the Sortie tab.',
+  },
 
   // ---------------------------------------------------------------- データ：スロット（スケルトンジョイント）
   'slot.headCpu.label': { ja: '頭部A', en: 'Head A' },
@@ -785,6 +848,31 @@ Ore gained: {txt}{warn}
   'field.arena.desc': {
     ja: '半径{r}mの円形闘技場。岩は中心に対して点対称に置かれ、どちらの開始位置からも同じ地形になる。{at}秒から外周の電磁柵が半径{min}mまで狭まり、{time}秒で決着がつかなければ残りHPの割合で勝敗を決める。',
     en: 'A circular arena {r}m in radius. Rocks are placed point-symmetrically, so both starting positions see the same terrain. From {at}s the perimeter fence closes in to a {min}m radius; if there is no winner by {time}s, the remaining HP percentage decides.',
+  },
+  'field.abyss.name': { ja: '地底神殿「鼓動の聖域」', en: 'Underground Temple "Sanctum of the Pulse"' },
+  'field.abyss.desc': {
+    ja: '地底文明が遺した円形の聖域。各層で地底のマシン1機と回路どうしで戦う。時間とともに結界が狭まり、大地の脈動中は相手が脈動に共鳴して回路の処理速度が{k}倍になる。勝てば次の層が解放され、鉱石とブースターを持ち帰れる。',
+    en: 'A circular sanctum left by a subterranean civilization. On each floor you face one subterranean machine, circuit against circuit. The barrier closes in over time, and during an earth pulse your opponent resonates with it and its circuit runs {k}× faster. Win to unlock the next floor and bring back ore and a booster.',
+  },
+
+  // ---------------------------------------------------------------- データ：地底エリアのマシン（abyss.js の ABYSS_MECHS。sub = 層の名前）
+  'abyss.arkes.name': { ja: '守門機アルケス', en: 'Gatekeeper Arkes' },
+  'abyss.arkes.sub': { ja: '門の回廊', en: 'Corridor of Gates' },
+  'abyss.arkes.desc': {
+    ja: '聖域の門を守る番兵。ガトリングで間合いを詰め、光の刃で斬り伏せる。弾が迫れば前へ跳んでかわし、そのまま斬りかかる。',
+    en: 'The sentinel of the sanctum gates. It closes in under gatling fire and cuts you down with a blade of light. When shots come in, it leaps forward over them and strikes as it lands.',
+  },
+  'abyss.vesperia.name': { ja: '祭祀機ヴェスペリア', en: 'Ritualist Vesperia' },
+  'abyss.vesperia.sub': { ja: '祭儀の円庭', en: 'Ritual Court' },
+  'abyss.vesperia.desc': {
+    ja: '脈動を祀る祭祀の機体。距離を保ってミサイルと貫通榴弾を浴びせ、近づかれると跳んで逃れる。',
+    en: 'A ritual machine that worships the pulse. It keeps its distance, raining missiles and piercing shells, and leaps away when you get close.',
+  },
+  'abyss.zenordia.name': { ja: '王機ゼノ＝オルディア', en: 'Sovereign Xeno-Ordia' },
+  'abyss.zenordia.sub': { ja: '王の心臓', en: 'Heart of the King' },
+  'abyss.zenordia.desc': {
+    ja: '地底文明の王の機体。六本の脚で滑るように回り込み、出力を自在に切り替えて貫通榴弾とガトリングを撃ち込む。',
+    en: 'The machine of the subterranean king. It glides around you on six legs, shifting its output at will as it pours in piercing shells and gatling fire.',
   },
 
   // ---------------------------------------------------------------- データ：回路タイルの分類

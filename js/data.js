@@ -301,6 +301,9 @@ function randomDropPart(floor) {
   return { cat: p.cat, id: p.id, bonus: rollBonus(floor) };
 }
 
+// 出撃タブで選べる1地区あたりのエネミー数
+const ENEMY_COUNT_MIN = 20, ENEMY_COUNT_MAX = 100;
+
 // 同時にフィールドにいる一般エネミーの上限（残りは増援として順次出現）
 const MAX_ACTIVE_ENEMIES = 30;
 
@@ -313,9 +316,31 @@ const DISTRICTS = [
   { name: T('district.wasteland.3.name' /* 第3地区 */), sub: T('district.wasteland.3.sub' /* 灼砂の窪地 */), tint: 'rgba(160,60,20,0.16)',   troll: 5, spitter: 3 },
 ];
 
+// ---------------------------------------------------------------------
+//  地底エリア（abyss.js）：各層で地底文明のマシン1機と1対1で戦う（全 floors 層）
+//   闘技場（VS）と同じく時間とともに外周の結界が狭まる。対戦と違い大地の脈動が起き、
+//   脈動中の地底のマシンは回路の処理速度が ×surge になる（攻撃力・防御力は変わらない）
+// ---------------------------------------------------------------------
+const ABYSS = {
+  floors: 3,
+  time: 150,          // 制限時間（秒）。決着がつかなければ残りHPの割合で判定
+  count: 3,           // 開始前のカウントダウン（秒）
+  r0: 42,             // 聖域の半径(m)
+  shrinkAt: 70, shrinkEnd: 130, rMin: 13,   // 70秒から130秒にかけて、結界が半径13mまで狭まる
+  gap: 36,            // 開始時の2機の距離(m)
+  dmg: 0.5,           // 機体どうしのダメージの倍率（対戦の半分。脈動をはさむ長めの戦いにする）
+  surge: 2,           // 脈動中（最大時）の地底のマシンの回路の処理速度の倍率
+  surgeFirst: [18, 28], surgeDur: [16, 22], surgeGap: [28, 40],   // 最初の脈動までの秒数 / 続く秒数 / 鎮まってから次までの秒数
+  // 地底のマシンのレベル（出撃タブで選ぶ5段階）。レベル n で、強化できるパーツがすべて強化 Lv levels[n-1] になる
+  levels: [2, 4, 6, 8, 10],
+  rewardMul: [0.6, 0.8, 1, 1.3, 1.6],   // レベルごとの勝利報酬（鉱石）の倍率
+  bonusShift: [-2, -1, 0, 1, 2],        // レベルごとに、持ち帰るブースターの +値の出やすさを何層ぶんずらすか
+};
+
 // 出撃できるフィールド。shape で形が決まる（field.js）
 //   strip … 横に並ぶ長方形の地区（dw × h）
 //   disc  … 円形。中心の円が第1地区で、外側の輪へ広がる（radii = 各地区の外周の半径）
+//   abyss … 地底エリア。duel: true = 地区もエネミーの群れも無く、層ごとに地底のマシンと1対1（abyss.js）
 const FIELDS = [
   {
     id: 'wasteland', name: T('field.wasteland.name' /* 荒野 第7区画 */), shape: 'strip', dw: DISTRICT_W, h: DISTRICT_H,
@@ -335,10 +360,29 @@ const FIELDS = [
     ],
     rocksPer: 6, rockR: [2, 4.5], decorN: 500, decor: ['pebble', 'pebble', 'crack', 'bone', 'crystal', 'crystal', 'stalag', 'stalag'],
   },
+  {
+    id: 'abyss', name: T('field.abyss.name' /* 地底神殿「鼓動の聖域」 */), shape: 'abyss', duel: true, floors: ABYSS.floors, dark: true,
+    desc: T('field.abyss.desc' /* 地底文明が遺した円形の聖域。各層で地底のマシン1機と回路どう… */, { k: ABYSS.surge }),
+    rockPairs: 2, rockR: [1.6, 2.6], decorN: 260, decor: ['pebble', 'pebble', 'crack', 'crack', 'crystal', 'bone'],
+  },
 ];
 
 function fieldById(id) {
   return FIELDS.find(f => f.id === id) || FIELDS[0];
+}
+
+// 地底エリア（duel）は、ほかのフィールド（荒野・洞窟）をすべて最深部（第 FLOORS 層のボス）まで制圧すると現れる
+//   save.conquered = フィールドの id → 最深部を制圧したか
+function templeOpen(save) {
+  return FIELDS.every(f => f.duel || !!(save.conquered && save.conquered[f.id]));
+}
+function fieldOpen(save, F) {
+  return !F.duel || templeOpen(save);
+}
+
+// フィールドの層の数（地底エリアは ABYSS.floors 層、ほかは FLOORS 層）
+function fieldFloors(F) {
+  return F.floors || FLOORS;
 }
 
 // ---------------------------------------------------------------------
@@ -361,7 +405,7 @@ const VS_FIELD = {
   rockPairs: 3, rockR: [1.8, 3], decorN: 240, decor: ['pebble', 'pebble', 'pebble', 'crack', 'crack', 'bone'],
 };
 
-// 階層：どのフィールドも第1〜第 FLOORS 層（各層は同じ3地区＋ボス）。
+// 階層：荒野・洞窟は第1〜第 FLOORS 層（各層は同じ3地区＋ボス。地底エリアは ABYSS.floors 層）。
 // 下の層ほどエネミー（ボス含む）の耐久・攻撃力が上がり、落とす鉱石も増える。ボスを倒すと次の層が解放される
 const FLOORS = 8;
 const FLOOR_STEP = { hp: 0.3, dmg: 0.15, ore: 0.15 };   // 1層下がるごとの増加（第8層で 耐久×3.1 / 攻撃×2.05 / 鉱石×2.05）
@@ -477,7 +521,7 @@ function defaultSave() {
     program: null,     // 出撃に使う回路（programs[progSlot] と同じもの。下で入れる）
     programs: [defaultProgram(), defaultProgram(), defaultProgram()],   // 保存しておける回路（PROG_SLOTS 個）
     progSlot: 0,       // 選んでいる回路の番号
-    enemyCount: 20,
+    enemyCount: 20,    // 1地区あたりのエネミー数（ENEMY_COUNT_MIN〜ENEMY_COUNT_MAX）
     field: 'wasteland',   // 出撃するフィールド（FIELDS の id）
     floor: emptyFloors(1),     // フィールド id → 出撃する層
     reached: emptyFloors(1),   // フィールド id → 解放済みの一番深い層
@@ -490,6 +534,11 @@ function defaultSave() {
     rivals: [],        // 読み込んだ対戦相手 { id, data（対戦用データのファイルの中身）, rec: { w, l, d }（戦績）, got }
     vsSel: 'self0',    // 選んでいる対戦相手（rivals の id。self0〜2 は自分の機体の回路1〜3）
     vsFlat: false,     // 強化とブースターを無効にして戦う
+    // 地底エリア（abyss.js）：地底のマシンのレベル。マシンの id → 選んでいるレベル / クリアした一番高いレベル
+    //   各マシンはレベル1から。レベル n をクリアするとレベル n+1 が解放される（abyssMaxLv）
+    abyssLv: {},
+    abyssClear: {},
+    conquered: {},     // フィールドの id → 最深部（第 FLOORS 層）のボスを倒したか。荒野・洞窟の両方で地底エリアが現れる
   };
   s.program = s.programs[0];
   return s;

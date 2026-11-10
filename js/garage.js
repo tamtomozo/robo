@@ -144,6 +144,8 @@ const Garage = {
       this.undo();
     });
     const ec = document.getElementById('enemyCount');
+    ec.min = ENEMY_COUNT_MIN;   // 範囲は data.js（index.html の min / max と同じ値）
+    ec.max = ENEMY_COUNT_MAX;
     ec.oninput = () => {
       Game.save.enemyCount = +ec.value;
       Game.persist();
@@ -170,6 +172,7 @@ const Garage = {
       this.t += dt;
       this.walk += dt * 2.5;
       this.drawPreview();
+      this.drawPortrait();   // 出撃タブ：地底のマシンの姿
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
@@ -952,32 +955,53 @@ const Garage = {
   // ------------------------------------------------------------ 出撃
   renderSortie() {
     const n = Game.save.enemyCount;
+    // 地底エリアは荒野・洞窟の最深部を両方制圧するまで出さない（選んでいれば荒野に戻す）
+    const fields = FIELDS.filter(f => fieldOpen(Game.save, f));
+    if (!fields.some(f => f.id === Game.save.field)) Game.save.field = fields[0].id;
     const F = fieldById(Game.save.field), DS = F.districts;
     const reached = Game.save.reached, floor = Game.save.floor[F.id], fm = floorMul(floor);
-    document.getElementById('sortie-title').textContent = T('G125' /* 出撃準備 — {name} {floor}（全{count}… */, { name: F.name, floor: floorName(floor), count: DS.length });
+    const M = F.duel ? abyssMech(floor) : null;   // 地底エリア：この層の地底のマシン（abyss.js）
+    document.getElementById('sortie-title').textContent = M
+      ? T('G179' /* 出撃準備 — {name} {floor}「{sub}」 */, { name: F.name, floor: floorName(floor), sub: M.sub })
+      : T('G125' /* 出撃準備 — {name} {floor}（全{count}… */, { name: F.name, floor: floorName(floor), count: DS.length });
     const fs = document.getElementById('field-select');
-    fs.innerHTML = FIELDS.map(f => `
-      <button class="field-card ${f.id === F.id ? 'sel' : ''}" data-id="${f.id}">
+    fs.innerHTML = fields.map(f => `
+      <button class="field-card ${f.id === F.id ? 'sel' : ''}${f.duel ? ' duel' : ''}" data-id="${f.id}">
         <canvas width="96" height="72"></canvas>
-        <span><b>${f.name}</b><small>${T('G126' /* 全{floors}層 × {districts}地区（到達 … */, { floors: FLOORS, districts: f.districts.length, reached: floorName(reached[f.id]) })}</small><em>${f.desc}</em></span>
+        <span><b>${f.name}</b><small>${f.duel ? T('G180' /* 全{floors}層 × 地底のマシンと1対1（到達 {re… */, { floors: fieldFloors(f), reached: floorName(reached[f.id]) })
+          : T('G126' /* 全{floors}層 × {districts}地区（到達 … */, { floors: FLOORS, districts: f.districts.length, reached: floorName(reached[f.id]) })}</small><em>${f.desc}</em></span>
       </button>`).join('');
     fs.querySelectorAll('.field-card').forEach((b, i) => {
-      drawFieldThumb(b.querySelector('canvas'), FIELDS[i]);
+      drawFieldThumb(b.querySelector('canvas'), fields[i]);
       b.onclick = () => { Game.save.field = b.dataset.id; Game.persist(); this.renderSortie(); };
     });
-    // 層の選択：ボスを倒すと次の層が解放される
+    // 層の選択：ボス（地底エリアは地底のマシン）を倒すと次の層が解放される
     const fl = document.getElementById('floor-select');
     let btns = '';
-    for (let f = 1; f <= FLOORS; f++) {
+    for (let f = 1; f <= fieldFloors(F); f++) {
       const lock = f > reached[F.id];
+      const tip = F.duel ? (lock ? T('G181' /* ひとつ上の層の地底のマシンを倒すと解放 */) : abyssMech(f).name)
+        : lock ? T('G127' /* 一つ上の層のボスを倒すと解放 */) : T('G128' /* 耐久 {hp} / 攻撃力 {dmg} */, { hp: fmtMul(floorMul(f).hp), dmg: fmtMul(floorMul(f).dmg) });
       btns += `<button class="${f === floor ? 'sel' : ''}${lock ? ' lock' : ''}" data-f="${f}" ${lock ? 'disabled' : ''}
-        title="${lock ? T('G127' /* 一つ上の層のボスを倒すと解放 */) : T('G128' /* 耐久 {hp} / 攻撃力 {dmg} */, { hp: fmtMul(floorMul(f).hp), dmg: fmtMul(floorMul(f).dmg) })}">${lock ? '🔒' : ''}${floorName(f)}</button>`;
+        title="${tip}">${lock ? '🔒' : ''}${floorName(f)}</button>`;
     }
     fl.innerHTML = `<div class="floor-btns">${btns}</div>
-      <p>${T('G129' /* {floor}のエネミー（ボス含む）：耐久 {hp} / 攻… */, { floor: floorName(floor), hp: fmtMul(fm.hp), dmg: fmtMul(fm.dmg), ore: fmtMul(fm.ore) })}</p>`;
+      <p>${M ? T('G182' /* {floor}「{sub}」の相手：{name} 倒すと次の… */, { floor: floorName(floor), sub: M.sub, name: M.name })
+        : T('G129' /* {floor}のエネミー（ボス含む）：耐久 {hp} / 攻… */, { floor: floorName(floor), hp: fmtMul(fm.hp), dmg: fmtMul(fm.dmg), ore: fmtMul(fm.ore) })}</p>`;
     fl.querySelectorAll('button:not([disabled])').forEach(b => {
       b.onclick = () => { Game.save.floor[F.id] = +b.dataset.f; Game.persist(); this.renderSortie(); };
     });
+    // 地底エリアはエネミーの数を選ばない（地区ごとの構成の代わりに、この層の地底のマシンを見せる）
+    document.querySelector('#tab-sortie .cnt-row').style.display = M ? 'none' : '';
+    if (M) this.renderAbyssInfo(F, M, floor, abyssSelLv(Game.save, M));
+    else this.renderComposition(F, n, floor);
+    this.renderSortieCheck();
+  },
+
+  // 地区ごとのエネミーの構成（荒野・洞窟）
+  renderComposition(F, n, floor) {
+    const DS = F.districts;
+    this.portrait = null;
     document.getElementById('enemyCount').value = n;
     document.getElementById('enemyCountVal').textContent = T('G145' /* {n} 体 */, { n });
     const rows = DS.map((D, i) => {
@@ -993,6 +1017,64 @@ const Garage = {
         </tbody>
       </table>
       <p class="muted">${T('G135' /* 活動限界は{limit}分。3地区とボス戦を{seg}分ずつ… */, { chance: Math.round(RARE.chance * 100), prefix: RARE.prefix, surge: RARE.surgeMul, hp: RARE.hp, min: BONUS_MIN, max: BONUS_MAX, limit: ACT_LIMIT / 60, seg: ACT_SEG / 60 })}</p>`;
+  },
+
+  // 地底エリア：この層の地底のマシン（姿・装備・耐久）とルール・勝利報酬
+  renderAbyssInfo(F, M, floor, lv) {
+    const st = abyssStats(M, lv);
+    // レベルの選択（5段階）。レベル1から、クリアするごとに次のレベルが解放される（クリア済みは ✔）
+    const max = abyssMaxLv(Game.save, M), cleared = Game.save.abyssClear[M.id] | 0;
+    const lvBtns = ABYSS.levels.map((L, i) => {
+      const n = i + 1, lock = n > max;
+      const tip = lock ? T('G190' /* レベル{n}をクリアすると解放 */, { n: n - 1 }) : T('G188' /* パーツ強化 Lv{lv} / 勝利報酬 ×{mul} */, { lv: L, mul: ABYSS.rewardMul[i] });
+      return `<button class="${n === lv ? 'sel' : ''}${lock ? ' lock' : ''}" data-lv="${n}" ${lock ? 'disabled' : ''} title="${tip}">${lock ? '🔒' : ''}${T('C029' /* レベル{n} */, { n })}${n <= cleared ? ' ✔' : ''}</button>`;
+    }).join('');
+    const rows = SLOTS.map(s => {
+      const p = st.parts[s.key];
+      return `<tr><th>${s.label}</th><td>${partLabel(p)}${p.lv ? ` <small>Lv${p.lv}</small>` : ''}</td></tr>`;
+    }).join('');
+    const ore = abyssRewardOre(M, lv);
+    document.getElementById('composition').innerHTML = `
+      <div class="abyss-lv">
+        <b>${T('G187' /* マシンのレベル */)}</b>
+        <div class="floor-btns">${lvBtns}</div>
+        <small>${T('G189' /* {level}：強化できるパーツがすべて Lv{lv}。レベ… */, { level: T('C029' /* レベル{n} */, { n: lv }), lv: ABYSS.levels[lv - 1] })}</small>
+      </div>
+      <div class="abyss-foe">
+        <canvas id="abyss-portrait" width="168" height="168"></canvas>
+        <div class="abyss-info">
+          <h3>${M.name} <small>${T('C014' /* {name}「{sub}」 */, { name: floorName(floor), sub: M.sub })} / ${T('C029' /* レベル{n} */, { n: lv })}</small></h3>
+          <p>${M.desc}</p>
+          <table class="abyss-tbl">${rows}
+            <tr><th>${T('G183' /* 耐久 */)}</th><td><b>${st.hp}</b></td></tr>
+            <tr><th>${T('G184' /* 回路 */)}</th><td>${st.grid}×${st.grid} @${fmtNum(st.clock)}Hz</td></tr>
+          </table>
+          <p class="ore-line">${T('G185' /* 勝利報酬：{ore} ＋ ブースター1個 */, { ore: oreHTML(ore) })}</p>
+        </div>
+      </div>
+      <p class="muted">${T('G186' /* 聖域の半径は{r}m。{at}秒から結界が狭まり、{end}… */, { r: ABYSS.r0, at: ABYSS.shrinkAt, end: ABYSS.shrinkEnd, min: ABYSS.rMin, time: ABYSS.time, k: ABYSS.surge })}</p>`;
+    document.querySelectorAll('#composition .abyss-lv button:not([disabled])').forEach(b => {
+      b.onclick = () => { Game.save.abyssLv[M.id] = +b.dataset.lv; Game.persist(); Sound.play('ui'); this.renderSortie(); };
+    });
+    this.portrait = { cv: document.getElementById('abyss-portrait'), parts: st.parts, skin: M.skin };
+    this.drawPortrait();
+  },
+
+  // 地底のマシンの姿（上が正面）。ガレージの描画ループで毎フレーム描き、発光を明滅させる。見えていなければ描かない
+  drawPortrait() {
+    const pt = this.portrait;
+    if (!pt || !pt.cv.isConnected || !pt.cv.offsetParent) return;
+    const g = pt.cv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, pt.cv.width, pt.cv.height);
+    g.translate(pt.cv.width / 2, pt.cv.height / 2 + 6);
+    g.scale(34, 34);
+    g.rotate(-Math.PI / 2);
+    drawRobot(g, pt.parts, { time: this.t, skin: pt.skin });
+  },
+
+  // 出撃前の確認（自機の構成と回路）
+  renderSortieCheck() {
     const st = computeStats(Game.save.build, null, Game.save.upgrades);
     const prog = Game.save.program;
     const warns = [];

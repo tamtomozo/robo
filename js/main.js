@@ -76,9 +76,12 @@ const Game = {
     // 階層：解放済みの層と出撃する層（階層の無い頃のセーブは第1層から）
     const reached = d.reached, floor = d.floor;
     for (const f of FIELDS) {
-      reached[f.id] = clamp((s.reached && s.reached[f.id]) | 0, 1, FLOORS);
+      reached[f.id] = clamp((s.reached && s.reached[f.id]) | 0, 1, fieldFloors(f));
       floor[f.id] = clamp((s.floor && s.floor[f.id]) | 0, 1, reached[f.id]);
     }
+    // 最深部の制圧（地底エリアが現れる条件）
+    const conquered = {};
+    for (const f of FIELDS) if (s.conquered && s.conquered[f.id] === true) conquered[f.id] = true;
     // 回路：保存枠（枠の無い頃のセーブは今の回路を1番に入れる）
     const okProg = p => Array.isArray(p) && p.length === MAX_GRID * MAX_GRID;
     const progSlot = clamp(s.progSlot | 0, 0, PROG_SLOTS - 1);
@@ -93,11 +96,12 @@ const Game = {
       rivals.push({ id: String(r.id), data: machineToData(v.m), rec: { w: rec.w | 0, l: rec.l | 0, d: rec.d | 0 }, got: +r.got || 0 });
     }
     return {
-      build, program: s.program, programs, progSlot, enemyCount: clamp((s.enemyCount | 0) || d.enemyCount, 1, 100),
-      field: fieldById(s.field).id, floor, reached,
+      build, program: s.program, programs, progSlot, enemyCount: clamp((s.enemyCount | 0) || d.enemyCount, ENEMY_COUNT_MIN, ENEMY_COUNT_MAX),
+      field: fieldOpen({ conquered }, fieldById(s.field)) ? fieldById(s.field).id : d.field, floor, reached, conquered,
       ore, upgrades,
       stock, nextUid: Math.max((s.nextUid | 0) || 1, ...stock.map(it => it.uid + 1)),
       pilot: cleanName(s.pilot), rivals, vsSel: typeof s.vsSel === 'string' ? s.vsSel : d.vsSel, vsFlat: !!s.vsFlat,
+      ...abyssFromObj(s),
     };
   },
 
@@ -120,8 +124,20 @@ const Game = {
   },
 
   // ボスを倒した層の次の層を解放する（初めて解放したら次の出撃先にする）。解放した層を返す
+  // 出撃（荒野・洞窟）でボスを倒したとき：次の層を解放し、最深部なら制圧を記録する。
+  // 荒野と洞窟の両方を制圧して地底エリアが初めて現れたら w.templeOpened（レポートで知らせる）
+  recordWin(w) {
+    const before = templeOpen(this.save);
+    w.unlocked = this.unlockFloor(w.field.id, w.floor);
+    if (w.floor >= fieldFloors(w.field)) {
+      this.save.conquered[w.field.id] = true;
+      this.persist();
+    }
+    if (!before && templeOpen(this.save)) w.templeOpened = true;
+  },
+
   unlockFloor(fieldId, floor) {
-    const next = Math.min(FLOORS, floor + 1);
+    const next = Math.min(fieldFloors(fieldById(fieldId)), floor + 1);
     if (next <= this.save.reached[fieldId]) return 0;
     this.save.reached[fieldId] = next;
     this.save.floor[fieldId] = next;
@@ -181,6 +197,19 @@ const Game = {
       r.rec[{ win: 'w', lose: 'l', draw: 'd' }[w.result]]++;
       this.persist();
       w.rec = Object.assign({}, r.rec);
+    }
+    Report.showVersus(w);
+  },
+
+  // 地底エリア（abyss.js）の戦いが終わったとき：勝てば鉱石とブースターを持ち帰り、次の層を解放してから結果を見せる
+  endAbyss(w) {
+    if (w.result === 'win') {
+      const rw = w.reward = abyssReward(w.abyss.floor, w.abyss.lv);
+      this.addOre(rw.ore);
+      this.addParts([rw.part]);
+      w.unlocked = this.unlockFloor(w.field.id, w.abyss.floor);
+      w.lvUnlocked = abyssClearLevel(this.save, w.abyss.mech, w.abyss.lv);
+      this.persist();
     }
     Report.showVersus(w);
   },
