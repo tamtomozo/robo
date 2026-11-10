@@ -2501,10 +2501,7 @@ function drawHUD(ctx, w, B, VW, VH) {
     ctx.fillStyle = '#ffd24a';
     ctx.fillText(`×${B.speed}`, VW / 2, 100);
   }
-  if (B.paused) {   // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(0, 0, VW, VH);
-  }
+  // 一時停止中の暗幕と「PAUSE」の文字は一時停止メニュー（#pause-menu）が出す
   if (w.result) {
     const txt = { win: 'MISSION COMPLETE', lose: 'MACHINE DOWN', retreat: 'RETREAT', return: 'RETURN TO BASE', timeout: 'ACTIVITY LIMIT' }[w.result];
     const col = { win: '#9fffb0', lose: '#ff6a4a', retreat: '#ffd24a', return: '#9fe0ff', timeout: '#ffb070' }[w.result];
@@ -2749,11 +2746,7 @@ function drawHUDCompact(ctx, w, B, VW, VH) {
     ctx.fillStyle = col;
     ctx.fillText(T('B044' /* 巨大生体反応 接近中 */), VW / 2, VH / 2 + 20);
   }
-  if (B.paused) {
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(0, 0, VW, VH);
-    // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
-  }
+  // 一時停止中の暗幕と「PAUSE」の文字は一時停止メニュー（#pause-menu）が出す
   if (w.result) {
     const txt = { win: 'MISSION COMPLETE', lose: 'MACHINE DOWN', retreat: 'RETREAT', return: 'RETURN TO BASE', timeout: 'ACTIVITY LIMIT' }[w.result];
     const col = { win: '#9fffb0', lose: '#ff6a4a', retreat: '#ffd24a', return: '#9fe0ff', timeout: '#ffb070' }[w.result];

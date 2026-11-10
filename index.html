@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- 版の番号。コミット時に .githooks/pre-commit が js・css の ?v= と version.json とあわせて書き換える -->
-<meta name="game-version" content="20261110-153220">
+<meta name="game-version" content="20261110-155854">
 <title>IRON WASTELAND — 荒野機兵戦記</title>
-<link rel="stylesheet" href="css/style.css?v=20261110-153220">
+<link rel="stylesheet" href="css/style.css?v=20261110-155854">
 </head>
 <body>
 
@@ -187,22 +187,6 @@
     <button data-act="arm" class="arm" data-i18n="B116">腕＋</button>
     <button data-act="retreat" class="danger">撤退</button>
   </div>
-  <!-- 一時停止中のメニュー：戦闘画面の表示（2D/3D）と 2D の向きの切り替え（battle.js の syncPauseMenu・view3d.js の initUI） -->
-  <div id="pause-menu" class="pause-menu">
-    <h2>PAUSE</h2>
-    <div class="pm-row">
-      <span data-i18n="B124">戦闘画面の表示</span>
-      <button data-view="2d">2D</button>
-      <button data-view="3d" data-i18n="B125">3D（試作）</button>
-    </div>
-    <div class="pm-row">
-      <span data-i18n="B126">2D の向き</span>
-      <button data-turn="north" data-i18n="B127">北が上</button>
-      <button data-turn="behind" data-i18n="B128">背後</button>
-    </div>
-    <p class="pm-note" data-i18n="B129">3D は自機の背後からの視点です</p>
-    <button class="pm-resume primary" data-i18n="B130">再開（Space）</button>
-  </div>
   <div id="confirm" class="dialog">
     <div class="dialog-box">
       <h2 id="confirm-title"></h2>
@@ -220,6 +204,27 @@
   <div id="report"></div>
 </section>
 
+<!-- 戦闘中の一時停止メニュー：戦闘画面の表示（2D/3D）と 2D の向きの切り替え（battle.js の syncPauseMenu・view3d.js の initUI）
+     画面全体の暗幕（#pause-menu）の上にウィンドウ（.pm-box）を出す。戦闘画面の操作ボタン・右下の音量パネルなど、ほかの UI は暗幕の後ろ。
+     戦闘画面（#screen-battle）の中に置くと音量パネルより手前に出せないので、外に置く -->
+<div id="pause-menu" class="pause-menu">
+  <div class="pm-box">
+    <h2>PAUSE</h2>
+    <div class="pm-row">
+      <span data-i18n="B124">戦闘画面の表示</span>
+      <button data-view="2d">2D</button>
+      <button data-view="3d" data-i18n="B125">3D（試作）</button>
+    </div>
+    <div class="pm-row">
+      <span data-i18n="B126">2D の向き</span>
+      <button data-turn="north" data-i18n="B127">北が上</button>
+      <button data-turn="behind" data-i18n="B128">背後</button>
+    </div>
+    <p class="pm-note" data-i18n="B129">3D は自機の背後からの視点です</p>
+    <button class="pm-resume primary" data-i18n="B130">再開（Space）</button>
+  </div>
+</div>
+
 <!-- ゲーム内の確認ダイアログ（main.js の Ask。ブラウザの confirm は全画面が解除されるため使わない） -->
 <div id="ask-dialog" class="dialog">
   <div class="dialog-box">
@@ -231,23 +236,23 @@
   </div>
 </div>
 
-<script src="js/lang.js?v=20261110-153220"></script>
-<script src="js/i18n.js?v=20261110-153220"></script>
-<script src="js/data.js?v=20261110-153220"></script>
-<script src="js/audio.js?v=20261110-153220"></script>
-<script src="js/field.js?v=20261110-153220"></script>
-<script src="js/robot.js?v=20261110-153220"></script>
-<script src="js/parts-art.js?v=20261110-153220"></script>
-<script src="js/enemy-art.js?v=20261110-153220"></script>
-<script src="js/circuit.js?v=20261110-153220"></script>
-<script src="js/battle.js?v=20261110-153220"></script>
-<script src="js/boss-spider.js?v=20261110-153220"></script>
-<script src="js/versus.js?v=20261110-153220"></script>
-<script src="js/abyss.js?v=20261110-153220"></script>
-<script src="js/garage.js?v=20261110-153220"></script>
-<script src="js/report.js?v=20261110-153220"></script>
-<script src="js/view3d.js?v=20261110-153220"></script>
-<script src="js/savefile.js?v=20261110-153220"></script>
-<script src="js/main.js?v=20261110-153220"></script>
+<script src="js/lang.js?v=20261110-155854"></script>
+<script src="js/i18n.js?v=20261110-155854"></script>
+<script src="js/data.js?v=20261110-155854"></script>
+<script src="js/audio.js?v=20261110-155854"></script>
+<script src="js/field.js?v=20261110-155854"></script>
+<script src="js/robot.js?v=20261110-155854"></script>
+<script src="js/parts-art.js?v=20261110-155854"></script>
+<script src="js/enemy-art.js?v=20261110-155854"></script>
+<script src="js/circuit.js?v=20261110-155854"></script>
+<script src="js/battle.js?v=20261110-155854"></script>
+<script src="js/boss-spider.js?v=20261110-155854"></script>
+<script src="js/versus.js?v=20261110-155854"></script>
+<script src="js/abyss.js?v=20261110-155854"></script>
+<script src="js/garage.js?v=20261110-155854"></script>
+<script src="js/report.js?v=20261110-155854"></script>
+<script src="js/view3d.js?v=20261110-155854"></script>
+<script src="js/savefile.js?v=20261110-155854"></script>
+<script src="js/main.js?v=20261110-155854"></script>
 </body>
 </html>

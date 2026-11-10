@@ -428,10 +428,7 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
     }
     ctx.globalAlpha = 1;
   }
-  if (B.paused) {   // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(0, 0, VW, VH);
-  }
+  // 一時停止中の暗幕と「PAUSE」の文字は一時停止メニュー（#pause-menu）が出す
   if (w.result) {
     const txt = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW' }[w.result];
     const col = { win: '#9fffb0', lose: '#ff6a4a', draw: '#ffd24a' }[w.result];
@@ -501,11 +498,7 @@ function drawVersusHUDCompact(ctx, w, B, VW, VH) {
     if (w.banner.sub) drawCompactCenter(ctx, VW, VH * 0.36 + 30, w.banner.sub, '#ffd0b0', 13);
     ctx.globalAlpha = 1;
   }
-  if (B.paused) {
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(0, 0, VW, VH);
-    // 「PAUSE」の文字は一時停止メニュー（#pause-menu）に出す
-  }
+  // 一時停止中の暗幕と「PAUSE」の文字は一時停止メニュー（#pause-menu）が出す
   if (w.result) {
     const txt = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW' }[w.result];
     const col = { win: '#9fffb0', lose: '#ff6a4a', draw: '#ffd24a' }[w.result];
