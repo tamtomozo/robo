@@ -163,11 +163,13 @@ const Report = {
     if (P.st.over) notes.push(T('R007' /* 過積載状態で出撃しています。脚部の積載量を見直してください。 */));
     if (A) {
       const M = A.mech;
-      if (w.unlocked) {
-        const N = abyssMech(w.unlocked);
-        notes.push(T('R077' /* {floor}「{sub}」が解放されました。次の相手は {… */, { floor: floorName(w.unlocked), sub: N.sub, name: N.name }));
-      } else if (w.result === 'win' && A.floor >= ABYSS.floors) notes.push(T('R078' /* {field}の最深部を制圧しました。{name} を倒した… */, { field: w.field.name, name: M.name }));
-      if (w.lvUnlocked) notes.push(T('R081' /* {name}の{level}が解放されました。 */, { name: M.name, level: T('C029' /* レベル{n} */, { n: w.lvUnlocked }) }));
+      if (w.result === 'win' && A.floor >= ABYSS.floors) notes.push(T('R078' /* {field}の最深部を制圧しました。{name} とともに… */, { field: w.field.name, name: M.name }));
+      // 次の出撃先（同じレベルの次の層 / 最深部ならひとつ上のレベルの第1層）
+      if (w.next) {
+        const N = abyssMech(w.next.floor), floor = floorName(w.next.floor), level = T('C029' /* レベル{n} */, { n: w.next.lv });
+        notes.push(w.next.floor > A.floor ? T('R084' /* {floor}「{sub}」の{level}が解放されました… */, { floor, sub: N.sub, name: N.name, level })
+          : T('R085' /* {level}が解放されました。{floor}「{sub}」… */, { floor, sub: N.sub, name: N.name, level }));
+      }
       if (w.result !== 'win') notes.push(T('R079' /* 脈動中の{name}は回路の処理速度が×{k}になり、回避や… */, { name: M.name, k: ABYSS.surge }));
     } else if (w.rec) notes.push(T('R068' /* {name} との戦績：{w}勝 {l}敗 {d}分 */, { name: escHTML(foe), w: w.rec.w, l: w.rec.l, d: w.rec.d }));
     else notes.push(T('R071' /* 練習相手との対戦は戦績に残りません。 */));
@@ -205,14 +207,14 @@ const Report = {
       </div>
       <div class="rep-btns">
         <button id="rep-garage">${T('R047' /* ガレージへ戻る */)}</button>
-        <button id="rep-retry" class="primary">${A && w.unlocked ? T('R080' /* 次の層へ出撃 */) : A && w.lvUnlocked ? T('R082' /* 次のレベルへ出撃 */) : T('R069' /* 再戦 */)}</button>
+        <button id="rep-retry" class="primary">${A && w.next ? (w.next.floor > A.floor ? T('R080' /* 次の層へ出撃 */) : T('R082' /* 次のレベルへ出撃 */)) : T('R069' /* 再戦 */)}</button>
       </div>`;
     sides.forEach((o, i) => {
       const g = o.M.st.grid, cs = Math.floor(210 / g);
       drawCircuit(document.getElementById('rep-heat' + i).getContext('2d'), o.M.vm.prog, g, 10, 10, cs, { counts: o.M.vm.counts });
     });
     document.getElementById('rep-garage').onclick = () => Game.toGarage();
-    // 地底エリアは出撃（解放された層があれば、そこが次の出撃先になっている）
+    // 地底エリアは出撃（次の層・レベルが解放されていれば、そこが次の出撃先になっている）
     document.getElementById('rep-retry').onclick = () => (A ? Game.sortie() : Game.versus());
   },
 };

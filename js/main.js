@@ -14,6 +14,7 @@ const Game = {
     Garage.init();
     View3D.initUI();   // 戦闘画面の 2D / 3D 表示の設定（view3d.js）
     SaveFile.init();   // タイトル画面のセーブファイルの書き出し・読み込み（savefile.js）
+    Ending.init();     // 地底のマシン3機を倒しきったときのエピローグとスタッフロール（ending.js）
     document.getElementById('btn-reload').onclick = () => location.reload();
     // 開きっぱなしのタブに戻ってきたときも確認する
     document.addEventListener('visibilitychange', () => {
@@ -201,15 +202,24 @@ const Game = {
     Report.showVersus(w);
   },
 
-  // 地底エリア（abyss.js）の戦いが終わったとき：勝てば鉱石とブースターを持ち帰り、次の層を解放してから結果を見せる
+  // 地底エリア（abyss.js）の戦いが終わったとき：勝てば鉱石とブースターを持ち帰り、次の層・レベルを解放してから結果を見せる
   endAbyss(w) {
     if (w.result === 'win') {
       const rw = w.reward = abyssReward(w.abyss.floor, w.abyss.lv);
       this.addOre(rw.ore);
       this.addParts([rw.part]);
-      w.unlocked = this.unlockFloor(w.field.id, w.abyss.floor);
-      w.lvUnlocked = abyssClearLevel(this.save, w.abyss.mech, w.abyss.lv);
+      this.unlockFloor(w.field.id, w.abyss.floor);   // 層の到達（第何層まで選べるか）
+      const first = ((this.save.abyssClear[w.abyss.mech.id]) | 0) < w.abyss.lv;   // このレベルで初めて倒した
+      // そのレベルで初めて倒したら、次の出撃先（同じレベルの次の層 / 最深部ならひとつ上のレベルの第1層）
+      w.next = abyssClearLevel(this.save, w.abyss.mech, w.abyss.lv);
+      if (w.next) this.save.floor[w.field.id] = w.next.floor;
       this.persist();
+      // あるレベルで地底のマシン3機をはじめてすべて倒したら（どのレベルでも）エピローグとスタッフロールを流してから結果を見せる（ending.js）
+      //   層はレベルごとに第1層から順に進むので、最深部の王機をそのレベルで初めて倒したとき = 3機を倒しきったとき
+      if (first && w.abyss.floor >= ABYSS.floors) {
+        Ending.play(() => Report.showVersus(w));
+        return;
+      }
     }
     Report.showVersus(w);
   },

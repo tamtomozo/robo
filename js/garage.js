@@ -980,13 +980,15 @@ const Garage = {
     let btns = '';
     for (let f = 1; f <= fieldFloors(F); f++) {
       const lock = f > reached[F.id];
+      // 荒野・洞窟：ボスを倒した層は ✔（次の層を解放済みか、最深部なら制圧済み）
+      const cleared = !F.duel && (f < reached[F.id] || (f === fieldFloors(F) && Game.save.conquered[F.id]));
       const tip = F.duel ? (lock ? T('G181' /* ひとつ上の層の地底のマシンを倒すと解放 */) : abyssMech(f).name)
         : lock ? T('G127' /* 一つ上の層のボスを倒すと解放 */) : T('G128' /* 耐久 {hp} / 攻撃力 {dmg} */, { hp: fmtMul(floorMul(f).hp), dmg: fmtMul(floorMul(f).dmg) });
       btns += `<button class="${f === floor ? 'sel' : ''}${lock ? ' lock' : ''}" data-f="${f}" ${lock ? 'disabled' : ''}
-        title="${tip}">${lock ? '🔒' : ''}${floorName(f)}</button>`;
+        title="${tip}">${lock ? '🔒' : ''}${floorName(f)}${cleared ? ' ✔' : ''}</button>`;
     }
     fl.innerHTML = `<div class="floor-btns">${btns}</div>
-      <p>${M ? T('G182' /* {floor}「{sub}」の相手：{name} 倒すと次の… */, { floor: floorName(floor), sub: M.sub, name: M.name })
+      <p>${M ? T('G182' /* {floor}「{sub}」の相手：{name} 層はレベル… */, { floor: floorName(floor), sub: M.sub, name: M.name })
         : T('G129' /* {floor}のエネミー（ボス含む）：耐久 {hp} / 攻… */, { floor: floorName(floor), hp: fmtMul(fm.hp), dmg: fmtMul(fm.dmg), ore: fmtMul(fm.ore) })}</p>`;
     fl.querySelectorAll('button:not([disabled])').forEach(b => {
       b.onclick = () => { Game.save.floor[F.id] = +b.dataset.f; Game.persist(); this.renderSortie(); };
@@ -1023,10 +1025,12 @@ const Garage = {
   renderAbyssInfo(F, M, floor, lv) {
     const st = abyssStats(M, lv);
     // レベルの選択（5段階）。レベル1から、クリアするごとに次のレベルが解放される（クリア済みは ✔）
+    //   第2層からは、ひとつ上の層を同じレベルでクリアしてから（abyssMaxLv）
     const max = abyssMaxLv(Game.save, M), cleared = Game.save.abyssClear[M.id] | 0;
     const lvBtns = ABYSS.levels.map((L, i) => {
       const n = i + 1, lock = n > max;
-      const tip = lock ? T('G190' /* レベル{n}をクリアすると解放 */, { n: n - 1 }) : T('G188' /* パーツ強化 Lv{lv} / 勝利報酬 ×{mul} */, { lv: L, mul: ABYSS.rewardMul[i] });
+      const tip = lock ? (n > cleared + 1 ? T('G190' /* レベル{n}をクリアすると解放 */, { n: n - 1 })
+        : T('G191' /* {floor}を{level}でクリアすると解放 */, { floor: floorName(floor - 1), level: T('C029' /* レベル{n} */, { n }) })) : T('G188' /* パーツ強化 Lv{lv} / 勝利報酬 ×{mul} */, { lv: L, mul: ABYSS.rewardMul[i] });
       return `<button class="${n === lv ? 'sel' : ''}${lock ? ' lock' : ''}" data-lv="${n}" ${lock ? 'disabled' : ''} title="${tip}">${lock ? '🔒' : ''}${T('C029' /* レベル{n} */, { n })}${n <= cleared ? ' ✔' : ''}</button>`;
     }).join('');
     const rows = SLOTS.map(s => {

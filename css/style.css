@@ -102,6 +102,69 @@ html[lang=en] .title-sub { letter-spacing: 6px; font-size: 18px; }
 html[lang=en] .crawl-inner { letter-spacing: 0.5px; font-size: 23px; }
 html[lang=en] .crawl-inner .log { letter-spacing: 3px; }
 
+/* ===================== エンディング（ending.js） ===================== */
+#screen-ending {
+  background: radial-gradient(ellipse at 50% 45%, #2a1d12 0%, #0b0907 75%);
+  cursor: pointer; user-select: none; overflow: hidden;
+}
+/* スタッフロールに入ると、画面の下から夜明けの光がにじむ（脈動の止まった星） */
+#screen-ending::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 8s ease;
+  background: radial-gradient(ellipse 90% 60% at 50% 115%, rgba(232,150,70,0.32), rgba(120,70,40,0.1) 55%, transparent 80%);
+}
+#screen-ending.dawn::before { opacity: 1; }
+#screen-ending::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 160px 40px rgba(0,0,0,0.85);
+}
+/* エピローグ：段落をすべて同じ位置（画面中央）に重ね、1つずつ浮かび上がらせる */
+.ending-epi { position: absolute; inset: 0; display: none; place-items: center; padding: 0 16px; }
+.ending-epi.on { display: grid; }
+.ending-epi p {
+  grid-area: 1 / 1; width: min(860px, 100%); margin: 0; text-align: center;
+  font-size: 25.5px; line-height: 1.9; letter-spacing: 3px; color: #cfc4ac;
+  opacity: 0; translate: 0 14px; transition: opacity 1.4s ease, translate 2s ease;
+}
+.ending-epi p.show { opacity: 1; translate: 0 0; }
+.ending-epi p.gone { opacity: 0; translate: 0 -14px; transition-duration: 1s; }
+.ending-epi .log { color: #7d7260; font-size: 19.5px; letter-spacing: 6px; }
+.ending-epi .warn { color: #c8473a; text-shadow: 0 0 12px rgba(200,40,30,0.45); }
+.ending-epi .glitch { display: inline-block; animation: title-glitch 3.2s steps(1) infinite; }   /* 段落の opacity を上書きしないよう中の span に付ける */
+/* スタッフロール：中身（.roll-inner）を ending.js が translateY で動かす */
+.ending-roll {
+  position: absolute; inset: 0; display: none; overflow: hidden;
+  -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent);
+}
+.ending-roll.on { display: block; }
+.roll-inner { position: absolute; top: 0; left: 0; right: 0; padding: 0 16px; text-align: center; will-change: transform; }
+.cr-logo { margin-bottom: 26vh; }
+.cr-sec { width: min(640px, 100%); margin: 0 auto 16vh; }
+.cr-sec h3 { margin: 0 0 1.2em; font-size: 15px; letter-spacing: 6px; color: #e08a3a; font-weight: normal; }
+.cr-name { margin: 0 0 0.8em; font-size: 21px; letter-spacing: 2px; color: #e9e2d2; line-height: 1.6; }
+.cr-name small { font-size: 13px; color: #a89a80; letter-spacing: 1px; }
+.cr-row { display: flex; gap: 1.6em; margin: 0 0 0.8em; font-size: 18px; }
+.cr-row span { flex: 1; text-align: right; color: #a89a80; letter-spacing: 2px; }
+.cr-row b { flex: 1; text-align: left; color: #e9e2d2; font-weight: normal; letter-spacing: 2px; }
+.cr-end { margin: 0 0 30vh; font-size: 23px; letter-spacing: 3px; color: #f0c890; }
+.cr-fin { font-size: clamp(26px, 5vw, 46px); font-weight: 900; letter-spacing: 6px; color: #e9e2d2; text-shadow: 0 4px 0 #000, 0 0 30px rgba(224,138,58,0.3); }
+.cr-fin small { display: block; margin-top: 14px; font-size: 16px; font-weight: normal; letter-spacing: 6px; color: #a89a80; text-shadow: none; }
+.ending-prompt, .ending-hint {
+  position: absolute; left: 0; right: 0; margin: 0; text-align: center; pointer-events: none;
+  opacity: 0; transition: opacity 1s ease;
+}
+.ending-prompt { bottom: 7vh; font-size: 16px; letter-spacing: 3px; color: #f0c890; }
+.ending-prompt.show { opacity: 1; animation: title-blink 1.6s ease-in-out 1s infinite; }
+.ending-hint { bottom: 18px; font-size: 12px; letter-spacing: 2px; color: #7d7260; }
+.ending-hint.show { opacity: 1; }
+.ending-skip {
+  position: absolute; top: 14px; right: 14px; z-index: 2; padding: 3px 12px; font-size: 13px;
+  background: rgba(20,16,11,0.75); color: #a89a80;
+}
+.ending-skip:hover { color: #ffd8a0; border-color: #e08a3a; }
+html[lang=en] .ending-epi p { letter-spacing: 0.5px; font-size: 23px; }
+html[lang=en] .ending-epi .log { letter-spacing: 3px; }
+
 /* ===================== ガレージ ===================== */
 #screen-garage {
   background: radial-gradient(ellipse at 50% 0%, #3a2c1c 0%, #1a1510 70%);
@@ -595,6 +658,16 @@ button { touch-action: manipulation; }
   html[lang=en] .title-sub { font-size: 13px; letter-spacing: 3px; }
   html[lang=en] .crawl-inner { font-size: 15px; letter-spacing: 0; }
   .title-start { font-size: 14px; bottom: 5vh; }
+
+  /* エンディング */
+  .ending-epi p { font-size: 16px; letter-spacing: 1px; }
+  .ending-epi .log { font-size: 12px; letter-spacing: 3px; }
+  html[lang=en] .ending-epi p { font-size: 15px; letter-spacing: 0; }
+  .cr-name { font-size: 17px; }
+  .cr-row { font-size: 15px; gap: 1em; }
+  .cr-end { font-size: 17px; letter-spacing: 1px; }
+  .cr-fin small { font-size: 13px; letter-spacing: 3px; }
+  .ending-prompt { font-size: 14px; bottom: 5vh; }
 
   /* 上の帯：ロゴと鉱石を1行目、タブを2行目（横にスクロール）。スクロールしても上に残す */
   .topbar { position: sticky; top: 0; z-index: 10; gap: 6px 10px; padding: 6px 8px; background: #1f1912; }

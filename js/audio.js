@@ -611,6 +611,48 @@ const BGM_TRACKS = {
       }
     },
   },
+
+  // エンディング（ending.js）：脈動の止まった星。静かなパッドとアルペジオに、穏やかな旋律
+  //   曲の頭にだけ小さな鼓動が2つ鳴る（エピローグの最後の一文「小さな鼓動」）
+  ending: {
+    bpm: 72, swing: 0, vol: 0.8,
+    sections: [
+      // Section 0: 静けさ（旋律なし。パッドとアルペジオだけ）
+      { chords: ['Dm', 'Bb', 'F', 'C', 'Dm', 'Bb', 'Gm', 'A'] },
+      // Section 1: 夜明け（ヘ長調へ開ける旋律）
+      { chords: ['F', 'C', 'Dm', 'Bb', 'F', 'C', 'Bb', 'C'],
+        lead: `A4 . . .  C5 . . .  F5 . . .  . . G5 .
+               E5 . . .  . . . .  D5 . C5 .  . . . .
+               D5 . . .  F5 . . .  A5 . . .  G5 . F5 .
+               F5 . . .  . . . .  D5 . . .  r . . .
+               C5 . . .  F5 . . .  A5 . . .  C6 . . .
+               Bb5 . . . A5 . . .  G5 . . .  . . . .
+               F5 . . .  G5 . . .  A5 . . .  D5 . . .
+               E5 . . .  . . . .  . . . .   r . . .` },
+    ],
+    step(S, s) {
+      const { st, t, ch, sd, bar } = s;
+
+      // 1. 曲の頭の小さな鼓動（2つだけ）
+      if (bar === 0 && (st === 0 || st === 3)) S.heartbeat(t, 0.4, st === 0 ? 'lub' : 'dub');
+
+      // 2. 柔らかいパッド（小節ごとに和音を敷く）
+      if (st === 0) S.pad(t, ch.map(m => m + 12), sd * 15, 0.035);
+
+      // 3. 低く長いベース
+      if (st === 0) S.bass(t, midiHz(ch[0] - 12), sd * 14, 0.12, { cut: 280, q: 1 });
+
+      // 4. 澄んだアルペジオ（和音を上下にたどる）
+      if (st % 2 === 0) {
+        const arp = [0, 1, 2, 3, 2, 1, 2, 1][st / 2];
+        const m = arp === 3 ? ch[0] + 24 : ch[arp] + 12;
+        S.pluck(t, midiHz(m), sd * 3, s.lead ? 0.035 : 0.05, 'sine');
+      }
+
+      // 5. 旋律（三角波でやさしく）
+      if (s.note) S.lead(t, midiHz(s.note.m), sd * s.note.len, 0.08, 'triangle');
+    },
+  },
 };
 
 for (const tr of Object.values(BGM_TRACKS)) {

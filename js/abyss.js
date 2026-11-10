@@ -110,9 +110,14 @@ function abyssMech(floor) { return ABYSS_MECHS[clamp(floor | 0, 1, ABYSS.floors)
 // 地底のマシンのレベル（1〜5）
 function abyssLevel(lv) { return clamp(lv | 0, 1, ABYSS.levels.length); }
 
-// マシン M の解放済みの一番高いレベル（レベル1から。クリアしたレベルの次まで）
+// マシン M の解放済みの一番高いレベル（レベル1から）
+//   ・そのマシンをクリアしたレベルの次まで
+//   ・第2層からは、ひとつ上の層のマシンをクリアしたレベルまで（同じレベルの中では第1層から順に進む）
 function abyssMaxLv(save, M) {
-  return abyssLevel(((save.abyssClear && save.abyssClear[M.id]) | 0) + 1);
+  const clr = m => (save.abyssClear && save.abyssClear[m.id]) | 0, i = ABYSS_MECHS.indexOf(M);
+  let max = clr(M) + 1;
+  if (i > 0) max = Math.min(max, clr(ABYSS_MECHS[i - 1]));
+  return abyssLevel(max);
 }
 
 // マシン M で選んでいるレベル（解放済みの範囲に収める）
@@ -120,14 +125,18 @@ function abyssSelLv(save, M) {
   return clamp(((save.abyssLv && save.abyssLv[M.id]) | 0) || 1, 1, abyssMaxLv(save, M));
 }
 
-// マシン M をレベル lv で倒したとき：クリアを記録し、次のレベルを初めて解放したら次の出撃で選ぶ。解放したレベルを返す（無ければ 0）
+// マシン M をレベル lv で倒したとき：クリアを記録する。そのレベルで初めてクリアしたら、次の出撃先 { floor, lv } を返す（無ければ null）
+//   次の出撃先 = 同じレベルの次の層。最深部なら、ひとつ上のレベルの第1層。そのマシンのレベルの選択もそこに合わせる
+//   層の選択（save.floor）は Game.endAbyss で合わせる
 function abyssClearLevel(save, M, lv) {
-  const before = abyssMaxLv(save, M);
+  const first = (save.abyssClear[M.id] | 0) < lv;
   save.abyssClear[M.id] = Math.max((save.abyssClear[M.id] | 0), lv);
-  const after = abyssMaxLv(save, M);
-  if (after <= before) return 0;
-  save.abyssLv[M.id] = after;
-  return after;
+  if (!first) return null;
+  const f = ABYSS_MECHS.indexOf(M) + 1;
+  const next = f < ABYSS.floors ? { floor: f + 1, lv } : lv < ABYSS.levels.length ? { floor: 1, lv: lv + 1 } : null;
+  if (!next || abyssMaxLv(save, abyssMech(next.floor)) < next.lv) return null;
+  save.abyssLv[abyssMech(next.floor).id] = next.lv;
+  return next;
 }
 
 // セーブの読み直し（main.js の Game.fromObj）：マシンごとのレベルを範囲内に整える

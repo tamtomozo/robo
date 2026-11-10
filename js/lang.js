@@ -87,6 +87,62 @@ const TEXT = {
   C027: { ja: 'セーブを読み込みました。', en: 'Save loaded.' },
   C028: { ja: 'セーブを保存できませんでした。（ブラウザの保存領域が使えません）', en: 'Could not store the save. (Browser storage is unavailable.)' },
   C029: { ja: 'レベル{n}', en: 'Level {n}' },
+  // エンディング（ending.js）：エピローグ（段落 <p> を1つずつ出す）とスタッフロール
+  C030: {
+    ja: `<p class="log">― 恒星間探査局　記録 第1号 ―</p>
+<p>守門機アルケス。祭祀機ヴェスペリア。<br>そして、王機ゼノ＝オルディア。</p>
+<p>聖域を守る三機の地底のマシンが<br>すべて、機能を停止した。</p>
+<p>最後の一機が倒れた瞬間<br>地表の全観測点で、大地の脈動が止まった。</p>
+<p class="warn">――星が、息をやめた。</p>
+<p>三機の中枢には、同じ紋様が刻まれていた。<br>門を守り、祈りを捧げ、王として束ねる――<br>三機は、ひとつの鼓動を分け合う<br>ひとつの機構だったのだ。</p>
+<p>王の心臓と呼ばれた最奥の広間で<br>機兵はひとつの通信装置を回収した。</p>
+<p>救難信号の発信源は、そこだった。</p>
+<p>装置には、先遣調査隊 十二名の声と<br>見知らぬ言葉で語る<br>数えきれない声が記録されていた。</p>
+<p>解析の結果、その言葉は<br>人類の古い言語と、同じ根を持っていた。</p>
+<p>地底文明――<br>それは遠い昔にこの星へ渡り<br>大地の鼓動に呑まれた<br>もうひとつの人類だったのかもしれない。</p>
+<p>三機は、侵入者を拒んでいたのではない。<br>鼓動に縛られたまま<br>ずっと、助けを呼び続けていたのだ。</p>
+<p>鉱石は、餌ではなかった。<br><span class="warn">――ここまで辿り着く者への、道しるべだった。</span></p>
+<p>救難信号は、途絶えた。</p>
+<p>探査局は、有人降下の再開を検討している。</p>
+<p>ただ、最後に回収した記録の末尾には<br>誰のものでもない音が、ひとつだけ残されていた。</p>
+<p class="warn"><span class="glitch">規則正しい、小さな鼓動が。</span></p>
+<p class="log">― 記録 終了 ―</p>`,
+    en: `<p class="log">― Interstellar Survey Bureau — Record No. 1 ―</p>
+<p>Gatekeeper Arkes. Ritualist Vesperia.<br>And Sovereign Xeno-Ordia.</p>
+<p>All three subterranean machines guarding the sanctum<br>have ceased to function.</p>
+<p>The moment the last of them fell,<br>every surface station saw the pulse of the earth come to a stop.</p>
+<p class="warn">——The planet had stopped breathing.</p>
+<p>The same crest was etched into the core of all three.<br>One guarded the gate, one offered prayers, one ruled as king——<br>they were a single mechanism<br>sharing a single heartbeat.</p>
+<p>In the innermost hall, known as the Heart of the King,<br>the mech recovered a single communication device.</p>
+<p>It was the source of the distress signal.</p>
+<p>On it were the voices of the twelve-member advance team,<br>and countless other voices<br>speaking an unknown tongue.</p>
+<p>Analysis showed that the tongue<br>shared its roots with an ancient human language.</p>
+<p>The subterranean civilization——<br>perhaps it was another humanity<br>that crossed to this world long ago<br>and was swallowed by the pulse of the earth.</p>
+<p>The three had not been turning intruders away.<br>Bound by the pulse,<br>they had been calling for help all along.</p>
+<p>The ore was never bait.<br><span class="warn">——It was a trail, left for whoever made it this far.</span></p>
+<p>The distress signal has fallen silent.</p>
+<p>The Bureau is now considering a return to crewed descents.</p>
+<p>But at the very end of the last recovered record,<br>a single sound remained, belonging to no one.</p>
+<p class="warn"><span class="glitch">A small, steady heartbeat.</span></p>
+<p class="log">― End of record ―</p>`,
+  },
+  C031: { ja: 'スキップ ▶▶', en: 'Skip ▶▶' },
+  C032: { ja: 'クリック または キーを押して続ける', en: 'CLICK OR PRESS ANY KEY TO CONTINUE' },
+  C033: { ja: '押し続けると早送り', en: 'Hold to fast-forward' },
+  C034: { ja: 'あなたの機兵', en: 'Your Mech' },
+  C035: { ja: '地上の生体', en: 'Surface Lifeforms' },
+  C036: { ja: '地底のマシン', en: 'Subterranean Machines' },
+  C037: { ja: 'スタッフ', en: 'Staff' },
+  C038: { ja: 'ゲームデザイン', en: 'Game Design' },
+  C039: { ja: 'プログラム', en: 'Programming' },
+  C040: { ja: 'グラフィック', en: 'Graphics' },
+  C041: { ja: 'サウンド', en: 'Sound' },
+  C042: { ja: '開発協力', en: 'Development Assistance' },
+  C043: { ja: '使用ライブラリ', en: 'Library' },
+  C044: { ja: 'スペシャルサンクス', en: 'Special Thanks' },
+  C045: { ja: 'この星に降り立った<br>すべての機兵と、そのパイロット', en: 'Every mech that set foot on this world,<br>and every pilot behind it' },
+  C046: { ja: 'そして――回路を組んだ、あなたへ。', en: 'And to you——who built the circuit.' },
+  C047: { ja: '― 探査任務、完了 ―', en: '― Survey mission complete ―' },
 
   // ---------------------------------------------------------------- G：ガレージ
   G001: { ja: '① 組立', en: '① Assembly' },
@@ -371,8 +427,8 @@ Ore gained: {txt}{warn}
   G180: { ja: '全{floors}層 × 地底のマシンと1対1（到達 {reached}）', en: '{floors} floors × 1-on-1 vs. a subterranean machine (reached {reached})' },
   G181: { ja: 'ひとつ上の層の地底のマシンを倒すと解放', en: 'Defeat the subterranean machine of the floor above to unlock' },
   G182: {
-    ja: '{floor}「{sub}」の相手：<b>{name}</b> <small>倒すと次の層が解放されます。</small>',
-    en: 'Opponent on {floor} "{sub}": <b>{name}</b> <small>Defeat it to unlock the next floor.</small>',
+    ja: '{floor}「{sub}」の相手：<b>{name}</b> <small>層はレベルごとに第1層から順に解放されます。倒すと同じレベルの次の層へ進めます。</small>',
+    en: 'Opponent on {floor} "{sub}": <b>{name}</b> <small>At each level, floors unlock in order from Floor 1. Defeat it to move on to the next floor at the same level.</small>',
   },
   G183: { ja: '耐久', en: 'HP' },
   G184: { ja: '回路', en: 'Circuit' },
@@ -384,6 +440,7 @@ Ore gained: {txt}{warn}
     en: '{level}: every upgradable part is Lv{lv}. Higher levels give more ore and better odds of high-bonus boosters.',
   },
   G190: { ja: 'レベル{n}をクリアすると解放', en: 'Clear level {n} to unlock' },
+  G191: { ja: '{floor}を{level}でクリアすると解放', en: 'Clear {floor} at {level} to unlock' },
 
   G186: {
     ja: `聖域の半径は{r}m。{at}秒から結界が狭まり、{end}秒で半径{min}mになる。{time}秒で決着がつかなければ残りHPの割合で勝敗を決める。<br>
@@ -658,24 +715,27 @@ Ore gained: {txt}{warn}
   R074: { ja: '{field} {floor}「{sub}」 {level} / 戦闘時間 {time}', en: '{field} {floor} "{sub}" {level} / Battle time {time}' },
   R075: { ja: '地底のマシン', en: 'Subterranean' },
   R076: { ja: '持ち帰り', en: 'Brought Back' },
-  R077: {
-    ja: '{floor}「{sub}」が解放されました。次の相手は {name}。出撃タブで層を選び直せます。',
-    en: '{floor} "{sub}" is now unlocked. Your next opponent is {name}. You can pick a different floor on the Sortie tab.',
-  },
   R078: {
-    ja: '{field}の最深部を制圧しました。{name} を倒した今も、地の底の鼓動は止まらない……',
-    en: 'You secured the deepest level of {field}. Even with {name} defeated, the heartbeat beneath the earth goes on...',
+    ja: '{field}の最深部を制圧しました。{name} とともに止まったはずの鼓動が、地の底でまた、かすかに鳴りはじめている……',
+    en: 'You secured the deepest level of {field}. The heartbeat that should have died with {name} has begun, faintly, to beat again beneath the earth...',
   },
   R079: {
     ja: '脈動中の{name}は回路の処理速度が×{k}になり、回避や攻撃の判断が速くなります。脈動の間は「敵弾」「HP残量」の判定で距離を取ってしのぎ、鎮まってから攻めると有利です。',
     en: 'While the earth pulses, the circuit of {name} runs ×{k} faster, so it dodges and attacks more quickly. Use "Enemy shot" and "HP" checks to keep your distance until it subsides, then go on the offensive.',
   },
   R080: { ja: '次の層へ出撃', en: 'Sortie to Next Floor' },
-  R081: { ja: '{name}の{level}が解放されました。', en: '{level} of {name} is now unlocked.' },
   R082: { ja: '次のレベルへ出撃', en: 'Sortie at Next Level' },
   R083: {
     ja: '荒野と洞窟の最深部を制圧した。地の底への道が開く……出撃タブに「{name}」が現れました。',
     en: 'You have conquered the depths of both the wasteland and the cave. A path into the earth opens... "{name}" has appeared on the Sortie tab.',
+  },
+  R084: {
+    ja: '{floor}「{sub}」の{level}が解放されました。次の相手は {name}。出撃タブで層とレベルを選び直せます。',
+    en: '{level} of {floor} "{sub}" is now unlocked. Your next opponent is {name}. You can pick a different floor and level on the Sortie tab.',
+  },
+  R085: {
+    ja: '{level}が解放されました。{floor}「{sub}」の {name} から、ふたたび順に挑みます。',
+    en: '{level} is now unlocked. You start again from {floor} "{sub}" against {name} and work your way down.',
   },
 
   // ---------------------------------------------------------------- データ：スロット（スケルトンジョイント）
