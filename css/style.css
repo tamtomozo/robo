@@ -402,6 +402,8 @@ small.up { color: #7dff9a; } small.down { color: #ff7a5a; }
 #battle3d { display: none; position: absolute; left: 0; top: 0; }
 .dialog { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.45); align-items: center; justify-content: center; }
 .dialog.show { display: flex; }
+/* 地区掃討後の確認ダイアログは画面下の操作ボタン（.battle-ctl, z-index 5）より手前に出し、暗幕で押せなくする */
+#confirm { z-index: 10; }
 .dialog-box {
   width: 460px; background: rgba(24,20,15,0.96); border: 2px solid #e08a3a; border-radius: 8px;
   padding: 18px 22px; box-shadow: 0 0 30px rgba(224,138,58,0.35);
