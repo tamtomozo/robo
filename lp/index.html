@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja" data-lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  ランディングページ（https://tamtomozo.github.io/robo/lp/）
+  ・日本語と英語は同じ HTML に両方書き、<html data-lang> で片方を隠す（.ja / .en）
+  ・言語はゲームと同じ localStorage のキー（iron_wasteland_lang）に保存するので、ここで選んだ言語でゲームも始まる
+    決め方：?lang=ja|en → 保存してある言語 → ブラウザの言語
+  ・画像は lp/img/。node tools/make-lp-shots.js で録画（dist/rec-*.mp4）とカバー絵から作り直せる
+-->
+<title>IRON WASTELAND — 荒野機兵戦記</title>
+<meta name="description" content="パーツを組み、回路を刻め。機兵を組み立て、タイルを並べて戦い方をプログラムし、最大100体の魔物の群れとボスに挑むブラウザゲーム。無料・インストール不要。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="IRON WASTELAND">
+<meta property="og:title" content="IRON WASTELAND — 荒野機兵戦記">
+<meta property="og:description" content="パーツを組み、回路を刻め。百の群れの先に、王が待つ。ブラウザで無料プレイ。">
+<meta property="og:url" content="https://tamtomozo.github.io/robo/lp/">
+<meta property="og:image" content="https://tamtomozo.github.io/robo/lp/img/ogp.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#14110d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap">
+<script>
+  // 表示する言語を、描く前に決める（ちらつかないように）
+  (function () {
+    var KEY = 'iron_wasteland_lang', q = new URLSearchParams(location.search).get('lang'), l = null;
+    if (q === 'ja' || q === 'en') l = q;
+    if (!l) { try { l = localStorage.getItem(KEY); } catch (e) {} }
+    if (l !== 'ja' && l !== 'en') l = /^ja\b/i.test(navigator.language || '') ? 'ja' : 'en';
+    document.documentElement.lang = l;
+    document.documentElement.dataset.lang = l;
+  })();
+</script>
+<style>
+  :root {
+    --bg: #14110d;
+    --bg2: #1b1712;
+    --panel: #221d16;
+    --line: #3a3125;
+    --text: #ece4d2;
+    --muted: #a8977a;
+    --dim: #7a6c56;
+    --accent: #e8892f;
+    --hot: #ff5a2a;
+    --cyan: #5fd2f0;
+    --green: #a6e04a;
+    --jp: "Yu Gothic UI", "Yu Gothic", "Meiryo", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    --latin: "Rajdhani", var(--jp);
+    --wrap: 1120px;
+    --gut: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.85 var(--jp); overflow-x: hidden;
+  }
+  html[data-lang="ja"] .en, html[data-lang="en"] .ja { display: none !important; }
+  img { max-width: 100%; height: auto; display: block; }
+  a { color: inherit; }
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 var(--gut); }
+  @media (min-width: 720px) { :root { --gut: 32px; } }
+
+  /* ------------------------------------------------ 見出し・共通 */
+  .eyebrow {
+    font: 700 13px/1 var(--latin); letter-spacing: .28em; text-transform: uppercase; color: var(--accent);
+    display: flex; align-items: center; gap: 12px; margin: 0 0 14px;
+  }
+  .eyebrow::before { content: ""; width: 28px; height: 2px; background: var(--accent); }
+  h2 { font-size: clamp(26px, 4.4vw, 40px); line-height: 1.35; margin: 0 0 18px; font-weight: 800; letter-spacing: .02em; }
+  h2 .hl { color: var(--accent); }
+  .lead { color: var(--muted); max-width: 40em; margin: 0; }
+  section { padding: 88px 0; position: relative; }
+  @media (max-width: 720px) { section { padding: 64px 0; } }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    font: 700 17px/1 var(--jp); text-decoration: none; letter-spacing: .06em;
+    padding: 17px 30px; border-radius: 4px; border: 1px solid transparent; cursor: pointer;
+    transition: transform .15s, box-shadow .15s, background .15s;
+  }
+  .btn-play {
+    background: linear-gradient(180deg, #f39a43, #d9741d); color: #1a1006;
+    box-shadow: 0 0 0 1px rgba(255,180,100,.35) inset, 0 8px 30px rgba(232,137,47,.35);
+  }
+  .btn-play:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(255,200,130,.5) inset, 0 12px 40px rgba(232,137,47,.5); }
+  .btn-play .tri { width: 0; height: 0; border-left: 12px solid currentColor; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
+  .btn-ghost { border-color: var(--line); color: var(--text); background: rgba(255,255,255,.02); }
+  .btn-ghost:hover { border-color: var(--accent); }
+  .btn:focus-visible, .lang button:focus-visible, .shot:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+  /* ------------------------------------------------ ヘッダー */
+  .top {
+    position: fixed; inset: 0 0 auto 0; z-index: 20; height: 60px;
+    background: rgba(20,17,13,.0); transition: background .25s, border-color .25s;
+    border-bottom: 1px solid transparent;
+  }
+  .top.solid { background: rgba(20,17,13,.92); border-color: var(--line); backdrop-filter: blur(8px); }
+  .top .wrap { height: 100%; display: flex; align-items: center; gap: 20px; }
+  .logo { font: 700 20px/1 var(--latin); letter-spacing: .12em; text-decoration: none; white-space: nowrap; }
+  .logo span { color: var(--accent); }
+  .nav { display: flex; gap: 22px; margin-left: auto; font-size: 14px; }
+  .nav a { text-decoration: none; color: var(--muted); }
+  .nav a:hover { color: var(--text); }
+  .lang { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .lang button {
+    font: 600 12px/1 var(--jp); color: var(--muted); background: none; border: 0; padding: 7px 10px; cursor: pointer;
+  }
+  .lang button[aria-pressed="true"] { background: var(--accent); color: #1a1006; }
+  .top .btn { padding: 10px 16px; font-size: 14px; }
+  @media (max-width: 900px) { .nav { display: none; } .lang { margin-left: auto; } }
+  @media (max-width: 420px) { .logo { font-size: 17px; } .top .wrap { gap: 10px; } .top .btn { padding: 9px 12px; } }
+
+  /* ------------------------------------------------ メイン */
+  .hero { padding: 120px 0 72px; overflow: hidden; min-height: min(100vh, 860px); display: flex; align-items: center; }
+  .hero::before {   /* ボスの照り返し */
+    content: ""; position: absolute; inset: -20% -10% auto 30%; height: 90%;
+    background: radial-gradient(closest-side, rgba(255,90,30,.20), transparent); pointer-events: none;
+  }
+  .hero .wrap { display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: center; width: 100%; }
+  .hero h1 { margin: 0; font: 700 clamp(48px, 7.4vw, 92px)/.95 var(--latin); letter-spacing: .04em; }
+  .hero h1 .w { color: var(--accent); text-shadow: 0 0 34px rgba(255,120,40,.45); }
+  .hero .sub {
+    display: flex; align-items: center; gap: 14px; margin: 16px 0 26px;
+    font-weight: 700; letter-spacing: .5em; color: #d8ccb2; font-size: clamp(15px, 2vw, 19px);
+  }
+  html[data-lang="en"] .hero .sub { letter-spacing: .22em; font-family: var(--latin); }
+  .hero .sub::after { content: ""; flex: 1; max-width: 90px; height: 2px; background: rgba(232,137,47,.7); }
+  .catch { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.6; margin: 0 0 18px; }
+  .hero .lead { margin-bottom: 30px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .note { margin: 16px 0 0; font-size: 13px; color: var(--dim); }
+  .note b { color: var(--muted); font-weight: 600; }
+  .art { position: relative; }
+  .art img {
+    border-radius: 6px; box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent);
+            mask-image: linear-gradient(180deg, #000 70%, transparent);
+    animation: drift 9s ease-in-out infinite alternate;
+  }
+  .art::after {   /* 走査線 */
+    content: ""; position: absolute; inset: 0; border-radius: 6px; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 4px);
+    -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent); mask-image: linear-gradient(180deg, #000 70%, transparent);
+  }
+  @keyframes drift { from { transform: translateY(0) scale(1); } to { transform: translateY(-10px) scale(1.015); } }
+  @media (max-width: 900px) {
+    .hero { min-height: 0; padding-top: 92px; }
+    .hero .wrap { grid-template-columns: 1fr; gap: 28px; }
+    .art { order: -1; margin: 0 calc(var(--gut) * -1); }
+    .art img, .art::after { border-radius: 0; }
+  }
+
+  /* ------------------------------------------------ プロローグ */
+  .story { background: linear-gradient(180deg, var(--bg), #0e0c09 30%, #0e0c09 70%, var(--bg)); text-align: center; }
+  .story .log { font: 600 14px/1 var(--jp); color: var(--dim); letter-spacing: .2em; margin: 0 0 34px; }
+  .story p { margin: 0 auto 22px; max-width: 34em; color: #cfc4ac; font-size: clamp(15px, 1.9vw, 18px); line-height: 2.1; }
+  .story .quote {
+    font-size: clamp(24px, 4.2vw, 40px); font-weight: 800; color: var(--hot); margin: 46px auto;
+    text-shadow: 0 0 24px rgba(255,80,40,.35); line-height: 1.5;
+  }
+  .story .glitch { color: var(--hot); animation: glitch 3.6s steps(1) infinite; }
+  @keyframes glitch {
+    0%, 92%, 100% { opacity: 1; transform: none; }
+    93% { opacity: .3; transform: translateX(3px); }
+    95% { opacity: 1; transform: translateX(-2px); }
+    97% { opacity: .5; }
+  }
+
+  /* ------------------------------------------------ 特徴（画像と文章を交互に） */
+  .feat { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: center; margin-top: 64px; }
+  .feat:nth-of-type(even) .shot { order: 2; }
+  .feat .num { font: 700 64px/1 var(--latin); color: transparent; -webkit-text-stroke: 1px rgba(232,137,47,.6); margin-bottom: 4px; }
+  .feat h3 { margin: 0 0 4px; font-size: 26px; }
+  .feat h3 small { display: block; font: 700 13px/1.4 var(--latin); letter-spacing: .25em; color: var(--accent); }
+  .feat p { color: var(--muted); margin: 14px 0 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; padding: 0; list-style: none; }
+  .tags li { font-size: 12.5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 3px; color: #cdbf9f; background: var(--bg2); }
+  @media (max-width: 860px) {
+    .feat { grid-template-columns: 1fr; gap: 22px; margin-top: 48px; }
+    .feat:nth-of-type(even) .shot { order: 0; }
+  }
+
+  /* 画面写真（押すと大きく） */
+  .shot {
+    display: block; padding: 0; border: 1px solid var(--line); background: #000; border-radius: 6px; overflow: hidden;
+    cursor: zoom-in; position: relative; width: 100%; box-shadow: 0 16px 50px rgba(0,0,0,.45);
+  }
+  .shot img { width: 100%; transition: transform .5s; }
+  .shot:hover img { transform: scale(1.025); }
+  .shot figcaption, .shot .cap {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 14px 10px; text-align: left;
+    font-size: 13px; color: #e9e2d2; background: linear-gradient(transparent, rgba(0,0,0,.8));
+  }
+
+  /* ------------------------------------------------ 戦闘・ボス */
+  .battle { background: var(--bg2); border-block: 1px solid var(--line); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); margin: 36px 0; border-radius: 6px; overflow: hidden; }
+  .stat { background: var(--panel); padding: 20px 18px; }
+  .stat b { display: block; font: 700 clamp(30px, 4.6vw, 44px)/1 var(--latin); color: var(--accent); }
+  .stat span { font-size: 13.5px; color: var(--muted); }
+  @media (max-width: 600px) { .stat { padding: 16px 12px; } .stat span { font-size: 12px; line-height: 1.5; display: block; margin-top: 6px; } }
+  .bosses { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  .boss h3 { margin: 16px 0 2px; font-size: 21px; }
+  .boss .tag { font: 700 12px/1 var(--latin); letter-spacing: .2em; color: var(--hot); }
+  .boss.cyan .tag { color: var(--cyan); }
+  .boss p { color: var(--muted); margin: 8px 0 0; font-size: 15px; }
+  @media (max-width: 720px) { .bosses { grid-template-columns: 1fr; } }
+
+  /* ------------------------------------------------ 戦場 */
+  .fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
+  .field { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; }
+  .field .shot { border: 0; border-radius: 0; box-shadow: none; }
+  .field .shot img { aspect-ratio: 16 / 10; object-fit: cover; }
+  .field .body { padding: 18px 18px 22px; }
+  .field h3 { margin: 0 0 8px; font-size: 18px; line-height: 1.5; }
+  .field p { margin: 0; font-size: 14.5px; color: var(--muted); line-height: 1.8; }
+  .field .kind { font: 700 12px/1 var(--latin); letter-spacing: .2em; color: var(--accent); margin-bottom: 8px; }
+  .field.locked .kind { color: var(--hot); }
+  .sealed {   /* 封じられた聖域 */
+    aspect-ratio: 16 / 10; position: relative; overflow: hidden;
+    background: radial-gradient(circle at 50% 55%, #2b0f0a, #0b0806 70%);
+    display: grid; place-items: center;
+  }
+  .sealed i { position: absolute; border: 1px solid rgba(255,90,42,.5); border-radius: 50%; animation: pulse 3.2s ease-out infinite; }
+  .sealed i:nth-child(2) { animation-delay: 1.07s; }
+  .sealed i:nth-child(3) { animation-delay: 2.14s; }
+  .sealed b { font: 700 40px/1 var(--latin); color: rgba(255,90,42,.85); letter-spacing: .3em; text-shadow: 0 0 20px rgba(255,90,42,.6); position: relative; }
+  @keyframes pulse { from { width: 10%; height: 16%; opacity: 1; } to { width: 120%; height: 190%; opacity: 0; } }
+  @media (max-width: 900px) { .fields { grid-template-columns: 1fr; max-width: 560px; } }
+
+  /* ------------------------------------------------ 対戦 */
+  .versus .wrap { display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px; align-items: center; }
+  .versus ul { margin: 22px 0 0; padding: 0; list-style: none; }
+  .versus li { position: relative; padding: 0 0 12px 22px; color: var(--muted); }
+  .versus li::before { content: ""; position: absolute; left: 2px; top: .75em; width: 8px; height: 8px; background: var(--accent); transform: rotate(45deg); }
+  @media (max-width: 860px) { .versus .wrap { grid-template-columns: 1fr; gap: 28px; } }
+
+  /* ------------------------------------------------ 遊び方 */
+  .howto { background: var(--bg2); border-top: 1px solid var(--line); }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 40px 0 0; padding: 0; list-style: none; counter-reset: s; }
+  .steps li { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px 18px; counter-increment: s; }
+  .steps li::before { content: "0" counter(s); display: block; font: 700 30px/1 var(--latin); color: var(--accent); margin-bottom: 10px; }
+  .steps b { display: block; font-size: 17px; margin-bottom: 6px; }
+  .steps span { font-size: 14px; color: var(--muted); line-height: 1.75; display: block; }
+  @media (max-width: 900px) { .steps { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .steps { grid-template-columns: 1fr; } }
+  .specs { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 40px; }
+  .spec { border: 1px solid var(--line); border-radius: 6px; padding: 8px 20px; background: var(--bg); }
+  .spec h3 { font-size: 15px; margin: 14px 0 6px; color: var(--accent); letter-spacing: .08em; }
+  .spec dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0 18px; font-size: 14.5px; }
+  .spec dt, .spec dd { margin: 0; padding: 10px 0; border-top: 1px solid var(--line); }
+  .spec dt { color: var(--muted); white-space: nowrap; }
+  .spec dl > :nth-child(-n+2) { border-top: 0; }
+  kbd {
+    font: 600 12px/1 var(--jp); padding: 3px 6px; border: 1px solid #5a4d3a; border-bottom-width: 2px;
+    border-radius: 3px; background: var(--panel); color: var(--text); white-space: nowrap;
+  }
+  @media (max-width: 860px) { .specs { grid-template-columns: 1fr; } }
+
+  /* ------------------------------------------------ 最後の呼びかけ */
+  .final { text-align: center; padding: 110px 0; overflow: hidden; }
+  .final::before {
+    content: ""; position: absolute; inset: 0;
+    background: url(img/key-art.webp) center 35% / cover no-repeat; opacity: .16; filter: blur(2px);
+  }
+  .final .wrap { position: relative; }
+  .final .log { font: 600 14px/1 var(--jp); color: var(--dim); letter-spacing: .2em; margin: 0 0 18px; }
+  .final h2 { font-size: clamp(28px, 5vw, 48px); margin-bottom: 30px; }
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--dim); font-size: 13px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+  footer a { color: var(--muted); }
+
+  /* ------------------------------------------------ 拡大表示 */
+  dialog.zoom { padding: 0; border: 0; background: transparent; max-width: min(96vw, 1400px); max-height: 92vh; }
+  dialog.zoom::backdrop { background: rgba(5,4,3,.9); }
+  dialog.zoom img { max-height: 86vh; width: auto; margin: 0 auto; border-radius: 4px; }
+  dialog.zoom p { color: var(--muted); text-align: center; margin: 10px 0 0; font-size: 14px; }
+  dialog.zoom button {
+    position: fixed; top: 12px; right: 12px; width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 22px; cursor: pointer;
+  }
+
+  /* ------------------------------------------------ 出てくる動き */
+  .rise { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
+  .rise.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .rise { opacity: 1; transform: none; transition: none; }
+    .art img, .story .glitch, .sealed i { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================== ヘッダー ============================== -->
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="logo" href="#">IRON <span>WASTELAND</span></a>
+    <nav class="nav">
+      <a href="#features"><span class="ja">機兵</span><span class="en">Mech</span></a>
+      <a href="#battle"><span class="ja">戦闘</span><span class="en">Battle</span></a>
+      <a href="#fields"><span class="ja">戦場</span><span class="en">Fields</span></a>
+      <a href="#versus"><span class="ja">対戦</span><span class="en">Versus</span></a>
+      <a href="#howto"><span class="ja">遊び方</span><span class="en">How to play</span></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="ja">日本語</button>
+      <button type="button" data-set-lang="en">English</button>
+    </div>
+    <a class="btn btn-play play" href="../"><span class="ja">プレイ</span><span class="en">Play</span></a>
+  </div>
+</header>
+
+<main>
+<!-- ============================== メイン ============================== -->
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow"><span class="ja">ブラウザで無料プレイ</span><span class="en">Free browser game</span></p>
+      <h1>IRON <span class="w">WASTELAND</span></h1>
+      <p class="sub"><span class="ja">荒野機兵戦記</span><span class="en">WASTELAND MECH CHRONICLES</span></p>
+      <p class="catch">
+        <span class="ja">パーツを組み、回路を刻め。<br>百の群れの先に、王が待つ。</span>
+        <span class="en">Build your mech. Wire its mind.<br>Beyond the swarm, the king awaits.</span>
+      </p>
+      <p class="lead">
+        <span class="ja">未知の惑星に降りる、遠隔操作の機兵。その頭脳に刻まれるのは、あなたが組んだ回路だけ。パーツを選んで機体を組み立て、タイルを並べて戦い方をプログラムし、押し寄せる魔物の群れと、その奥に潜むボスに挑みます。</span>
+        <span class="en">A remote mech, dropped onto an unknown planet. The only thing etched into its mind is the circuit you build. Assemble it from parts, program how it fights by laying out tiles, and send it against the swarms — and the boss lurking beyond them.</span>
+      </p>
+      <div class="cta">
+        <a class="btn btn-play play" href="../"><i class="tri"></i><span class="ja">今すぐ遊ぶ</span><span class="en">Play now</span></a>
+        <a class="btn btn-ghost" href="#features"><span class="ja">ゲームの特徴</span><span class="en">See features</span></a>
+      </div>
+      <p class="note">
+        <span class="ja"><b>無料</b>・インストール不要・PC とスマホのブラウザで遊べます</span>
+        <span class="en"><b>Free</b> · No install · Runs in PC and mobile browsers</span>
+      </p>
+    </div>
+    <div class="art">
+      <img src="img/key-art.webp" width="1260" height="860" alt="" data-alt-ja="ガトリングを撃つ機兵に、赤熱した巨大なボスと甲虫の群れが迫る" data-alt-en="A mech firing its Gatling as a red-hot giant boss and a swarm of beetles close in" fetchpriority="high">
+    </div>
+  </div>
+</section>
+
+<!-- ============================== プロローグ ============================== -->
+<section class="story" aria-label="Prologue">
+  <div class="wrap">
+    <p class="log rise"><span class="ja">― 恒星間探査局　記録 第0号 ―</span><span class="en">― Interstellar Survey Bureau — Record No. 0 ―</span></p>
+    <p class="rise">
+      <span class="ja">赤錆色の大地。乾いた風。大気の組成は、地球とほぼ同じ。<br>――あまりにも、似すぎていた。</span>
+      <span class="en">Rust-red earth. Dry wind. An atmosphere almost identical to Earth's.<br>——It was far too similar.</span>
+    </p>
+    <p class="rise">
+      <span class="ja">先遣調査隊 十二名、降下。<br>七日目の交信を最後に、記録は途絶えている。</span>
+      <span class="en">An advance survey team of twelve made the descent.<br>The record ends with their transmission on the seventh day.</span>
+    </p>
+    <p class="quote rise"><span class="ja">『……地面が、息をしている』</span><span class="en">"...The ground is breathing."</span></p>
+    <p class="rise">
+      <span class="ja">探索は、遠隔の機兵に委ねられる。<br>恐れを知らず、命令だけに従う鋼の体。<br>その頭脳に刻まれるのは、あなたが組んだ回路だけだ。</span>
+      <span class="en">Exploration is left to remote mechs.<br>Bodies of steel that know no fear and obey only orders.<br>Etched into their minds is nothing but the circuit you build.</span>
+    </p>
+    <p class="rise glitch"><span class="ja">先遣隊の最後の座標から、救難信号は今も届き続けている。</span><span class="en">From the advance team's last coordinates, a distress signal is still coming in.</span></p>
+  </div>
+</section>
+
+<!-- ============================== 機兵 ============================== -->
+<section id="features">
+  <div class="wrap">
+    <p class="eyebrow rise">Mech design</p>
+    <h2 class="rise"><span class="ja">機兵の<span class="hl">体と頭脳</span>を、あなたが設計する</span><span class="en">You design its <span class="hl">body and mind</span></span></h2>
+    <p class="lead rise">
+      <span class="ja">手は攻撃、足は機動、胴は防御、頭は制御。組み合わせと回路しだいで、同じパーツでもまったく違う機兵になります。</span>
+      <span class="en">Arms attack, legs move, the torso defends, the head controls. Depending on how you combine them and wire the circuit, the same parts make an entirely different mech.</span>
+    </p>
+
+    <div class="feat rise">
+      <button class="shot" type="button"><img src="img/build.webp" width="1280" height="672" loading="lazy" alt="" data-alt-ja="ガレージの組立画面。スケルトンの各ジョイントにパーツを装着する" data-alt-en="The garage assembly screen. Parts are fitted to each joint of the skeleton frame"></button>
+      <div>
+        <div class="num">01</div>
+        <h3><small>BUILD</small><span class="ja">組む</span><span class="en">Build</span></h3>
+        <p>
+          <span class="ja">スケルトンの6つのジョイントに、頭部A（回路ユニット）・頭部B（出力レギュレーター）・胴体・左右の腕・脚部を装着。重い装甲や武器ほど、積載量の大きい脚が必要です。</span>
+          <span class="en">Fit six joints on a skeleton frame: Head A (circuit unit), Head B (output regulator), torso, left and right arms, and legs. The heavier your armor and weapons, the more load capacity your legs need.</span>
+        </p>
+        <ul class="tags">
+          <li><span class="ja">ガトリング</span><span class="en">Gatling</span></li>
+          <li><span class="ja">ヘビーキャノン</span><span class="en">Heavy Cannon</span></li>
+          <li><span class="ja">ミサイルポッド</span><span class="en">Missile Pod</span></li>
+          <li><span class="ja">フレイムスロワー</span><span class="en">Flamethrower</span></li>
+          <li><span class="ja">ヒートブレード</span><span class="en">Heat Blade</span></li>
+          <li><span class="ja">逆関節・キャタピラ・ホバー・多脚</span><span class="en">Reverse-joint · Tracks · Hover · Six legs</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="feat rise">
+      <button class="shot" type="button"><img src="img/circuit.webp" width="1280" height="672" loading="lazy" alt="" data-alt-ja="回路盤にタイルを並べて機兵の行動をプログラムする画面" data-alt-en="Laying out tiles on the circuit board to program the mech's behavior"></button>
+      <div>
+        <div class="num">02</div>
+        <h3><small>PROGRAM</small><span class="ja">刻む</span><span class="en">Program</span></h3>
+        <p>
+          <span class="ja">戦闘中、機兵は自分で考えて動きます。その考え方を決めるのが、回路盤に並べるタイル。「最寄りの敵へ向く」「敵が○m以内にいるか」「左腕で攻撃」――移動・攻撃・制御・判定のタイルをつなぎ、YES／NO で枝分かれさせて、あなただけの戦術を組み上げます。</span>
+          <span class="en">In battle, the mech thinks for itself — and how it thinks is decided by the tiles on its circuit board. "Face nearest enemy", "Enemy within N m?", "Attack with left arm" — chain movement, attack, control and condition tiles, branch them on YES / NO, and build a tactic that's yours alone.</span>
+        </p>
+        <p>
+          <span class="ja">回路は3つまで保存でき、<kbd>M</kbd> キーで手動操作に切り替えて自分で戦うこともできます。</span>
+          <span class="en">Save up to three circuits, or press <kbd>M</kbd> to take manual control and fight it yourself.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="feat rise">
+      <button class="shot" type="button"><img src="img/power.webp" width="1280" height="672" loading="lazy" alt="" data-alt-ja="出力配分の画面。腕と脚に出力を振り分けるスライダー" data-alt-en="The power distribution screen, with a slider splitting output between arms and legs"></button>
+      <div>
+        <div class="num">03</div>
+        <h3><small>DISTRIBUTE</small><span class="ja">配る</span><span class="en">Distribute</span></h3>
+        <p>
+          <span class="ja">胴体のジェネレーターが生む出力を、腕と脚にどう配るか。腕に寄せれば火力が、脚に寄せれば機動力が上がります。レギュレーターしだいで 0〜100% の極端な配分も。戦闘中も回路や <kbd>Q</kbd>／<kbd>E</kbd> キーで切り替えられます。</span>
+          <span class="en">How do you split the torso generator's output between arms and legs? Push it to the arms for firepower, to the legs for mobility. Some regulators allow an extreme 0–100% split. You can shift it mid-battle, from a circuit or with <kbd>Q</kbd> / <kbd>E</kbd>.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="feat rise">
+      <button class="shot" type="button"><img src="img/swarm.webp" width="1280" height="672" loading="lazy" alt="" data-alt-ja="倒したエネミーが落とした鉱石がフィールドに散らばっている" data-alt-en="Ore dropped by defeated enemies scattered across the field"></button>
+      <div>
+        <div class="num">04</div>
+        <h3><small>UPGRADE</small><span class="ja">鍛える</span><span class="en">Upgrade</span></h3>
+        <p>
+          <span class="ja">倒したエネミーが落とす鉱石――鉄鉱石・酸晶石・岩核――を持ち帰り、パーツを強化 Lv10 まで鍛えます。Lv6 からは腕の弾数が増え、脚はジャンプを覚えます。まれに現れるレアエネミーは、パーツの性能を引き上げるブースター（+1〜+10）を落とすことも。</span>
+          <span class="en">Haul back the ore that defeated enemies drop — iron, acid crystal, rock core — and upgrade your parts up to Lv10. From Lv6, arms fire extra rounds and legs learn to jump. Rare enemies sometimes drop boosters (+1 to +10) that push a part's performance even further.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 戦闘 ============================== -->
+<section id="battle" class="battle">
+  <div class="wrap">
+    <p class="eyebrow rise">Battle</p>
+    <h2 class="rise"><span class="ja">百の群れ、<span class="hl">その先の王</span></span><span class="en">A hundred-strong swarm. <span class="hl">A king beyond it.</span></span></h2>
+    <p class="lead rise">
+      <span class="ja">戦場は3つの地区に分かれ、1地区ごとに最大100体の魔物が押し寄せます。すべての地区を掃討したとき、地の底から巨大な生体反応が現れる――。</span>
+      <span class="en">Each battlefield is split into three districts, and up to 100 creatures pour into each one. Clear them all, and a giant life sign rises from below——</span>
+    </p>
+    <div class="stats rise">
+      <div class="stat"><b>100</b><span class="ja">1地区あたりの最大エネミー数</span><span class="en">max enemies per district</span></div>
+      <div class="stat"><b>8</b><span class="ja">各フィールドの階層。下層ほど敵は手強い</span><span class="en">floors per field, each deeper one tougher</span></div>
+      <div class="stat"><b>×3.1</b><span class="ja">第8層のエネミーの耐久（第1層比）</span><span class="en">enemy toughness on Floor 8 vs Floor 1</span></div>
+    </div>
+    <div class="bosses">
+      <div class="boss rise">
+        <button class="shot" type="button"><img src="img/worm.webp" width="1280" height="672" loading="lazy" alt="" data-alt-ja="砂礫王グラヴォルムと戦う機兵" data-alt-en="A mech fighting Gravorm, the Gravel King"></button>
+        <div class="tag">BOSS · WASTELAND</div>
+        <h3><span class="ja">砂礫王グラヴォルム</span><span class="en">Gravorm, the Gravel King</span></h3>
+        <p><span class="ja">荒野の地中を進む、巨大な甲殻の蟲。追い詰められると全身が赤熱し、激昂する。</span><span class="en">A colossal armored worm that tunnels beneath the wasteland. Corner it, and its whole body glows red-hot with rage.</span></p>
+      </div>
+      <div class="boss cyan rise">
+        <button class="shot" type="button"><img src="img/spider.webp" width="1280" height="720" loading="lazy" alt="" data-alt-ja="洞窟で蒼晶蜘蛛ノクタラクネと戦う機兵" data-alt-en="A mech fighting Noctarachne, the Azure Spider, in the cave"></button>
+        <div class="tag">BOSS · CAVE</div>
+        <h3><span class="ja">蒼晶蜘蛛ノクタラクネ</span><span class="en">Noctarachne, the Azure Spider</span></h3>
+        <p><span class="ja">大空洞の天井の闇から降りてくる、結晶をまとった巨大蜘蛛。眷属を孵化させ、天井の結晶を降らせる。</span><span class="en">A giant crystal-clad spider that descends from the darkness of the cavern ceiling. It hatches broods and brings ceiling crystals crashing down.</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 戦場 ============================== -->
+<section id="fields">
+  <div class="wrap">
+    <p class="eyebrow rise">Fields</p>
+    <h2 class="rise"><span class="ja">荒野を進み、<span class="hl">地の底を暴け</span></span><span class="en">Cross the wasteland. <span class="hl">Lay bare the depths.</span></span></h2>
+    <div class="fields">
+      <article class="field rise">
+        <button class="shot" type="button"><img src="img/waste.webp" width="1280" height="672" loading="lazy" alt="" data-alt-ja="荒野 第7区画で戦う機兵" data-alt-en="A mech fighting in Wasteland Sector 7"></button>
+        <div class="body">
+          <div class="kind">FIELD 01</div>
+          <h3><span class="ja">荒野 第7区画</span><span class="en">Wasteland Sector 7</span></h3>
+          <p><span class="ja">見通しの良い赤錆の荒野。横に並ぶ地区を順に制圧していく。ボス戦は全地区が戦場になる。</span><span class="en">Open, rust-red wasteland with clear sightlines. Take the side-by-side districts one at a time. The boss fight spans every district.</span></p>
+        </div>
+      </article>
+      <article class="field rise">
+        <button class="shot" type="button"><img src="img/cave.webp" width="1280" height="720" loading="lazy" alt="" data-alt-ja="暗い円形洞窟で群れと戦う機兵" data-alt-en="A mech fighting a swarm in the dark circular cave"></button>
+        <div class="body">
+          <div class="kind">FIELD 02</div>
+          <h3><span class="ja">円形洞窟「奈落の大空洞」</span><span class="en">Circular Cave "Abyssal Hollow"</span></h3>
+          <p><span class="ja">巨大な円形の地下空洞。中心に降下し、地区を掃討するたびに外側の輪へ戦場が広がる。</span><span class="en">A vast circular cavern. You drop into the center, and the battle spreads to the outer ring with every district you clear.</span></p>
+        </div>
+      </article>
+      <article class="field locked rise">
+        <div class="sealed" aria-hidden="true"><i></i><i></i><i></i><b>???</b></div>
+        <div class="body">
+          <div class="kind">FIELD 03 · SEALED</div>
+          <h3><span class="ja">？？？</span><span class="en">???</span></h3>
+          <p><span class="ja">荒野と洞窟、その最深部を制圧したとき――地の底で、何かが脈打ちはじめる。</span><span class="en">Conquer the deepest floors of both the wasteland and the cave——and something far below begins to pulse.</span></p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 対戦 ============================== -->
+<section id="versus" class="versus battle">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow rise">Versus</p>
+      <h2 class="rise"><span class="ja">回路と回路の<span class="hl">一騎打ち</span></span><span class="en"><span class="hl">Circuit against circuit</span></span></h2>
+      <p class="lead rise">
+        <span class="ja">鍛えた機兵をファイルに書き出して、友だちと交換。闘技場「鉄の円環」で、互いの回路だけを頼りに1対1で戦わせます。</span>
+        <span class="en">Export your mech to a file and trade it with friends. In the Arena "Iron Ring", two mechs fight one-on-one, relying on nothing but their circuits.</span>
+      </p>
+      <ul class="rise">
+        <li><span class="ja">パーツ・強化・ブースター・回路まで、そのまま相手になる</span><span class="en">Parts, upgrades, boosters and circuits all carry over</span></li>
+        <li><span class="ja">60秒を過ぎると電磁柵が迫り、120秒で決着しなければ残りHPで判定</span><span class="en">After 60 s the electric fence closes in; no winner by 120 s and remaining HP decides</span></li>
+        <li><span class="ja">「強化・ブースター無効」ルールで、純粋に回路の腕比べも</span><span class="en">An "upgrades and boosters off" rule for a pure test of circuits</span></li>
+        <li><span class="ja">相手は20機まで登録でき、戦績も記録される</span><span class="en">Register up to 20 rivals and track your record</span></li>
+      </ul>
+    </div>
+    <button class="shot rise" type="button"><img src="img/versus.webp" width="1280" height="672" loading="lazy" alt="" data-alt-ja="円形の闘技場で向かい合う2機の機兵" data-alt-en="Two mechs facing off in the circular arena"></button>
+  </div>
+</section>
+
+<!-- ============================== 遊び方 ============================== -->
+<section id="howto" class="howto">
+  <div class="wrap">
+    <p class="eyebrow rise">How to play</p>
+    <h2 class="rise"><span class="ja">遊び方</span><span class="en">How to play</span></h2>
+    <ol class="steps">
+      <li class="rise"><b><span class="ja">組み立てる</span><span class="en">Assemble</span></b><span><span class="ja">ガレージでパーツを選び、機兵を組む</span><span class="en">Pick parts in the garage and build your mech</span></span></li>
+      <li class="rise"><b><span class="ja">回路を組む</span><span class="en">Wire the circuit</span></b><span><span class="ja">タイルを並べて、戦い方を教え込む</span><span class="en">Lay out tiles to teach it how to fight</span></span></li>
+      <li class="rise"><b><span class="ja">出撃する</span><span class="en">Deploy</span></b><span><span class="ja">機兵の戦いを見守る。いざとなれば手動操作で</span><span class="en">Watch it fight — or take manual control when it counts</span></span></li>
+      <li class="rise"><b><span class="ja">鍛えて深層へ</span><span class="en">Upgrade and go deeper</span></b><span><span class="ja">持ち帰った鉱石で強化し、さらに下の層へ</span><span class="en">Upgrade with the ore you bring back and push to deeper floors</span></span></li>
+    </ol>
+    <div class="specs">
+      <div class="spec rise">
+        <h3><span class="ja">基本情報</span><span class="en">Details</span></h3>
+        <dl>
+          <dt><span class="ja">価格</span><span class="en">Price</span></dt><dd><span class="ja">無料</span><span class="en">Free</span></dd>
+          <dt><span class="ja">動作環境</span><span class="en">Platform</span></dt><dd><span class="ja">PC・スマホのブラウザ（インストール不要）</span><span class="en">PC and mobile browsers (no install)</span></dd>
+          <dt><span class="ja">セーブ</span><span class="en">Saving</span></dt><dd><span class="ja">ブラウザに自動保存。暗号化したファイルへの書き出し・読み込みも</span><span class="en">Saved automatically in your browser; export and import as an encrypted file</span></dd>
+          <dt><span class="ja">表示</span><span class="en">Views</span></dt><dd><span class="ja">2D 見下ろし（北が上／背後）・3D（試作）</span><span class="en">2D top-down (north up / behind) · 3D (beta)</span></dd>
+          <dt><span class="ja">言語</span><span class="en">Languages</span></dt><dd>日本語 · English</dd>
+        </dl>
+      </div>
+      <div class="spec rise">
+        <h3><span class="ja">戦闘中の操作（PC）</span><span class="en">Battle controls (PC)</span></h3>
+        <dl>
+          <dt><kbd>Space</kbd></dt><dd><span class="ja">一時停止</span><span class="en">Pause</span></dd>
+          <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd><span class="ja">戦闘の速さ</span><span class="en">Battle speed</span></dd>
+          <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd><span class="ja">出力配分</span><span class="en">Power distribution</span></dd>
+          <dt><kbd>M</kbd></dt><dd><span class="ja">手動操作／回路の切り替え</span><span class="en">Toggle manual / circuit control</span></dd>
+          <dt><span class="ja">手動操作</span><span class="en">Manual</span></dt><dd><span class="ja"><kbd>WASD</kbd> 移動・マウスで照準・左右クリックで左右の腕</span><span class="en"><kbd>WASD</kbd> move · mouse aim · left / right click fires each arm</span></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 最後の呼びかけ ============================== -->
+<section class="final">
+  <div class="wrap">
+    <p class="log"><span class="ja">― 降下準備、完了 ―</span><span class="en">― Descent preparations complete ―</span></p>
+    <h2><span class="ja">この星が隠しているものを、<br>持ち帰れ。</span><span class="en">Bring back whatever<br>this world is hiding.</span></h2>
+    <a class="btn btn-play play" href="../"><i class="tri"></i><span class="ja">今すぐ遊ぶ（無料）</span><span class="en">Play now — it's free</span></a>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>IRON WASTELAND — <span class="ja">荒野機兵戦記</span><span class="en">Wasteland Mech Chronicles</span> · © 2026 tomozo</span>
+    <a href="../"><span class="ja">ゲームを開く</span><span class="en">Open the game</span></a>
+  </div>
+</footer>
+
+<dialog class="zoom" id="zoom">
+  <button type="button" aria-label="Close" data-close>×</button>
+  <img alt="">
+  <p></p>
+</dialog>
+
+<script>
+'use strict';
+(function () {
+  var KEY = 'iron_wasteland_lang';
+  var root = document.documentElement;
+  var META = {
+    ja: {
+      title: 'IRON WASTELAND — 荒野機兵戦記',
+      desc: 'パーツを組み、回路を刻め。機兵を組み立て、タイルを並べて戦い方をプログラムし、最大100体の魔物の群れとボスに挑むブラウザゲーム。無料・インストール不要。',
+    },
+    en: {
+      title: 'IRON WASTELAND — Wasteland Mech Chronicles',
+      desc: 'Build your mech. Wire its mind. Assemble a mech, program how it fights with circuit tiles, and take on swarms of up to 100 creatures and the bosses beyond. Free in your browser, no install.',
+    },
+  };
+
+  // 言語を画面に反映（文章は CSS で出し分け。ここでは題名・説明・画像の alt・ボタンの状態）
+  function apply(l) {
+    root.lang = l; root.dataset.lang = l;
+    document.title = META[l].title;
+    document.querySelector('meta[name="description"]').content = META[l].desc;
+    document.querySelectorAll('img[data-alt-ja]').forEach(function (im) { im.alt = im.dataset['alt' + (l === 'en' ? 'En' : 'Ja')]; });
+    document.querySelectorAll('[data-set-lang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.setLang === l)); });
+  }
+  apply(root.dataset.lang);
+
+  // 切り替えボタン：ゲームと同じキーに保存（ゲームもこの言語で始まる）。URL の ?lang= は外す
+  document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var l = b.dataset.setLang;
+      try { localStorage.setItem(KEY, l); } catch (e) {}
+      if (location.search) history.replaceState(null, '', location.pathname + location.hash);
+      apply(l);
+    });
+  });
+
+  // 「遊ぶ」を押したら、今の言語をゲームに引き継ぐ（ゲームは保存された言語で始まる）
+  document.querySelectorAll('a.play').forEach(function (a) {
+    a.addEventListener('click', function () {
+      try { localStorage.setItem(KEY, root.dataset.lang); } catch (e) {}
+    });
+  });
+
+  // スクロールしたらヘッダーに背景を付ける
+  var top = document.getElementById('top');
+  function onScroll() { top.classList.toggle('solid', window.scrollY > 40); }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // 画面に入ったら浮かび上がらせる
+  var rises = document.querySelectorAll('.rise');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    rises.forEach(function (el) { io.observe(el); });
+  } else {
+    rises.forEach(function (el) { el.classList.add('in'); });
+  }
+
+  // 画面写真を押したら大きく表示
+  var dlg = document.getElementById('zoom');
+  var big = dlg.querySelector('img'), cap = dlg.querySelector('p');
+  document.querySelectorAll('button.shot').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var im = b.querySelector('img');
+      big.src = im.currentSrc || im.src; big.alt = im.alt; cap.textContent = im.alt;
+      if (dlg.showModal) dlg.showModal(); else window.open(big.src);
+    });
+  });
+  dlg.addEventListener('click', function (e) { if (e.target === dlg || e.target.hasAttribute('data-close') || e.target === big) dlg.close(); });
+})();
+</script>
+</body>
+</html>

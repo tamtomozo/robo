@@ -93,6 +93,9 @@ h3 small { color: #a89a80; font-weight: normal; font-size: 12px; margin-left: 6p
 #lang-ctl { position: absolute; top: 14px; right: 14px; z-index: 2; display: flex; gap: 4px; cursor: default; }
 #lang-ctl button { padding: 3px 12px; font-size: 13px; background: rgba(20,16,11,0.75); color: #a89a80; }
 #lang-ctl button.sel { border-color: #e08a3a; color: #ffd8a0; background: #4a3420; }
+/* ゲーム紹介ページ（lp/）へのリンク。言語の切り替えの下 */
+#site-link { position: absolute; top: 46px; right: 14px; z-index: 2; font-size: 13px; color: #a89a80; text-decoration: underline dotted; text-underline-offset: 3px; }
+#site-link:hover { color: #ffd8a0; }
 /* セーブファイルの書き出し・読み込み（savefile.js） */
 #save-ctl { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; gap: 4px; cursor: default; }
 #save-ctl button { padding: 3px 12px; font-size: 13px; background: rgba(20,16,11,0.75); color: #a89a80; }
@@ -650,7 +653,7 @@ button { touch-action: manipulation; }
   body { font-size: 13px; }
 
   /* タイトル */
-  .title-box { margin-top: 6vh; }
+  .title-box { margin-top: max(6vh, 70px); }   /* 右上のゲーム紹介ページのリンク（下端 約63px）と重ならない高さ */
   .title-sub { font-size: 15px; letter-spacing: 6px; }
   .title-crawl { height: 52vh; }
   .crawl-inner { font-size: 16px; letter-spacing: 1px; }
@@ -794,6 +797,9 @@ button { touch-action: manipulation; }
   #save-ctl { flex-direction: column; align-items: flex-start; }
   #save-ctl button { padding: 3px 8px; font-size: 12px; }
   .title-box { margin-top: 74px; }
+  /* ロゴは画面幅に合わせて縮める（最小 36px のままだと 390px 幅でも両端が切れる） */
+  .title-logo { font-size: clamp(24px, 8.4vw, 36px); letter-spacing: 3px; white-space: nowrap; }
+  .title-logo span { margin-left: 8px; }
 }
 
 /* キーボードの無い端末：キー操作の説明は出さない */

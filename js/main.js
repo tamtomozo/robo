@@ -15,6 +15,10 @@ const Game = {
     View3D.initUI();   // 戦闘画面の 2D / 3D 表示の設定（view3d.js）
     SaveFile.init();   // タイトル画面のセーブファイルの書き出し・読み込み（savefile.js）
     Ending.init();     // 地底のマシン3機を倒しきったときのエピローグとスタッフロール（ending.js）
+    // タイトル画面のゲーム紹介ページへのリンク：押してもゲームを始めない。今の言語で開く
+    const site = document.getElementById('site-link');
+    site.addEventListener('pointerdown', e => e.stopPropagation());
+    site.href += '?lang=' + LANG;
     document.getElementById('btn-reload').onclick = () => location.reload();
     // 開きっぱなしのタブに戻ってきたときも確認する
     document.addEventListener('visibilitychange', () => {
@@ -32,7 +36,7 @@ const Game = {
     inner.style.animationDuration = ((inner.offsetHeight + crawl.offsetHeight) / 42) + 's';
     const start = (e) => {
       if (e.type === 'keydown' && (e.repeat || ['Shift', 'Control', 'Alt', 'Meta'].includes(e.key))) return;
-      if (e.type === 'keydown' && document.activeElement && document.activeElement.closest('#sound-ctl, #lang-ctl, #save-ctl')) return;
+      if (e.type === 'keydown' && document.activeElement && document.activeElement.closest('#sound-ctl, #lang-ctl, #save-ctl, #site-link')) return;
       if (e.type === 'keydown') e.preventDefault();
       scr.removeEventListener('pointerdown', start);
       window.removeEventListener('keydown', start);

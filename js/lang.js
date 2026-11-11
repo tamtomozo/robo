@@ -143,6 +143,8 @@ const TEXT = {
   C045: { ja: 'この星に降り立った<br>すべての機兵と、そのパイロット', en: 'Every mech that set foot on this world,<br>and every pilot behind it' },
   C046: { ja: 'そして――回路を組んだ、あなたへ。', en: 'And to you——who built the circuit.' },
   C047: { ja: '― 探査任務、完了 ―', en: '― Survey mission complete ―' },
+  // タイトル画面のゲーム紹介ページ（lp/）へのリンク
+  C048: { ja: 'ゲーム紹介ページ', en: 'About this game' },
 
   // ---------------------------------------------------------------- G：ガレージ
   G001: { ja: '① 組立', en: '① Assembly' },
