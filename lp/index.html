@@ -11,11 +11,11 @@
   ・画像は lp/img/。node tools/make-lp-shots.js で録画（dist/rec-*.mp4）とカバー絵から作り直せる
 -->
 <title>IRON WASTELAND — 荒野機兵戦記</title>
-<meta name="description" content="パーツを組み、回路を刻め。機兵を組み立て、タイルを並べて戦い方をプログラムし、最大100体の魔物の群れとボスに挑むブラウザゲーム。無料・インストール不要。">
+<meta name="description" content="戦うのは、あなたではない。あなたが組んだ回路だ。機兵をパーツから組み立て、タイルを並べて戦い方をプログラムし、最大100体の魔物の群れとボスに挑むブラウザゲーム。無料・インストール不要。">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="IRON WASTELAND">
 <meta property="og:title" content="IRON WASTELAND — 荒野機兵戦記">
-<meta property="og:description" content="パーツを組み、回路を刻め。百の群れの先に、王が待つ。ブラウザで無料プレイ。">
+<meta property="og:description" content="戦うのは、あなたではない。あなたが組んだ回路だ。百の群れの先に、王が待つ。ブラウザで無料プレイ。">
 <meta property="og:url" content="https://tamtomozo.github.io/robo/lp/">
 <meta property="og:image" content="https://tamtomozo.github.io/robo/lp/img/ogp.jpg">
 <meta property="og:image:width" content="1200">
@@ -110,12 +110,20 @@
   .nav a:hover { color: var(--text); }
   .lang { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
   .lang button {
-    font: 600 12px/1 var(--jp); color: var(--muted); background: none; border: 0; padding: 7px 10px; cursor: pointer;
+    font: 600 12px/1 var(--jp); color: var(--muted); background: none; border: 0; padding: 7px 10px; cursor: pointer; white-space: nowrap;
   }
   .lang button[aria-pressed="true"] { background: var(--accent); color: #1a1006; }
   .top .btn { padding: 10px 16px; font-size: 14px; }
   @media (max-width: 900px) { .nav { display: none; } .lang { margin-left: auto; } }
   @media (max-width: 420px) { .logo { font-size: 17px; } .top .wrap { gap: 10px; } .top .btn { padding: 9px 12px; } }
+  .top .btn { white-space: nowrap; }
+  .lang .s { display: none; }
+  /* 小さいスマホ：言語ボタンを JA / EN に縮めて、ヘッダーを1行に収める */
+  @media (max-width: 380px) {
+    .logo { font-size: 15px; letter-spacing: .08em; } .top .wrap { gap: 8px; }
+    .lang button { padding: 7px 8px; } .lang .l { display: none; } .lang .s { display: inline; }
+    .top .btn { padding: 9px 10px; }
+  }
 
   /* ------------------------------------------------ メイン */
   .hero { padding: 120px 0 72px; overflow: hidden; min-height: min(100vh, 860px); display: flex; align-items: center; }
@@ -123,17 +131,33 @@
     content: ""; position: absolute; inset: -20% -10% auto 30%; height: 90%;
     background: radial-gradient(closest-side, rgba(255,90,30,.20), transparent); pointer-events: none;
   }
-  .hero .wrap { display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: center; width: 100%; }
-  .hero h1 { margin: 0; font: 700 clamp(48px, 7.4vw, 92px)/.95 var(--latin); letter-spacing: .04em; }
-  .hero h1 .w { color: var(--accent); text-shadow: 0 0 34px rgba(255,120,40,.45); }
-  .hero .sub {
-    display: flex; align-items: center; gap: 14px; margin: 16px 0 26px;
-    font-weight: 700; letter-spacing: .5em; color: #d8ccb2; font-size: clamp(15px, 2vw, 19px);
+  .hero .wrap { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center; width: 100%; }
+  /* プリヘッド：誰に向けたページかを最初に示す */
+  .prehead {
+    display: inline-block; margin: 0 0 22px; padding: 8px 14px; border-left: 3px solid var(--accent);
+    background: rgba(232,137,47,.08); font-size: 14.5px; line-height: 1.7; color: #d8ccb2;
   }
-  html[data-lang="en"] .hero .sub { letter-spacing: .22em; font-family: var(--latin); }
-  .hero .sub::after { content: ""; flex: 1; max-width: 90px; height: 2px; background: rgba(232,137,47,.7); }
-  .catch { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.6; margin: 0 0 18px; }
-  .hero .lead { margin-bottom: 30px; }
+  .prehead b { color: var(--accent); font-weight: 700; }
+  @media (max-width: 520px) { .prehead br { display: none; } }
+  /* ゲームの名前 */
+  .brand {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0 0 14px;
+    font: 700 clamp(26px, 3.4vw, 36px)/1 var(--latin); letter-spacing: .06em;
+  }
+  .brand .w { color: var(--accent); text-shadow: 0 0 24px rgba(255,120,40,.4); }
+  .brand small { font: 700 13px/1 var(--jp); letter-spacing: .3em; color: var(--muted); }
+  html[data-lang="en"] .brand small { font-family: var(--latin); letter-spacing: .18em; }
+  /* キャッチコピー：先を読ませる見出し */
+  .catch { margin: 0 0 20px; font-size: clamp(28px, 2.9vw, 40px); font-weight: 800; line-height: 1.32; letter-spacing: .01em; }
+  @media (max-width: 900px) { .catch { font-size: clamp(26px, 7.6vw, 44px); } }
+  .catch .ph { display: inline-block; }   /* 折り返すときは文節の切れ目で */
+  .catch em { font-style: normal; color: var(--accent); text-shadow: 0 0 30px rgba(255,120,40,.35); }
+  /* デッキコピー：キャッチの印象を補強し、好奇心をあおる */
+  .deck { margin: 0 0 20px; font-size: clamp(16.5px, 1.9vw, 19px); font-weight: 700; line-height: 1.75; color: #e6d9bd; }
+  .deck .hot { color: var(--hot); }
+  /* リード：誰のためのページで、読むと何がわかるか */
+  .hero .lead { margin-bottom: 30px; font-size: 15.5px; }
+  .hero .lead b { color: var(--text); font-weight: 600; }
   .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
   .note { margin: 16px 0 0; font-size: 13px; color: var(--dim); }
   .note b { color: var(--muted); font-weight: 600; }
@@ -153,13 +177,13 @@
   @media (max-width: 900px) {
     .hero { min-height: 0; padding-top: 92px; }
     .hero .wrap { grid-template-columns: 1fr; gap: 28px; }
-    .art { order: -1; margin: 0 calc(var(--gut) * -1); }
+    .art { margin: 0 calc(var(--gut) * -1); }   /* 狭い画面では文章（プリヘッド）を先に読ませ、絵はボタンの下に */
     .art img, .art::after { border-radius: 0; }
   }
 
   /* ------------------------------------------------ プロローグ */
   .story { background: linear-gradient(180deg, var(--bg), #0e0c09 30%, #0e0c09 70%, var(--bg)); text-align: center; }
-  .story .log { font: 600 14px/1 var(--jp); color: var(--dim); letter-spacing: .2em; margin: 0 0 34px; }
+  .story .log { font: 600 14px/1 var(--jp); color: var(--dim); letter-spacing: .2em; margin: 0 auto 34px; padding-left: .2em; }   /* 左右 auto でほかの段落と同じく中央に。padding-left は字間で末尾にできる余白とつり合わせる */
   .story p { margin: 0 auto 22px; max-width: 34em; color: #cfc4ac; font-size: clamp(15px, 1.9vw, 18px); line-height: 2.1; }
   .story .quote {
     font-size: clamp(24px, 4.2vw, 40px); font-weight: 800; color: var(--hot); margin: 46px auto;
@@ -271,7 +295,7 @@
     background: url(img/key-art.webp) center 35% / cover no-repeat; opacity: .16; filter: blur(2px);
   }
   .final .wrap { position: relative; }
-  .final .log { font: 600 14px/1 var(--jp); color: var(--dim); letter-spacing: .2em; margin: 0 0 18px; }
+  .final .log { font: 600 14px/1 var(--jp); color: var(--dim); letter-spacing: .2em; margin: 0 0 18px; padding-left: .2em; }
   .final h2 { font-size: clamp(28px, 5vw, 48px); margin-bottom: 30px; }
   footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--dim); font-size: 13px; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
@@ -310,8 +334,8 @@
       <a href="#howto"><span class="ja">遊び方</span><span class="en">How to play</span></a>
     </nav>
     <div class="lang" role="group" aria-label="Language">
-      <button type="button" data-set-lang="ja">日本語</button>
-      <button type="button" data-set-lang="en">English</button>
+      <button type="button" data-set-lang="ja" aria-label="日本語"><span class="l">日本語</span><span class="s">JA</span></button>
+      <button type="button" data-set-lang="en" aria-label="English"><span class="l">English</span><span class="s">EN</span></button>
     </div>
     <a class="btn btn-play play" href="../"><span class="ja">プレイ</span><span class="en">Play</span></a>
   </div>
@@ -322,16 +346,29 @@
 <section class="hero">
   <div class="wrap">
     <div>
-      <p class="eyebrow"><span class="ja">ブラウザで無料プレイ</span><span class="en">Free browser game</span></p>
-      <h1>IRON <span class="w">WASTELAND</span></h1>
-      <p class="sub"><span class="ja">荒野機兵戦記</span><span class="en">WASTELAND MECH CHRONICLES</span></p>
-      <p class="catch">
-        <span class="ja">パーツを組み、回路を刻め。<br>百の群れの先に、王が待つ。</span>
-        <span class="en">Build your mech. Wire its mind.<br>Beyond the swarm, the king awaits.</span>
+      <!-- プリヘッド：主なターゲット（機体を組む・戦術を考えるのが好きな人）を名指しして注意を引く -->
+      <p class="prehead">
+        <span class="ja">プラモデルのように機体を<b>組む</b>のが好きな人、<br>自分の考えた<b>戦術</b>で勝ちたい人へ。</span>
+        <span class="en">For anyone who loves <b>building</b> machines like model kits —<br>and winning with <b>tactics</b> they designed themselves.</span>
       </p>
+      <p class="brand">
+        <span>IRON <span class="w">WASTELAND</span></span>
+        <small class="ja">荒野機兵戦記</small><small class="en">WASTELAND MECH CHRONICLES</small>
+      </p>
+      <!-- キャッチコピー：先を読ませるための見出し -->
+      <h1 class="catch">
+        <span class="ja"><span class="ph">戦うのは、</span><span class="ph">あなたではない。</span><br><em><span class="ph">あなたが</span><span class="ph">組んだ回路だ。</span></em></span>
+        <span class="en">You don't fight.<br><em>Your circuit does.</em></span>
+      </h1>
+      <!-- デッキコピー：キャッチの意味を補強し、続きを知りたくさせる -->
+      <p class="deck">
+        <span class="ja">出撃した機兵は、自分で考えて動く。あなたにできるのは、回路を切り替え、出力を振り直すことだけ。押し寄せる百の群れを、あなたの戦術は抜けられるか――<span class="hot">その先では、王が待っている。</span></span>
+        <span class="en">Once deployed, your mech thinks for itself. All you can do is switch its circuit and reroute its power. Can your tactics cut through a hundred-strong swarm?—<span class="hot">because beyond it, the king is waiting.</span></span>
+      </p>
+      <!-- リード：誰のためのページか、読むと（遊ぶと）何が得られるか -->
       <p class="lead">
-        <span class="ja">未知の惑星に降りる、遠隔操作の機兵。その頭脳に刻まれるのは、あなたが組んだ回路だけ。パーツを選んで機体を組み立て、タイルを並べて戦い方をプログラムし、押し寄せる魔物の群れと、その奥に潜むボスに挑みます。</span>
-        <span class="en">A remote mech, dropped onto an unknown planet. The only thing etched into its mind is the circuit you build. Assemble it from parts, program how it fights by laying out tiles, and send it against the swarms — and the boss lurking beyond them.</span>
+        <span class="ja">このページは、反射神経より<b>段取り</b>で勝ちたい人のためのものです。プログラミングの知識は要りません。<b>タイルを矢印でつなぐだけ</b>で、機兵はあなたの組んだ手順どおりに動きはじめます。読み終えるころには、どんな機兵を組み、どんな回路で、どんな敵に挑むのかがひと通りわかるはず。<b>インストールも登録も不要</b>なので、そのまま最初の機兵を出撃させられます。</span>
+        <span class="en">This page is for players who would rather win by <b>planning</b> than by reflexes. No coding knowledge needed — <b>just link tiles with arrows</b>, and your mech starts following the steps you laid out. By the end, you'll know what you build, how you program it, and what you're up against. <b>No install, no sign-up</b> — you can deploy your first mech the moment you finish reading.</span>
       </p>
       <div class="cta">
         <a class="btn btn-play play" href="../"><i class="tri"></i><span class="ja">今すぐ遊ぶ</span><span class="en">Play now</span></a>
@@ -593,11 +630,11 @@
   var META = {
     ja: {
       title: 'IRON WASTELAND — 荒野機兵戦記',
-      desc: 'パーツを組み、回路を刻め。機兵を組み立て、タイルを並べて戦い方をプログラムし、最大100体の魔物の群れとボスに挑むブラウザゲーム。無料・インストール不要。',
+      desc: '戦うのは、あなたではない。あなたが組んだ回路だ。機兵をパーツから組み立て、タイルを並べて戦い方をプログラムし、最大100体の魔物の群れとボスに挑むブラウザゲーム。無料・インストール不要。',
     },
     en: {
       title: 'IRON WASTELAND — Wasteland Mech Chronicles',
-      desc: 'Build your mech. Wire its mind. Assemble a mech, program how it fights with circuit tiles, and take on swarms of up to 100 creatures and the bosses beyond. Free in your browser, no install.',
+      desc: "You don't fight. Your circuit does. Assemble a mech from parts, program how it fights with circuit tiles, and take on swarms of up to 100 creatures and the bosses beyond. Free in your browser, no install.",
     },
   };
 
