@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>IRON WASTELAND — カバー画像</title>
+<!--
+  itch.io などの投稿サイト用カバー画像（630×500。2倍の 1260×1000 で描く）
+  ・ゲーム本体の描画コード（js/）をそのまま使って、ロボ・エネミー・地面を描く
+  ・乱数は種を固定しているので、何度開いても同じ絵になる（SEED を変えると配置の細部が変わる）
+  ・cover.html?lang=en で英語版になる
+  ・ブラウザで開いて「PNG を保存」を押すか、node tools/make-cover.js で dist/ に書き出す（Edge か Chrome を使う）
+-->
+<style>
+  html, body { margin: 0; background: #111; }
+  body { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  canvas { display: block; width: 630px; height: 500px; }
+  .shot canvas { width: 630px; height: 500px; }
+  .shot #ui { display: none; }
+  #ui { font: 14px sans-serif; color: #ccc; padding-bottom: 10px; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="1260" height="1000"></canvas>
+<div id="ui"><button id="save">PNG を保存（630×500）</button> <button id="save2">PNG を保存（1260×1000）</button></div>
+
+<script>
+// 乱数の種を固定（ゲーム側の地面の模様なども Math.random を使うため、読み込み前に差し替える）
+const SEED = 7;
+(function () {
+  let s = SEED >>> 0;
+  Math.random = function () {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+})();
+if (location.hash === '#shot') document.documentElement.className = 'shot';
+// ?lang=en で英語版（副題とキャッチコピーが英語になる）
+const EN = new URLSearchParams(location.search).get('lang') === 'en';
+</script>
+<script src="../js/lang.js"></script>
+<script src="../js/i18n.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/audio.js"></script>
+<script src="../js/field.js"></script>
+<script src="../js/robot.js"></script>
+<script src="../js/parts-art.js"></script>
+<script src="../js/enemy-art.js"></script>
+<script src="../js/battle.js"></script>
+<script>
+'use strict';
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const PX = 46;   // 1m あたりのピクセル（背景の世界の縮尺）
+
+// エネミーの状態（描画に要る分だけ）
+function enemy(type, x, y, a, extra) {
+  return Object.assign({ type, x, y, a, r: ENEMY_DEFS[type].r, anim: Math.random() * 10, lunge: 0, flash: 0,
+    hp: 1, maxHp: 1, state: 'chase', st: 0, st0: 0, phase2: false, walk: Math.random() * 10 }, extra || {});
+}
+
+// ワールド座標（m）で描く：(ox, oy) を画面の基準に、scale 倍
+function inWorld(scale, fn) {
+  ctx.save();
+  ctx.scale(PX * scale, PX * scale);
+  fn();
+  ctx.restore();
+}
+
+function drawCover() {
+  // ---------------------------------------------------------------- 地面
+  inWorld(1, () => {
+    const pat = makeGroundPattern(ctx);
+    ctx.fillStyle = pat;
+    ctx.fillRect(0, 0, W / PX, H / PX);
+    // 赤みを足して夕暮れの荒野に
+    ctx.fillStyle = 'rgba(120,40,10,0.18)';
+    ctx.fillRect(0, 0, W / PX, H / PX);
+    // 撃破跡・焦げ跡
+    const scorch = [[6, 15, 1.6], [18.5, 4.5, 2.2], [24, 15, 1.4], [3.5, 5, 1.2], [13, 11.5, 2.6]];
+    for (const [x, y, r] of scorch) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(40,22,12,0.55)');
+      g.addColorStop(1, 'rgba(40,22,12,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+    // 岩
+    const rocks = [[6.4, 5.6, 1.1], [25.6, 9.2, 1.9], [9.2, 2.2, 1.0], [21.5, 19.5, 1.2]];
+    for (const [x, y, r] of rocks) drawRock(x, y, r);
+  });
+
+  // ---------------------------------------------------------------- ボス：砂礫王グラヴォルム（赤熱形態）
+  // 右上から体をくねらせて機兵へ迫る。尾は画面の外へ
+  inWorld(1, () => {
+    const hx = 20.2, hy = 6.4, a = Math.PI * 0.80;
+    const segs = [];
+    const path = [[22.6, 4.4], [24.6, 2.6], [26.2, 0.6], [27.0, -1.6], [28.4, -3.2], [29.6, -5]];
+    for (const [x, y] of path) segs.push({ x, y });
+    const b = enemy('boss', hx, hy, a, { segs, phase2: true, state: 'charge_wind', st: 0.3, st0: 1, anim: 2.3 });
+    drawEnemy(ctx, b);
+  });
+
+  // ---------------------------------------------------------------- 雑魚の群れ
+  inWorld(1, () => {
+    // スカラベの群れ（右下から機兵へ殺到）
+    const sc = [
+      [16.5, 14.5], [18.2, 13.4], [17.6, 16.2], [19.8, 15.0], [20.5, 12.6], [21.8, 16.4], [15.4, 17.4],
+      [22.8, 13.8], [24.0, 17.8], [19.0, 18.2], [25.4, 15.2], [13.6, 18.8], [23.2, 11.4], [26.4, 12.6],
+      [17.0, 20.2], [21.0, 20.4], [11.8, 20.6], [26.8, 18.8],
+    ];
+    const rx = 8.6, ry = 11.4;   // 機兵の位置（向きの目標）
+    for (const [x, y] of sc) {
+      const a = Math.atan2(ry - y, rx - x) + (Math.random() - 0.5) * 0.5;
+      drawEnemy(ctx, enemy('scarab', x, y, a));
+    }
+    // アシッドスピッター（左上）
+    drawEnemy(ctx, enemy('spitter', 3.2, 2.6, Math.atan2(ry - 2.6, rx - 3.2)));
+    drawEnemy(ctx, enemy('spitter', 12.6, 1.4, Math.atan2(ry - 1.4, rx - 12.6)));
+    // ロックトロール（左下から迫る）
+    drawEnemy(ctx, enemy('troll', 2.1, 9.6, Math.atan2(ry - 9.6, rx - 2.1)));
+    // 酸の弾
+    for (const [x, y, vx, vy] of [[5.0, 5.4, 1, 2.2], [11.2, 4.6, -0.5, 2.0], [6.4, 8.2, 1, 2.4]]) {
+      ctx.save(); ctx.translate(x, y);
+      ENEMY_SHOT_ART.acid.draw(ctx, { x, y, vx, vy, r: 0.28 });
+      ctx.restore();
+    }
+    // 撃破した破片と火花
+    for (const [x, y, r] of [[15.4, 13.4, 1.2], [19.4, 8.7, 1.5]]) burst(x, y, r);
+  });
+
+  // ---------------------------------------------------------------- 主役の機兵（少し大きめに描いて手前に見せる）
+  const RS = 2.1;               // 機兵の拡大率
+  const rx = 8.6, ry = 11.4;    // 機兵の位置（背景の世界の座標）
+  const ra = -0.06;             // 向き（右やや上：群れとボスの間）
+  inWorld(1, () => {
+    // 弾の軌跡（ガトリングの曳光弾・ミサイル）
+    // ガトリング（左腕）の砲口の位置
+    const lx = JOINTS.shoulder.x + artOf('arm', 'gatling').muzzle + 0.4, ly = -JOINTS.shoulder.y;
+    const mx = rx + (Math.cos(ra) * lx - Math.sin(ra) * ly) * RS, my = ry + (Math.sin(ra) * lx + Math.cos(ra) * ly) * RS;
+    const aim = ra + 0.03;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 10; i++) {
+      const d = 0.6 + i * 1.15 + Math.random() * 0.5, aa = aim + (Math.random() - 0.5) * 0.12;
+      const x0 = mx + Math.cos(aa) * d, y0 = my + Math.sin(aa) * d;
+      ctx.strokeStyle = 'rgba(255,230,128,0.95)';
+      ctx.lineWidth = 0.13;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + Math.cos(aa) * 0.9, y0 + Math.sin(aa) * 0.9); ctx.stroke();
+    }
+    ctx.restore();
+    // ミサイル（ボスへ）
+    const tgt = [[14.2, 7.2], [15.6, 6.0], [13.0, 5.2]];
+    tgt.forEach(([x, y], i) => {
+      const ang = Math.atan2(6.4 - y, 20.2 - x) + (i - 1) * 0.25;
+      smoke(x, y, ang);
+      drawPShot(ctx, { kind: 'missile', x, y, ang });
+    });
+  });
+
+  // 機兵本体
+  ctx.save();
+  ctx.scale(PX, PX);
+  ctx.translate(rx, ry);
+  ctx.scale(RS, RS);
+  ctx.rotate(ra);
+  const build = { headCpu: 'cpu_x', headReg: 'reg_o', torso: 't_std', armL: 'gatling', armR: 'missile', legs: 'spider' };
+  const parts = {
+    headCpu: partById('headCpu', build.headCpu), headReg: partById('headReg', build.headReg),
+    torso: partById('torso', build.torso), armL: partById('arm', build.armL), armR: partById('arm', build.armR),
+    legs: partById('legs', build.legs),
+  };
+  drawRobot(ctx, parts, { time: 1.2, walk: 3.4, armL: { flash: 1, recoil: 0.4 }, armR: { flash: 0 } });
+  ctx.restore();
+
+  // ---------------------------------------------------------------- 光と影
+  // ボスの赤熱の照り返し
+  let g = ctx.createRadialGradient(W * 0.75, H * 0.22, 0, W * 0.75, H * 0.22, W * 0.55);
+  g.addColorStop(0, 'rgba(255,90,30,0.22)');
+  g.addColorStop(1, 'rgba(255,90,30,0)');
+  ctx.fillStyle = g;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+  // 周辺減光
+  g = ctx.createRadialGradient(W * 0.5, H * 0.45, H * 0.3, W * 0.5, H * 0.5, H * 0.95);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(8,5,3,0.78)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // ---------------------------------------------------------------- タイトル
+  // 下に暗い帯
+  g = ctx.createLinearGradient(0, H * 0.62, 0, H);
+  g.addColorStop(0, 'rgba(12,9,6,0)');
+  g.addColorStop(0.45, 'rgba(12,9,6,0.82)');
+  g.addColorStop(1, 'rgba(12,9,6,0.96)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, H * 0.62, W, H * 0.38);
+
+  const font = '"Yu Gothic UI", "Yu Gothic", "Meiryo", "Hiragino Sans", sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.font = `900 112px ${font}`;
+  const t1 = 'IRON', t2 = 'WASTELAND', gap = 26;
+  const sp = 7;   // 字間
+  const w1 = spacedWidth(t1, sp), w2 = spacedWidth(t2, sp);
+  let x = (W - (w1 + gap + w2)) / 2;
+  const y = H - 160;
+  // 影と光
+  for (const [txt, col, xx] of [[t1, '#ece4d2', x], [t2, '#e8892f', x + w1 + gap]]) {
+    ctx.fillStyle = '#000';
+    spacedText(txt, xx, y + 7, sp);
+    ctx.save();
+    ctx.shadowColor = txt === t2 ? 'rgba(255,120,40,0.55)' : 'rgba(255,200,140,0.25)';
+    ctx.shadowBlur = 34;
+    ctx.fillStyle = col;
+    spacedText(txt, xx, y, sp);
+    ctx.restore();
+  }
+  // 副題（左右に細い線）
+  ctx.font = EN ? `700 33px ${font}` : `700 40px ${font}`;
+  ctx.fillStyle = '#d8ccb2';
+  const sub = EN ? 'WASTELAND MECH CHRONICLES' : '荒野機兵戦記', ssp = EN ? 8 : 22;
+  const sw = spacedWidth(sub, ssp), sx = (W - sw) / 2, sy = y + (EN ? 56 : 58);
+  spacedText(sub, sx, sy, ssp);
+  const lw = w1 + gap + w2;
+  ctx.fillStyle = 'rgba(232,137,47,0.75)';
+  ctx.fillRect(x, sy - 15, sx - 30 - x, 3);
+  ctx.fillRect(sx + sw + 30, sy - 15, x + lw - (sx + sw + 30), 3);
+  // キャッチコピー
+  ctx.font = `600 27px ${font}`;
+  ctx.fillStyle = '#a8977a';
+  const cp = EN ? 'Build your mech. Wire its mind. Beyond the swarm, the king awaits.'
+    : 'パーツを組み、回路を刻め。百の群れの先に、王が待つ。';
+  ctx.textAlign = 'center';
+  ctx.fillText(cp, W / 2, y + 116);
+}
+
+// 字間をあけて文字を並べる
+function spacedWidth(s, sp) {
+  let w = 0;
+  for (const ch of s) w += ctx.measureText(ch).width + sp;
+  return w - sp;
+}
+function spacedText(s, x, y, sp) {
+  for (const ch of s) { ctx.fillText(ch, x, y); x += ctx.measureText(ch).width + sp; }
+}
+
+function drawRock(x, y, r) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(20,12,6,0.35)';
+  ctx.beginPath(); ctx.ellipse(0.25, 0.3, r * 1.05, r * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  const n = 9;
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2, k = r * (0.78 + Math.random() * 0.3);
+    const px = Math.cos(a) * k, py = Math.sin(a) * k * 0.85;
+    i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+  }
+  ctx.closePath();
+  const g = ctx.createLinearGradient(-r, -r, r, r);
+  g.addColorStop(0, '#8d6a46'); g.addColorStop(1, '#4e3722');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = '#2c1d10'; ctx.lineWidth = 0.08; ctx.stroke();
+  ctx.restore();
+}
+
+function smoke(x, y, ang) {
+  for (let i = 1; i <= 7; i++) {
+    const d = i * 0.55, r = 0.14 + i * 0.07;
+    ctx.fillStyle = `rgba(210,200,185,${0.32 - i * 0.04})`;
+    ctx.beginPath(); ctx.arc(x - Math.cos(ang) * d, y - Math.sin(ang) * d, r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function burst(x, y, r) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, 'rgba(255,240,180,0.95)');
+  g.addColorStop(0.35, 'rgba(255,150,50,0.7)');
+  g.addColorStop(1, 'rgba(255,80,20,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,210,120,0.9)';
+  ctx.lineWidth = 0.06;
+  for (let i = 0; i < 10; i++) {
+    const a = Math.random() * Math.PI * 2, d0 = r * 0.4, d1 = r * (0.9 + Math.random() * 0.7);
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * d0, y + Math.sin(a) * d0);
+    ctx.lineTo(x + Math.cos(a) * d1, y + Math.sin(a) * d1); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.fillStyle = '#5a3a22';
+  for (let i = 0; i < 6; i++) {
+    const a = Math.random() * Math.PI * 2, d = r * (0.6 + Math.random() * 0.9);
+    ctx.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 0.16, 0.12);
+  }
+}
+
+try {
+  drawCover();
+} catch (err) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#f44'; ctx.font = '28px sans-serif';
+  ctx.fillText('ERROR: ' + err.message, 20, 50);
+  throw err;
+}
+
+// 保存（630×500 は縮小して書き出す）
+function savePNG(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(cv, 0, 0, w, h);
+  const a = document.createElement('a');
+  a.download = `iron-wasteland-cover${EN ? '-en' : ''}-${w}x${h}.png`;
+  a.href = c.toDataURL('image/png');
+  a.click();
+}
+document.getElementById('save').onclick = () => savePNG(630, 500);
+document.getElementById('save2').onclick = () => savePNG(1260, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "iron-wasteland-tools",
+  "private": true,
+  "description": "tools/record.js（プレイ動画の録画）で使う部品。tools フォルダで npm install する",
+  "dependencies": {
+    "mediabunny": "^1.65.2",
+    "playwright-core": "^1.65.0"
+  }
+}
