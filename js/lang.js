@@ -175,10 +175,10 @@ const TEXT = {
   G021: {
     ja: `<h4>戦闘中の操作</h4>
 <p>ロボットは<b>回路プログラム</b>に従って自律戦闘します。<kbd>Space</kbd> 一時停止（表示の切り替えもここで） / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 速度 ×1・×2・×4 / <kbd>Q</kbd><kbd>E</kbd> 出力配分 / ホイール ズーム / <kbd>BackSpace</kbd> 撤退</p>
-<p><kbd>M</kbd> で手動操作に切替：<kbd>WASD</kbd> 移動（3D と 2D の背後の向きではカメラの向きが前）・マウス照準・左クリック 左腕・右クリック 右腕・<kbd>Shift</kbd> ジャンプ（脚部 強化Lv6以上）</p>`,
+<p><kbd>M</kbd> で回路を切り替え（回路1→2→3→1）：ガレージで組んだ回路1〜3を戦闘中に入れ替えられます。回路ごとに続きから動きます（対戦では切り替えられません）</p>`,
     en: `<h4>Battle Controls</h4>
 <p>The robot fights on its own, following its <b>circuit program</b>. <kbd>Space</kbd> pause (view settings here too) / <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> speed ×1·×2·×4 / <kbd>Q</kbd><kbd>E</kbd> output split / Wheel zoom / <kbd>Backspace</kbd> retreat</p>
-<p><kbd>M</kbd> toggles manual control: <kbd>WASD</kbd> move (forward = camera direction in 3D and the 2D behind view) · mouse aim · left click left arm · right click right arm · <kbd>Shift</kbd> jump (legs upgrade Lv6+)</p>`,
+<p><kbd>M</kbd> switches circuits (1→2→3→1): swap between the circuits 1–3 you built in the garage mid-battle. Each circuit resumes where it left off (not available in versus matches)</p>`,
   },
   G022: { ja: '未接続のタイルがあります', en: 'There are unconnected tiles' },
   G023: { ja: '回路に戻る（N）', en: 'Back to circuit (N)' },
@@ -487,17 +487,16 @@ Ore gained: {txt}{warn}
   B035: { ja: 'リロード中', en: 'Reloading' },
   B036: { ja: 'ジャンプ：跳躍中（無敵）', en: 'Jump: airborne (invincible)' },
   B037: { ja: 'ジャンプ：再使用まで {cd}s', en: 'Jump: cooldown {cd}s' },
-  B038: { ja: 'ジャンプ：準備完了{manual}', en: 'Jump: ready{manual}' },
+  B038: { ja: 'ジャンプ：準備完了', en: 'Jump: ready' },
   B039: { ja: '残敵 {remain} / {perDistrict}', en: 'Hostiles {remain} / {perDistrict}' },
   B040: { ja: '掃討完了', en: 'CLEARED' },
   B041: { ja: '眷属 {remain}', en: 'Brood {remain}' },
   B043: { ja: '（{phase2Name}）', en: ' ({phase2Name})' },
   B044: { ja: '巨大生体反応 接近中', en: 'MASSIVE LIFE SIGN APPROACHING' },
   B045: { ja: '回路モニター {grid}×{grid} @{clock}Hz', en: 'CIRCUIT MONITOR {grid}×{grid} @{clock}Hz' },
-  B046: { ja: '手動操作中', en: 'MANUAL CONTROL' },
   B047: {
-    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]撤退',
-    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Retreat',
+    ja: '[Space]一時停止  [1/2/3]速度  [M]回路切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]撤退',
+    en: '[Space] Pause  [1/2/3] Speed  [M] Switch circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Retreat',
   },
   B048: { ja: 'リロード中', en: 'reloading' },
   B049: {
@@ -517,8 +516,6 @@ Ore gained: {txt}{warn}
   B057: { ja: '次に進みますか？', en: 'Proceed to the next district?' },
   B058: { ja: 'ボス戦へ（Enter）', en: 'Fight the boss (Enter)' },
   B059: { ja: '次の地区へ（Enter）', en: 'Next district (Enter)' },
-  B060: { ja: '制御切替：手動操作', en: 'Control: manual' },
-  B061: { ja: '制御切替：回路プログラム', en: 'Control: circuit program' },
   B062: { ja: '{name} 晶化暴走', en: '{name} — CRYSTAL FRENZY' },
   B065: { ja: '天井の結晶が崩れ落ちてくる！', en: 'Crystals are falling from the ceiling!' },
   B066: { ja: 'ボスが眷属を孵化させた（+6体）', en: 'The boss hatched its brood (+6)' },
@@ -530,17 +527,11 @@ Ore gained: {txt}{warn}
   B072: { ja: '左腕：{name}', en: 'L arm: {name}' },
   B073: { ja: '右腕：{name}', en: 'R arm: {name}' },
   B074: { ja: '速度 {speed} m/s   制御：{mode}', en: 'Speed {speed} m/s   Control: {mode}' },
-  B075: { ja: '手動操作', en: 'manual' },
   B076: { ja: '回路プログラム', en: 'circuit program' },
   B077: { ja: '回収鉱石', en: 'ORE COLLECTED' },
   B078: { ja: '回収鉱石   （フィールドに {n}個）', en: 'ORE COLLECTED   ({n} on the field)' },
   B079: { ja: 'ブースター {n}', en: 'Boosters {n}' },
   B080: { ja: 'ブースター {n}（+{loot}）', en: 'Boosters {n} (+{loot})' },
-  B081: { ja: '手動操作：WASD 移動 / マウス 照準 / 左クリック 左腕 / 右クリック 右腕', en: 'Manual: WASD move / mouse aim / left click left arm / right click right arm' },
-  B082: {
-    ja: '手動操作：WASD 移動 / マウス 照準 / 左クリック 左腕 / 右クリック 右腕 / Shift ジャンプ',
-    en: 'Manual: WASD move / mouse aim / left click left arm / right click right arm / Shift jump',
-  },
   B083: { ja: '左腕 {st}', en: 'L arm {st}' },
   B084: { ja: '右腕 {st}', en: 'R arm {st}' },
   B085: { ja: '残敵 {n}体はボス戦に持ち越し。', en: ({ n }) => `${n} remaining ${n === 1 ? 'enemy carries' : 'enemies carry'} over into the boss fight.` },
@@ -566,8 +557,8 @@ Ore gained: {txt}{warn}
   B104: { ja: '自機：{name}', en: 'YOU: {name}' },
   B105: { ja: '相手の回路 {grid}×{grid} @{clock}Hz', en: 'OPPONENT CIRCUIT {grid}×{grid} @{clock}Hz' },
   B106: {
-    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]降参',
-    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Surrender',
+    ja: '[Space]一時停止  [1/2/3]速度  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]降参',
+    en: '[Space] Pause  [1/2/3] Speed  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Surrender',
   },
   B107: { ja: '電磁柵の収縮まで {t}', en: 'Fence closes in {t}' },
   B108: { ja: '電磁柵 収縮中（半径 {r}m）', en: 'Fence closing (radius {r}m)' },
@@ -602,13 +593,16 @@ Ore gained: {txt}{warn}
   B136: { ja: '結界 収縮中（半径 {r}m）', en: 'Barrier closing (radius {r}m)' },
   B137: { ja: '脈動共鳴：{name} 回路の処理速度×{k}', en: 'Pulse resonance: {name} circuit speed ×{k}' },
   B138: {
-    ja: '[Space]一時停止  [1/2/3]速度  [M]手動/回路 切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]撤退',
-    en: '[Space] Pause  [1/2/3] Speed  [M] Manual/Circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Retreat',
+    ja: '[Space]一時停止  [1/2/3]速度  [M]回路切替  [Q/E]出力配分  [ホイール]ズーム  [X]骨格透過  [BackSpace]撤退',
+    en: '[Space] Pause  [1/2/3] Speed  [M] Switch circuit  [Q/E] Output split  [Wheel] Zoom  [X] X-ray  [Backspace] Retreat',
   },
   B139: { ja: '{name} が脈動に共鳴！ 回路の処理速度×{k}', en: '{name} resonates with the pulse! Circuit speed ×{k}' },
   B140: { ja: '大地が脈動している。{name} の回路が加速した！', en: 'The ground is pulsing. The circuit of {name} has sped up!' },
   B141: { ja: '撤退しますか？ この層の戦いは負けになります。', en: 'Retreat? This floor\'s battle will count as a loss.' },
   B142: { ja: '{name} のレベル：{level}（パーツ強化 Lv{lv}）', en: '{name} level: {level} (parts upgraded to Lv{lv})' },
+  B143: { ja: '回路切替：回路{n}', en: 'Switched to circuit {n}' },
+  B144: { ja: '回路{n} モニター {grid}×{grid} @{clock}Hz', en: 'CIRCUIT {n} MONITOR {grid}×{grid} @{clock}Hz' },
+  B145: { ja: '回路{n}', en: 'CIRC {n}' },
 
   // ---------------------------------------------------------------- R：戦闘レポート
   R001: { ja: '任務完了 — {floor} 制圧・ボス撃破', en: 'Mission Complete — {floor} secured, boss destroyed' },
@@ -738,6 +732,10 @@ Ore gained: {txt}{warn}
   R085: {
     ja: '{level}が解放されました。{floor}「{sub}」の {name} から、ふたたび順に挑みます。',
     en: '{level} is now unlocked. You start again from {floor} "{sub}" against {name} and work your way down.',
+  },
+  R086: {
+    ja: '回路{c}：一度も実行されなかったタイルが {n} 個あります。矢印のつながりを確認してください。',
+    en: ({ c, n }) => `Circuit ${c}: ${n} tile${n === 1 ? ' was' : 's were'} never executed. Check how the arrows connect.`,
   },
 
   // ---------------------------------------------------------------- データ：スロット（スケルトンジョイント）

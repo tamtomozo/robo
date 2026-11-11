@@ -22,16 +22,39 @@ function makeArm(perf, side) {
   return { side, def: perf.def, perf, ammo: perf.def.mag, cd: 0, reloading: 0, trigger: 0, recoil: 0, flash: 0, echo: 0 };
 }
 
-function createPlayer(save) {
-  const st = computeStats(save.build, null, save.upgrades);
+// m = 機体（セーブ、または myMachine などの { build, upgrades, program }）。
+// programs / progSlot があれば回路1〜3をすべて積み、戦闘中に切り替えられる（switchCircuit）。
+//   回路ごとに実行機（CircuitVM）を持ち、切り替えて戻ると前の続きから動く。vm = いま動かしている回路
+function createPlayer(m) {
+  const st = computeStats(m.build, null, m.upgrades);
+  const slot = m.programs ? m.progSlot : 0;
+  const progs = m.programs ? m.programs.map((p, i) => (i === slot ? m.program : p)) : [m.program];
+  const vms = progs.map(p => new CircuitVM(p, st.grid, st.clock));
   return {
     x: 0, y: 0, a: -Math.PI / 2, vx: 0, vy: 0, r: 1.2,
-    build: save.build, upgrades: save.upgrades, st, hp: st.hp, maxHp: st.hp,
+    build: m.build, upgrades: m.upgrades, st, hp: st.hp, maxHp: st.hp,
     action: null, walk: 0, hit: 0, dead: false, hpWarn: 100,
     air: 0, airMax: 0, jvx: 0, jvy: 0, jumpCd: 0,   // ジャンプ：残り滞空時間 / 跳躍速度 / 再使用までの待ち
     arms: { L: makeArm(st.armL, 'L'), R: makeArm(st.armR, 'R') },
-    vm: new CircuitVM(save.program, st.grid, st.clock),
+    vms, slot, slot0: slot, vm: vms[slot],   // slot = いまの回路の番号（0〜）/ slot0 = 出撃時の回路
   };
+}
+
+// 戦闘中に回路を切り替えられるか。対戦では切り替えられない（地底エリアはできる）
+function canSwitchCircuit(w) {
+  return w.player.vms.length > 1 && !(w.vs && !w.abyss);
+}
+
+// 回路を次の番号へ切り替える（回路1→2→3→1。M キー・画面下のボタン）。前の回路の動作（移動・旋回など）は止める
+function switchCircuit(w) {
+  const P = w.player;
+  if (w.result || !canSwitchCircuit(w)) return false;
+  P.slot = (P.slot + 1) % P.vms.length;
+  P.vm = P.vms[P.slot];
+  P.action = null;
+  w.program = P.vm.prog;
+  addLog(w, T('B143' /* 回路切替：回路{n} */, { n: P.slot + 1 }), '#ffd24a');
+  return true;
 }
 
 function setPlayerRatio(w, P, v) {
@@ -400,13 +423,13 @@ function spawnBoss(w) {
 // ---------------------------------------------------------------------
 //  シミュレーション
 // ---------------------------------------------------------------------
-function simulate(w, dt, inp) {
+function simulate(w, dt) {
   w.time += dt;
   if (!w.result) w.act += dt;   // 活動時間（確認ダイアログの間はシミュレーション自体が止まる）
   w.shake = Math.max(0, w.shake - dt * 2.5);
   if (w.banner) { w.banner.t -= dt; if (w.banner.t <= 0) w.banner = null; }
   const P = w.player;
-  if (!w.result) updatePlayer(w, P, dt, inp);
+  if (!w.result) updatePlayer(w, P, dt);
   else { P.vx *= 0.9; P.vy *= 0.9; P.action = null; }
   updatePlayerShots(w, dt);
   updateEnemies(w, dt);
@@ -494,43 +517,25 @@ function clampField(w, o) {
   w.geo.clamp(w, o);
 }
 
-function updatePlayer(w, P, dt, inp) {
+function updatePlayer(w, P, dt) {
   const st = P.st;
-  let thrust = 0, strafe = 0, turn = 0, faceTo = null, manualVel = null;
+  let thrust = 0, strafe = 0, turn = 0, faceTo = null;
   P.jumpCd = Math.max(0, P.jumpCd - dt);
 
-  if (inp.manual) {
-    P.action = null;
-    let mx = (inp.keys.KeyD ? 1 : 0) - (inp.keys.KeyA ? 1 : 0);
-    let my = (inp.keys.KeyS ? 1 : 0) - (inp.keys.KeyW ? 1 : 0);
-    const l = Math.hypot(mx, my);
-    if (l > 0) { mx /= l; my /= l; }
-    // 3D 表示：W = カメラの奥（前進）・A/D = カメラから見た左右（inp.camYaw = カメラの向き）
-    if (inp.camYaw != null) {
-      const fx = Math.cos(inp.camYaw), fy = Math.sin(inp.camYaw);
-      [mx, my] = [mx * -fy - my * fx, mx * fx - my * fy];
+  P.vm.update(dt, P, w);
+  const act = P.action;
+  if (act) {
+    if (act.type === 'move') { thrust = act.thrust; strafe = act.strafe; }
+    else if (act.type === 'turn') turn = act.dir;
+    else if (act.type === 'face') {
+      const n = nearestEnemy(w, P, st.sensor);
+      if (n) {
+        faceTo = Math.atan2(n.e.y - P.y, n.e.x - P.x);
+        if (Math.abs(angDiff(faceTo, P.a)) < 0.03) act.t = 0;
+      } else act.t = 0;
     }
-    manualVel = [mx * st.speed, my * st.speed];
-    if (inp.jump) { inp.jump = false; startJump(w, P, l > 0 ? Math.atan2(my, mx) : P.a); }   // 移動キーの方向（なければ正面）へ
-    if (inp.aim) faceTo = Math.atan2(inp.aim.y - P.y, inp.aim.x - P.x);
-    if (inp.fireL) P.arms.L.trigger = Math.max(P.arms.L.trigger, 0.05);
-    if (inp.fireR) P.arms.R.trigger = Math.max(P.arms.R.trigger, 0.05);
-  } else {
-    P.vm.update(dt, P, w);
-    const act = P.action;
-    if (act) {
-      if (act.type === 'move') { thrust = act.thrust; strafe = act.strafe; }
-      else if (act.type === 'turn') turn = act.dir;
-      else if (act.type === 'face') {
-        const n = nearestEnemy(w, P, st.sensor);
-        if (n) {
-          faceTo = Math.atan2(n.e.y - P.y, n.e.x - P.x);
-          if (Math.abs(angDiff(faceTo, P.a)) < 0.03) act.t = 0;
-        } else act.t = 0;
-      }
-      act.t -= dt;
-      if (act.t <= 0) P.action = null;
-    }
+    act.t -= dt;
+    if (act.t <= 0) P.action = null;
   }
 
   if (faceTo != null) {
@@ -540,13 +545,9 @@ function updatePlayer(w, P, dt, inp) {
     P.a += turn * st.turn * dt;
   }
 
-  let dvx, dvy;
-  if (manualVel) [dvx, dvy] = manualVel;
-  else {
-    const fx = Math.cos(P.a), fy = Math.sin(P.a), rx = -fy, ry = fx;
-    dvx = (fx * thrust + rx * strafe * st.strafe) * st.speed;
-    dvy = (fy * thrust + ry * strafe * st.strafe) * st.speed;
-  }
+  const fx = Math.cos(P.a), fy = Math.sin(P.a), rx = -fy, ry = fx;
+  let dvx = (fx * thrust + rx * strafe * st.strafe) * st.speed;
+  let dvy = (fy * thrust + ry * strafe * st.strafe) * st.speed;
   const air = P.air > 0;
   if (air) {
     // 滞空中は跳躍の勢いのまま進む（移動入力・ノックバック・蜘蛛の巣の影響を受けない）
@@ -1730,11 +1731,11 @@ function drawEnemyBars(ctx, w, place) {
 }
 
 // カメラの向きを機体の向きに遅れてついていかせる（背後からの視点：3D 表示と 2D の背後の向き）。yaw = いまのカメラの向き
-// 少しの向きの変化（狙いの微調整など）では回らない。手動操作中は遊びを広くとる（マウスで狙う向きにカメラが回り続けないように）
-function chaseYaw(yaw, P, manual, dt) {
+// 少しの向きの変化（狙いの微調整など）では回らない
+function chaseYaw(yaw, P, dt) {
   if (yaw == null) return P.a;
   if (P.dead) return yaw;
-  const d = angDiff(P.a, yaw), ex = Math.abs(d) - (manual ? 0.6 : 0.26);
+  const d = angDiff(P.a, yaw), ex = Math.abs(d) - 0.26;
   return ex > 0 ? yaw + Math.sign(d) * Math.min(ex, Math.min(ex * 2.5 + 0.3, 1.8) * dt) : yaw;
 }
 
@@ -2277,8 +2278,15 @@ function drawLogPanel(ctx, w, VW, VH) {
   ctx.globalAlpha = 1;
 }
 
+// 自機の回路モニターの見出し（回路を切り替えられるときは、いまの回路の番号も出す）
+function circuitMonitorTitle(P) {
+  const grid = P.st.grid, clock = fmtNum(P.st.clock);
+  return P.vms.length > 1 ? T('B144' /* 回路{n} モニター {grid}×{grid} @{clo… */, { n: P.slot + 1, grid, clock })
+    : T('B045' /* 回路モニター {grid}×{grid} @{clock}H… */, { grid, clock });
+}
+
 // 機体ステータスの枠（左上 x0, y0 に幅 310）。ジャンプが使える脚なら1行増える → 増えた高さを返す
-function drawMechPanel(ctx, P, x0, y0, title, manual) {
+function drawMechPanel(ctx, P, x0, y0, title) {
   const JP = P.st.jump, jh = JP ? 18 : 0;
   const x = x0 + 8;
   hudPanel(ctx, x0, y0, 310, 172 + jh, title);
@@ -2317,7 +2325,8 @@ function drawMechPanel(ctx, P, x0, y0, title, manual) {
   }
   ctx.fillStyle = '#9fb5a5';
   ctx.fillText(T('B074' /* 速度 {speed} m/s 制御：{mode} */, {
-    speed: Math.hypot(P.vx, P.vy).toFixed(1), mode: manual ? T('B075' /* 手動操作 */) : T('B076' /* 回路プログラム */),
+    speed: Math.hypot(P.vx, P.vy).toFixed(1),
+    mode: P.vms.length > 1 ? T('G147' /* 回路{n} */, { n: P.slot + 1 }) : T('B076' /* 回路プログラム */),
   }), x, y);
   if (JP) {
     y += 18;
@@ -2325,7 +2334,7 @@ function drawMechPanel(ctx, P, x0, y0, title, manual) {
     ctx.fillStyle = air ? '#8fe0ff' : P.jumpCd > 0 ? '#9fb5a5' : '#9fe0b0';
     ctx.fillText(air ? T('B036' /* ジャンプ：跳躍中（無敵） */)
       : P.jumpCd > 0 ? T('B037' /* ジャンプ：再使用まで {cd}s */, { cd: P.jumpCd.toFixed(1) })
-      : T('B038' /* ジャンプ：準備完了{manual} */, { manual: manual ? ' [Shift]' : '' }), x, y);
+      : T('B038' /* ジャンプ：準備完了 */), x, y);
     hudBar(ctx, x + 180, y + 4, 114, 5, air ? 1 : 1 - P.jumpCd / JP.cd, '#8fe0ff');
   }
   return jh;
@@ -2382,7 +2391,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   ctx.textAlign = 'left';
 
   // --- 機体ステータス ---
-  const jh = drawMechPanel(ctx, P, 12, 12, T('B033' /* 機体ステータス [頭部A/B テレメトリ] */), B.manual);
+  const jh = drawMechPanel(ctx, P, 12, 12, T('B033' /* 機体ステータス [頭部A/B テレメトリ] */));
 
   // --- 回収鉱石 ---
   hudPanel(ctx, 12, 190 + jh, 310, 44, w.ores.length ? T('B078' /* 回収鉱石 （フィールドに {n}個） */, { n: w.ores.length }) : T('B077' /* 回収鉱石 */));
@@ -2475,17 +2484,8 @@ function drawHUD(ctx, w, B, VW, VH) {
   const cs = Math.floor(200 / grid);
   const cw = cs * grid;
   const cx = VW - cw - 16, cy = VH - cw - 40;
-  hudPanel(ctx, cx - 8, cy - 26, cw + 16, cw + 34, T('B045' /* 回路モニター {grid}×{grid} @{clock}H… */, { grid, clock: fmtNum(P.st.clock) }));
-  drawCircuit(ctx, w.program, grid, cx, cy, cs, { pc: B.manual ? null : { x: P.vm.x, y: P.vm.y } });
-  if (B.manual) {
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(cx, cy, cw, cw);
-    ctx.fillStyle = '#ffd24a';
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText(T('B046' /* 手動操作中 */), cx + cw / 2, cy + cw / 2 - 8);
-    ctx.textAlign = 'left';
-  }
+  hudPanel(ctx, cx - 8, cy - 26, cw + 16, cw + 34, circuitMonitorTitle(P));
+  drawCircuit(ctx, w.program, grid, cx, cy, cs, { pc: { x: P.vm.x, y: P.vm.y } });
 
   // --- レポートログ ---
   drawLogPanel(ctx, w, VW, VH);
@@ -2494,8 +2494,7 @@ function drawHUD(ctx, w, B, VW, VH) {
   ctx.font = '12px sans-serif';
   ctx.fillStyle = 'rgba(240,230,210,0.8)';
   ctx.textAlign = 'center';
-  if (!B.touchUI) ctx.fillText(T('B047' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
-  if (B.manual) ctx.fillText(P.st.jump ? T('B082' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */) : T('B081' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */), VW / 2, VH - 40);
+  if (!B.touchUI) ctx.fillText(T('B047' /* [Space]一時停止 [1/2/3]速度 [M]回路切替 … */), VW / 2, VH - 22);
   if (B.speed !== 1) {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = '#ffd24a';
@@ -2591,7 +2590,7 @@ function drawMechMini(ctx, P, x0, y0, wd, title, extra = 0) {
     ctx.fillStyle = air ? '#8fe0ff' : P.jumpCd > 0 ? '#9fb5a5' : '#9fe0b0';
     ctx.fillText(clipText(ctx, air ? T('B036' /* ジャンプ：跳躍中（無敵） */)
       : P.jumpCd > 0 ? T('B037' /* ジャンプ：再使用まで {cd}s */, { cd: P.jumpCd.toFixed(1) })
-      : T('B038' /* ジャンプ：準備完了{manual} */, { manual: '' }), iw), x, y);
+      : T('B038' /* ジャンプ：準備完了 */), iw), x, y);
     y += 14;
   }
   return { y, bottom: y0 + h };
@@ -2606,17 +2605,7 @@ function drawCompactBottom(ctx, w, B, VW, VH, prog) {
   const beside = ctl.w + cw + pad * 4 + 8 <= VW;
   const ctlTop = VH - pad - ctl.h - (ctl.h ? pad : 0);
   const cx = VW - pad - 4 - cw, cy = (beside ? VH - pad : ctlTop) - 4 - cw;
-  drawCircuit(ctx, prog, grid, cx, cy, cs, { pc: B.manual ? null : { x: P.vm.x, y: P.vm.y } });
-  if (B.manual) {
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(cx, cy, cw, cw);
-    ctx.fillStyle = '#ffd24a';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    fitFont(ctx, T('B046' /* 手動操作中 */), 12, cw - 4);
-    ctx.fillText(T('B046' /* 手動操作中 */), cx + cw / 2, cy + cw / 2);
-    ctx.textBaseline = 'top';
-  }
+  drawCircuit(ctx, prog, grid, cx, cy, cs, { pc: { x: P.vm.x, y: P.vm.y } });
   // ログ：低い画面では省く。時刻は付けない
   if (VH < 340) return;
   const n = VH > 700 ? 4 : 3, lh = 8 + n * 14;
@@ -2771,8 +2760,6 @@ const Battle = {
     this.world = vs ? createVersusWorld(save, vs.opp, vs.flat) : createWorld(save);
     this.speed = 1;
     this.paused = false;
-    this.manual = false;
-    this.jumpReq = false;   // 手動操作で Shift が押された（次のシミュレーションでジャンプ）
     this.xray = false;
     this.vsMode = !!this.world.vs;   // 1対1（対戦・地底エリア）
     this.zoomK = 1;            // ホイール・ピンチで変えたズームの倍率（1m あたりのピクセル数 zoom は applyZoom で決める）
@@ -2780,13 +2767,11 @@ const Battle = {
     this.yaw2d = null;   // 2D の背後の向きのカメラの向き（null = 機体の向きに合わせる）
     this.camLead = { x: 0, y: 0 };  // 自機の前方へずらすカメラのオフセット（m）
     this.atkHold = 0;               // 攻撃後もしばらく前方を広く見せる残り時間
-    this.keys = {};
-    this.mouse = { x: 0, y: 0, l: false, r: false, inside: false };
     this.acc = 0;
     this.last = performance.now();
+    this.bindCtl();   // 回路の切り替えボタンを出すかどうかで操作ボタンの幅が変わるので、幅を測る resize より先に
     this.resize();
     this.bind();
-    this.bindCtl();
     this.hideConfirm();
     document.getElementById('confirm-yes').onclick = () => this.answerConfirm(true);
     document.getElementById('confirm-no').onclick = () => this.answerConfirm(false);
@@ -2893,6 +2878,7 @@ const Battle = {
   bindCtl() {
     const bar = document.getElementById('battle-ctl');
     bar.querySelector('[data-act=retreat]').textContent = this.vsMode && !this.world.abyss ? T('B113' /* 降参 */) : T('B112' /* 撤退 */);
+    bar.querySelector('[data-act=circuit]').hidden = !canSwitchCircuit(this.world);   // 対戦では回路を切り替えられない
     bar.querySelectorAll('button').forEach(b => {
       b.onclick = () => {
         b.blur();   // 押したボタンにフォーカスが残ると、Space キーでもう一度押されてしまう
@@ -2900,6 +2886,7 @@ const Battle = {
         switch (b.dataset.act) {
           case 'pause': this.paused = !this.paused; Sound.play('pause', { on: this.paused }); break;
           case 'speed': this.speed = this.speed === 1 ? 2 : this.speed === 2 ? 4 : 1; Sound.play('ui'); break;
+          case 'circuit': if (switchCircuit(w)) Sound.play('ui'); break;
           case 'leg': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio - 0.05); break;
           case 'arm': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio + 0.05); break;
           case 'retreat': this.askRetreat(); break;
@@ -2919,11 +2906,12 @@ const Battle = {
     };
   },
 
-  // 一時停止・速度のボタンの表示を今の状態に合わせる
+  // 一時停止・速度・回路のボタンの表示を今の状態に合わせる
   syncCtl() {
     const bar = document.getElementById('battle-ctl');
     bar.querySelector('[data-act=pause]').textContent = this.paused ? '▶' : '❚❚';
     bar.querySelector('[data-act=speed]').textContent = `×${this.speed}`;
+    bar.querySelector('[data-act=circuit]').textContent = T('B145' /* 回路{n} */, { n: this.world.player.slot + 1 });
   },
 
   // 2D の向き：北が上 / 背後（一時停止メニューから。3D は常に背後からの視点）
@@ -2963,11 +2951,7 @@ const Battle = {
 
   bind() {
     this.h = {
-      key: (e) => this.onKey(e, true),
-      keyup: (e) => this.onKey(e, false),
-      move: (e) => { const r = this.canvas.getBoundingClientRect(); this.mouse.x = e.clientX - r.left; this.mouse.y = e.clientY - r.top; },
-      down: (e) => { if (e.button === 0) this.mouse.l = true; if (e.button === 2) this.mouse.r = true; },
-      up: (e) => { if (e.button === 0) this.mouse.l = false; if (e.button === 2) this.mouse.r = false; },
+      key: (e) => this.onKey(e),
       wheel: (e) => { e.preventDefault(); this.setZoomK(this.zoomK * (e.deltaY > 0 ? 0.9 : 1.1)); },
       ctx: (e) => e.preventDefault(),
       resize: () => this.resize(),
@@ -2981,10 +2965,6 @@ const Battle = {
       },
     };
     window.addEventListener('keydown', this.h.key);
-    window.addEventListener('keyup', this.h.keyup);
-    this.canvas.addEventListener('mousemove', this.h.move);
-    this.canvas.addEventListener('mousedown', this.h.down);
-    window.addEventListener('mouseup', this.h.up);
     this.canvas.addEventListener('wheel', this.h.wheel, { passive: false });
     this.canvas.addEventListener('contextmenu', this.h.ctx);
     window.addEventListener('resize', this.h.resize);
@@ -2994,10 +2974,6 @@ const Battle = {
   unbind() {
     if (!this.h) return;
     window.removeEventListener('keydown', this.h.key);
-    window.removeEventListener('keyup', this.h.keyup);
-    this.canvas.removeEventListener('mousemove', this.h.move);
-    this.canvas.removeEventListener('mousedown', this.h.down);
-    window.removeEventListener('mouseup', this.h.up);
     this.canvas.removeEventListener('wheel', this.h.wheel);
     this.canvas.removeEventListener('contextmenu', this.h.ctx);
     window.removeEventListener('resize', this.h.resize);
@@ -3005,9 +2981,7 @@ const Battle = {
     this.h = null;
   },
 
-  onKey(e, down) {
-    this.keys[e.code] = down;
-    if (!down) return;
+  onKey(e) {
     const w = this.world;
     if (this.confirmOpen) {
       if (e.code === 'Enter' || e.code === 'KeyY') this.answerConfirm(true);
@@ -3021,15 +2995,10 @@ const Battle = {
       case 'Digit1': this.speed = 1; Sound.play('ui'); break;
       case 'Digit2': this.speed = 2; Sound.play('ui'); break;
       case 'Digit3': this.speed = 4; Sound.play('ui'); break;
-      case 'KeyM':
-        Sound.play('ui');
-        this.manual = !this.manual;
-        addLog(w, this.manual ? T('B060' /* 制御切替：手動操作 */) : T('B061' /* 制御切替：回路プログラム */), '#ffd24a');
-        break;
+      case 'KeyM': if (switchCircuit(w)) Sound.play('ui'); break;   // 回路1→2→3→1（対戦では切り替えられない）
       case 'KeyQ': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio - 0.05); break;
       case 'KeyE': if (!w.result) setPlayerRatio(w, w.player, w.player.st.ratio + 0.05); break;
       case 'KeyX': this.xray = !this.xray; break;
-      case 'ShiftLeft': case 'ShiftRight': if (this.manual) this.jumpReq = true; break;
       // 撤退は BackSpace。全画面中の Esc はブラウザが全画面の解除に使ってゲームに届かないため（Esc も全画面でなければ使える）
       case 'Backspace': case 'Escape':
         if (!w.result) { if (w.vs) vsEnd(w, 'lose', 'surrender'); else endBattle(w, 'retreat'); }   // 対戦では降参
@@ -3056,26 +3025,6 @@ const Battle = {
     return { x: this.VW / 2 + dx * c - dy * s, y: this.VH / 2 + dx * s + dy * c };
   },
 
-  // 2D：画面の位置（px）→ ワールドの位置（m）
-  toWorld(mx, my) {
-    const r = this.viewRot(), c = Math.cos(r), s = Math.sin(r), z = this.zoom;
-    const dx = (mx - this.VW / 2) / z, dy = (my - this.VH / 2) / z;
-    return { x: this.cam.x + dx * c + dy * s, y: this.cam.y - dx * s + dy * c };
-  },
-
-  input() {
-    return {
-      manual: this.manual,
-      keys: this.keys,
-      // 照準：マウスの下の地点（3D 表示では視線と地面の交点）
-      aim: View3D.on ? View3D.screenToWorld(this.mouse.x, this.mouse.y) : this.toWorld(this.mouse.x, this.mouse.y),
-      camYaw: this.viewYaw(),   // 背後からの視点では移動キーをカメラの向きに合わせる
-      fireL: this.mouse.l,
-      fireR: this.mouse.r,
-      jump: this.jumpReq,
-    };
-  },
-
   loop: (now) => Battle.frame(now),
 
   frame(now) {
@@ -3086,14 +3035,12 @@ const Battle = {
     if (!this.paused && w.phase !== 'confirm') {
       this.acc += dt * this.speed;
       let n = 0;
-      const inp = this.input();
       while (this.acc >= STEP && n < 12 && w.phase !== 'confirm') {
-        if (w.vs) simulateVersus(w, STEP, inp);
-        else simulate(w, STEP, inp);
+        if (w.vs) simulateVersus(w, STEP);
+        else simulate(w, STEP);
         this.acc -= STEP;
         n++;
       }
-      if (n > 0) this.jumpReq = false;   // Shift のジャンプ要求はシミュレーションに渡したら消す
       if (n >= 12 || w.phase === 'confirm') this.acc = 0;
     }
     if (w.phase === 'confirm' && !this.confirmOpen && !w.result) this.showConfirm();
@@ -3110,7 +3057,7 @@ const Battle = {
     let tx, ty;
     if (!View3D.on && View3D.turn2d) {
       // 2D の背後の向き：カメラは機体の向きに遅れて回り、機体を画面の下寄りに置いて前方を広く見せる
-      this.yaw2d = chaseYaw(this.yaw2d, P, this.manual, dt);
+      this.yaw2d = chaseYaw(this.yaw2d, P, dt);
       const lead = this.atkHold > 0 ? 0.42 : 0.3;   // 画面の高さの半分に対する前方オフセット比
       tx = Math.cos(this.yaw2d) * this.VH / 2 / z * lead;
       ty = Math.sin(this.yaw2d) * this.VH / 2 / z * lead;
@@ -3124,9 +3071,9 @@ const Battle = {
     this.camLead.x += (tx - this.camLead.x) * fl;
     this.camLead.y += (ty - this.camLead.y) * fl;
     const f = Math.min(1, dt * 5);
-    // 対戦（回路で戦っているとき）は2機の中間を映す。手動操作中は照準しやすいよう自機を追う
+    // 対戦は2機の中間を映す
     let cx = P.x + this.camLead.x, cy = P.y + this.camLead.y;
-    if (w.vs && !this.manual) { cx = (P.x + w.rival.x) / 2; cy = (P.y + w.rival.y) / 2; }
+    if (w.vs) { cx = (P.x + w.rival.x) / 2; cy = (P.y + w.rival.y) / 2; }
     this.cam.x += (cx - this.cam.x) * f;
     this.cam.y += (cy - this.cam.y) * f;
 

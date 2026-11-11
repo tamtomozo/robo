@@ -3,6 +3,60 @@
 //  戦闘レポート（頭部ユニットが記録した戦闘データ）
 // =====================================================================
 
+// 自機が戦闘で使った回路（実行したステップがあるもの。なければ出撃時の回路）→ [{ n: 回路の番号（0〜）, vm }]
+function usedCircuits(P) {
+  const list = P.vms.map((vm, n) => ({ n, vm })).filter(o => o.vm.steps > 0);
+  return list.length ? list : [{ n: P.slot0, vm: P.vms[P.slot0] }];
+}
+
+// 回路の所見：一度も実行されなかったタイルの数（回路を切り替えて使ったときは回路ごと）
+function circuitNotes(used, grid) {
+  const notes = [];
+  for (const o of used) {
+    let n = 0;
+    for (let y = 0; y < grid; y++) for (let x = 0; x < grid; x++) {
+      const i = y * MAX_GRID + x;
+      if (o.vm.prog[i] && o.vm.counts[i] === 0) n++;
+    }
+    if (n) notes.push(used.length > 1 ? T('R086' /* 回路{c}：一度も実行されなかったタイルが {n} 個ありま… */, { c: o.n + 1, n })
+      : T('R005' /* 一度も実行されなかったタイルが {n} 個あります。矢印のつ… */, { n }));
+  }
+  return notes;
+}
+
+// 回路の実行ステップ数（回路を切り替えて使ったときは回路ごとの内訳も）
+function circuitStepsHTML(used) {
+  const sum = used.reduce((a, o) => a + o.vm.steps, 0);
+  if (used.length < 2) return String(sum);
+  return `${sum}<br><small>${used.map(o => `${T('G147' /* 回路{n} */, { n: o.n + 1 })} ${o.vm.steps}`).join(' / ')}</small>`;
+}
+
+// ヒートマップに出す回路を選ぶボタン（使った回路が2つ以上のときだけ）。はじめは一番多く実行した回路
+function circuitPickHTML(used) {
+  if (used.length < 2) return '';
+  const top = used.reduce((a, o) => (o.vm.steps > a.vm.steps ? o : a));
+  return `<div class="prog-slots rep-circ">${used.map((o, i) =>
+    `<button data-i="${i}" class="${o === top ? 'active' : ''}">${T('G147' /* 回路{n} */, { n: o.n + 1 })}</button>`).join('')}</div>`;
+}
+
+// ヒートマップを描き、回路を選ぶボタン（root の中の .rep-circ）で描き替える
+function drawHeat(cv, root, used, grid, cs) {
+  const ctx = cv.getContext('2d');
+  const draw = o => {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    drawCircuit(ctx, o.vm.prog, grid, 10, 10, cs, { counts: o.vm.counts });
+  };
+  const btns = root.querySelectorAll('.rep-circ button');
+  btns.forEach(b => {
+    b.onclick = () => {
+      btns.forEach(x => x.classList.toggle('active', x === b));
+      draw(used[+b.dataset.i]);
+    };
+  });
+  const sel = root.querySelector('.rep-circ button.active');
+  draw(sel ? used[+sel.dataset.i] : used[0]);
+}
+
 const Report = {
   show(w) {
     Game.show('report');
@@ -25,13 +79,8 @@ const Report = {
 
     // 頭部ユニットの所見
     const notes = [];
-    const prog = w.program, grid = P.st.grid;
-    let unused = 0;
-    for (let y = 0; y < grid; y++) for (let x = 0; x < grid; x++) {
-      const i = y * MAX_GRID + x;
-      if (prog[i] && P.vm.counts[i] === 0) unused++;
-    }
-    if (unused) notes.push(T('R005' /* 一度も実行されなかったタイルが {n} 個あります。矢印のつ… */, { n: unused }));
+    const grid = P.st.grid, used = usedCircuits(P);
+    notes.push(...circuitNotes(used, grid));
     for (const side of ['L', 'R']) {
       const a = P.arms[side];
       if (a.def.type === 'none') continue;
@@ -93,7 +142,7 @@ const Report = {
             <tr><th>${T('R034' /* 被ダメージ */)}</th><td>${Math.round(s.dmgTaken)}</td></tr>
             <tr><th>${T('R035' /* 残りHP */)}</th><td>${Math.ceil(P.hp)} / ${P.maxHp}</td></tr>
             <tr><th>${T('R036' /* 移動距離 */)}</th><td>${Math.round(s.distance)} m</td></tr>
-            <tr><th>${T('R037' /* 回路 実行ステップ数 */)}</th><td>${P.vm.steps}</td></tr>
+            <tr><th>${T('R037' /* 回路 実行ステップ数 */)}</th><td>${circuitStepsHTML(used)}</td></tr>
           </table>
           <h3>${T('R038' /* 武装別 */)}</h3>
           <table class="rep">
@@ -104,6 +153,7 @@ const Report = {
         </div>
         <div class="rep-col">
           <h3>${T('R044' /* 回路 実行ヒートマップ */)}</h3>
+          ${circuitPickHTML(used)}
           <canvas id="rep-heat" width="320" height="320"></canvas>
           <p class="muted">${T('R045' /* 明るいほど多く実行されたタイル */)}</p>
           <h3>${T('R046' /* 頭部ユニット所見 */)}</h3>
@@ -114,10 +164,7 @@ const Report = {
         <button id="rep-garage">${T('R047' /* ガレージへ戻る */)}</button>
         <button id="rep-retry" class="primary">${T('R048' /* 同じ条件で再出撃 */)}</button>
       </div>`;
-    const cv = document.getElementById('rep-heat');
-    const ctx = cv.getContext('2d');
-    const cs = Math.floor(300 / grid);
-    drawCircuit(ctx, prog, grid, 10, 10, cs, { counts: P.vm.counts });
+    drawHeat(document.getElementById('rep-heat'), document.getElementById('report'), used, grid, Math.floor(300 / grid));
     document.getElementById('rep-garage').onclick = () => Game.toGarage();
     document.getElementById('rep-retry').onclick = () => Game.sortie();
   },
@@ -142,13 +189,8 @@ const Report = {
 
     // 自機の回路への所見
     const notes = [];
-    const grid = P.st.grid, prog = P.vm.prog;
-    let unused = 0;
-    for (let y = 0; y < grid; y++) for (let x = 0; x < grid; x++) {
-      const i = y * MAX_GRID + x;
-      if (prog[i] && P.vm.counts[i] === 0) unused++;
-    }
-    if (unused) notes.push(T('R005' /* 一度も実行されなかったタイルが {n} 個あります。矢印のつ… */, { n: unused }));
+    const used = usedCircuits(P);   // 地底エリアでは回路を切り替えて使える
+    notes.push(...circuitNotes(used, P.st.grid));
     for (const side of ['L', 'R']) {
       const a = P.arms[side], s = w.stats;
       if (a.def.type === 'none') continue;
@@ -193,7 +235,7 @@ const Report = {
             ${row(`${T('R042' /* 左腕 */)} / ${T('R040' /* 命中率 */)}`, o => `${partLabel(o.M.arms.L.def)}<br>${acc(o.s, 'L')}`)}
             ${row(`${T('R043' /* 右腕 */)} / ${T('R040' /* 命中率 */)}`, o => `${partLabel(o.M.arms.R.def)}<br>${acc(o.s, 'R')}`)}
             ${row(T('R036' /* 移動距離 */), o => `${Math.round(o.s.distance)} m`)}
-            ${row(T('R037' /* 回路 実行ステップ数 */), o => o.M.vm.steps)}
+            ${row(T('R037' /* 回路 実行ステップ数 */), o => (o.M.rival ? o.M.vm.steps : circuitStepsHTML(used)))}
           </table>
           ${loot}
           <h3>${T('R046' /* 頭部ユニット所見 */)}</h3>
@@ -201,7 +243,7 @@ const Report = {
         </div>
         <div class="rep-col">
           <h3>${T('R044' /* 回路 実行ヒートマップ */)}</h3>
-          <div class="vs-heat">${sides.map((o, i) => `<div><canvas id="rep-heat${i}" width="230" height="230"></canvas><p class="muted">${o.head}：${escHTML(o.name)}</p></div>`).join('')}</div>
+          <div class="vs-heat">${sides.map((o, i) => `<div id="rep-side${i}">${o.M.rival ? '' : circuitPickHTML(used)}<canvas id="rep-heat${i}" width="230" height="230"></canvas><p class="muted">${o.head}：${escHTML(o.name)}</p></div>`).join('')}</div>
           <p class="muted">${T('R045' /* 明るいほど多く実行されたタイル */)}</p>
         </div>
       </div>
@@ -210,8 +252,9 @@ const Report = {
         <button id="rep-retry" class="primary">${A && w.next ? (w.next.floor > A.floor ? T('R080' /* 次の層へ出撃 */) : T('R082' /* 次のレベルへ出撃 */)) : T('R069' /* 再戦 */)}</button>
       </div>`;
     sides.forEach((o, i) => {
-      const g = o.M.st.grid, cs = Math.floor(210 / g);
-      drawCircuit(document.getElementById('rep-heat' + i).getContext('2d'), o.M.vm.prog, g, 10, 10, cs, { counts: o.M.vm.counts });
+      const g = o.M.st.grid;
+      drawHeat(document.getElementById('rep-heat' + i), document.getElementById('rep-side' + i),
+        o.M.rival ? [{ n: 0, vm: o.M.vm }] : used, g, Math.floor(210 / g));
     });
     document.getElementById('rep-garage').onclick = () => Game.toGarage();
     // 地底エリアは出撃（次の層・レベルが解放されていれば、そこが次の出撃先になっている）

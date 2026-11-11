@@ -187,9 +187,7 @@ function vsArenaR(cfg, t) {
   return cfg.r0 + (cfg.rMin - cfg.r0) * k;
 }
 
-const RIVAL_INPUT = { manual: false };
-
-function simulateVersus(w, dt, inp) {
+function simulateVersus(w, dt) {
   w.time += dt;
   w.shake = Math.max(0, w.shake - dt * 2.5);
   if (w.banner) { w.banner.t -= dt; if (w.banner.t <= 0) w.banner = null; }
@@ -203,10 +201,10 @@ function simulateVersus(w, dt, inp) {
   } else if (!w.result) {
     w.vsT += dt;
     w.act = w.vsT;
-    updatePlayer(w, P, dt, inp);
+    updatePlayer(w, P, dt);
     // 地底エリア：脈動中の地底のマシンは回路の処理速度が最大 ×ABYSS.surge（abyss.js）
     if (w.abyss) R.vm.period = 1 / (R.st.clock * abyssSurgeMul(w));
-    updatePlayer(rv, R, dt, RIVAL_INPUT);
+    updatePlayer(rv, R, dt);
     // 相手をセンサーで捉えられていない時間（レポートの所見に使う）
     const d = Math.hypot(P.x - R.x, P.y - R.y);
     if (d - R.r > P.st.sensor) w.stats.lost += dt;
@@ -341,8 +339,8 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
   // 2機のステータス（左上 = 自機、右上 = 相手）
-  drawMechPanel(ctx, P, 12, 12, T('B104' /* 自機：{name} */, { name: w.meName }), B.manual);
-  drawMechPanel(ctx, R, VW - 322, 12, vsFoeTitle(w), false);
+  drawMechPanel(ctx, P, 12, 12, T('B104' /* 自機：{name} */, { name: w.meName }));
+  drawMechPanel(ctx, R, VW - 322, 12, vsFoeTitle(w));
 
   // 上の中央：残り時間と電磁柵
   ctx.textAlign = 'center';
@@ -370,17 +368,7 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
     drawCircuit(ctx, M.vm.prog, grid, cx, cy, cs, { pc });
     return cx - 8;
   };
-  const x1 = mon(P, VW - 16, T('B045' /* 回路モニター {grid}×{grid} @{clock}H… */, { grid: P.st.grid, clock: fmtNum(P.st.clock) }),
-    B.manual ? null : { x: P.vm.x, y: P.vm.y });
-  if (B.manual) {
-    const grid = P.st.grid, cw = Math.floor(180 / grid) * grid;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(VW - 16 - cw, VH - cw - 40, cw, cw);
-    ctx.fillStyle = '#ffd24a';
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText(T('B046' /* 手動操作中 */), VW - 16 - cw / 2, VH - cw / 2 - 48);
-  }
+  const x1 = mon(P, VW - 16, circuitMonitorTitle(P), { x: P.vm.x, y: P.vm.y });
   mon(R, x1 - 12, T('B105' /* 相手の回路 {grid}×{grid} @{clock}Hz */, { grid: R.st.grid, clock: fmtNum(Math.round(1 / R.vm.period * 10) / 10) }), { x: R.vm.x, y: R.vm.y });   // 脈動中は速くなった処理速度
 
   drawLogPanel(ctx, w, VW, VH);
@@ -389,8 +377,7 @@ function drawVersusHUD(ctx, w, B, VW, VH) {
   ctx.font = '12px sans-serif';
   ctx.fillStyle = 'rgba(240,230,210,0.8)';
   ctx.textAlign = 'center';
-  if (!B.touchUI) ctx.fillText(w.abyss ? T('B138' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */) : T('B106' /* [Space]一時停止 [1/2/3]速度 [M]手動/回路… */), VW / 2, VH - 22);
-  if (B.manual) ctx.fillText(P.st.jump ? T('B082' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */) : T('B081' /* 手動操作：WASD 移動 / マウス 照準 / 左クリック … */), VW / 2, VH - 40);
+  if (!B.touchUI) ctx.fillText(w.abyss ? T('B138' /* [Space]一時停止 [1/2/3]速度 [M]回路切替 … */) : T('B106' /* [Space]一時停止 [1/2/3]速度 [Q/E]出力配… */), VW / 2, VH - 22);
   if (B.speed !== 1) {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = '#ffd24a';

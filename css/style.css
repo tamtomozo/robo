@@ -523,6 +523,7 @@ table.rep th { text-align: left; font-weight: normal; color: #b8aa8e; padding: 4
 table.rep td { padding: 4px; border-bottom: 1px solid #3a3226; text-align: right; }
 table.rep tr.sum th, table.rep tr.sum td { color: #ffb050; font-weight: bold; }
 #rep-heat { display: block; margin: 0 auto; }
+.rep-circ { justify-content: center; margin: 0 0 6px; }   /* ヒートマップの回路を選ぶボタン（.prog-slots の見た目） */
 /* 対戦の結果：自機（青）と相手（赤）を並べる */
 table.vs-rep td { width: 38%; }
 table.vs-rep td.me { color: #8ac8ff; }
@@ -629,6 +630,7 @@ table.vs-rep td b { color: #f0c890; }
 }
 .battle-ctl button.arm { color: #ff9a70; }
 .battle-ctl button.leg { color: #7ab8ff; }
+.battle-ctl button.circ { color: #9fe0b0; }
 .battle-ctl button.danger { background: rgba(90,36,32,0.85); }
 /* 操作ボタンを出している戦闘中は、右下の音量パネルを隠す（回路モニターと重なるため） */
 #screen-battle.active:has(.battle-ctl.show) ~ #sound-ctl { display: none; }

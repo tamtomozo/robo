@@ -314,7 +314,7 @@ const View3D = {
 
   // カメラの向き：機体の向きに遅れてついていく（battle.js の chaseYaw。2D の背後の向きと同じ動き）
   updateYaw(w, B, dt) {
-    this.yaw = chaseYaw(this.yaw, w.player, B.manual, dt);
+    this.yaw = chaseYaw(this.yaw, w.player, dt);
   },
 
   // ------------------------------------------------------------ 描画（毎フレーム）
@@ -622,15 +622,6 @@ const View3D = {
   screenPos(x, y, h = this.UNIT_H) {
     const p = new THREE.Vector3(x, h, y).project(this.cam);
     return { x: (p.x + 1) / 2 * this.B.VW, y: (1 - p.y) / 2 * this.B.VH };
-  },
-
-  // 画面の位置の先にある地点（機体の板の高さ UNIT_H の面との交点）
-  screenToWorld(mx, my) {
-    const B = this.B;
-    const o = this.cam.position;
-    const d = new THREE.Vector3(mx / B.VW * 2 - 1, 1 - my / B.VH * 2, 0.5).unproject(this.cam).sub(o).normalize();
-    const t = d.y < -0.02 ? (o.y - this.UNIT_H) / -d.y : 500;
-    return { x: o.x + d.x * t, y: o.z + d.z * t };
   },
 
   // ------------------------------------------------------------ 立体（岩・洞窟の壁・荒野の外の崖）と光

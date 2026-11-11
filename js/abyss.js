@@ -179,7 +179,8 @@ function abyssSurgeMul(w) {
 
 function createAbyssWorld(save, F) {
   const floor = clamp(save.floor[F.id] | 0, 1, ABYSS.floors), M = abyssMech(floor), lv = abyssSelLv(save, M);
-  const me = myMachine(save), foe = abyssMachine(M, lv);
+  // 地底エリアでは戦闘中に回路1〜3を切り替えられる（対戦はできない。battle.js の canSwitchCircuit）
+  const me = Object.assign(myMachine(save), { programs: save.programs, progSlot: save.progSlot }), foe = abyssMachine(M, lv);
   const w = createDuelWorld(F, ABYSS, me, foe);
   const R = w.rival;
   R.hp = R.maxHp = Math.round(R.maxHp * M.hpMul);
