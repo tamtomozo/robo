@@ -161,6 +161,39 @@
   .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
   .note { margin: 16px 0 0; font-size: 13px; color: var(--dim); }
   .note b { color: var(--muted); font-weight: 600; }
+  /* 開発こぼれ話（吹き出し） */
+  .devtalk { margin: 28px 0 0; display: grid; gap: 12px; max-width: 36em; }
+  .talk { display: flex; gap: 14px; align-items: flex-start; }
+  .talk .who {
+    flex: none; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid var(--line); background: var(--panel); font: 700 11.5px/1 var(--latin); letter-spacing: .02em; color: var(--accent);
+  }
+  .devtalk.sec { margin: 26px 0 0; }   /* 各見出しの下に置く吹き出し */
+  .fields + .devtalk, .bosses + .devtalk { margin-top: 32px; }
+  .feat + .devtalk { margin-top: 56px; }
+  .devtalk.lead-talk { margin: 0 0 48px; }   /* セクションの頭（Mech design の前）に置く吹き出し */
+  .bubble {
+    position: relative; margin: 0; padding: 10px 14px 11px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); font-size: 13.5px; line-height: 1.75; color: #d8ccb2;
+  }
+  .bubble::before {   /* 吹き出しのしっぽ */
+    content: ""; position: absolute; left: -7px; top: 18px; width: 12px; height: 12px; background: var(--panel);
+    border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg);
+  }
+  .bubble .k { display: block; font-size: 12px; letter-spacing: .12em; color: var(--accent); margin-bottom: 2px; }
+  .bubble .tx { display: block; }
+  /* たたんだ吹き出し：本文は1行まで。「続きを読む」で全文を出す（JS が動かないときは最初から全文） */
+  .bubble.fold:not(.open) .tx { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; }
+  .bubble .more {
+    display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0; padding: 4px 0; border: 0; background: none; cursor: pointer;
+    font: 600 12.5px/1.4 var(--jp); color: var(--accent);
+  }
+  .bubble .more::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
+  .bubble.open .more::after { transform: translateY(1px) rotate(-135deg); }
+  .bubble .more:hover { text-decoration: underline; }
+  .bubble .more:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .bubble .more[hidden] { display: none; }
+  .bubble.open .more .m, .bubble:not(.open) .more .c { display: none; }
   .art { position: relative; }
   .art img {
     border-radius: 6px; box-shadow: 0 30px 80px rgba(0,0,0,.6);
@@ -409,6 +442,19 @@
 <!-- ============================== 機兵 ============================== -->
 <section id="features">
   <div class="wrap">
+    <!-- 開発こぼれ話：コミット履歴（2026-11-01 の試作版〜11-11）から。数字は git log に合わせる -->
+    <div class="devtalk lead-talk rise" aria-label="Dev notes">
+      <div class="talk">
+        <span class="who" aria-hidden="true">tomozo</span>
+        <p class="bubble">
+          <b class="k"><span class="ja">着想</span><span class="en">The idea</span></b>
+          <span class="tx">
+            <span class="ja">「プラモデルみたいに組んだロボットが、自分の組んだ手順どおりに百の群れと戦う」のを眺めたかった。遊びたいゲームを、そのまま仕様に書きました。</span>
+            <span class="en">I wanted to watch a mech I'd built like a model kit fight a hundred-strong swarm, following steps I'd laid out. So I wrote the game I wanted to play straight into a spec.</span>
+          </span>
+        </p>
+      </div>
+    </div>
     <p class="eyebrow rise">Mech design</p>
     <h2 class="rise"><span class="ja">機兵の<span class="hl">体と頭脳</span>を、あなたが設計する</span><span class="en">You design its <span class="hl">body and mind</span></span></h2>
     <p class="lead rise">
@@ -475,6 +521,19 @@
         </p>
       </div>
     </div>
+    <!-- 開発こぼれ話（9481d58・760ca75・941050a・25c625f・9cd776a・425a8e1） -->
+    <div class="devtalk sec rise">
+      <div class="talk">
+        <span class="who" aria-hidden="true">tomozo</span>
+        <p class="bubble">
+          <b class="k"><span class="ja">組む・刻むの手直し</span><span class="en">Reworking build &amp; program</span></b>
+          <span class="tx">
+            <span class="ja">回路盤には、元に戻す・ドラッグ・つながっていないタイルの消去をあとから足し、回路は3つ保存・ファイル書き出しまで。強化は Lv10 まで伸ばして、Lv6 で武器ごとの特性（キャノン貫通・火炎の射程×2・ブレード威力×3）を。ジャンプの飛び幅も、前・横・後ろで変えました。</span>
+            <span class="en">The circuit board got undo, drag, and clearing of unlinked tiles after the fact — then three save slots and file export. Upgrades went up to Lv10, with weapon traits at Lv6 (piercing cannon, ×2 flame range, ×3 blade damage). Even the jump distance now changes going forward, sideways or back.</span>
+          </span>
+        </p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -504,6 +563,19 @@
         <div class="tag">BOSS · CAVE</div>
         <h3><span class="ja">蒼晶蜘蛛ノクタラクネ</span><span class="en">Noctarachne, the Azure Spider</span></h3>
         <p><span class="ja">大空洞の天井の闇から降りてくる、結晶をまとった巨大蜘蛛。眷属を孵化させ、天井の結晶を降らせる。</span><span class="en">A giant crystal-clad spider that descends from the darkness of the cavern ceiling. It hatches broods and brings ceiling crystals crashing down.</span></p>
+      </div>
+    </div>
+    <!-- 開発こぼれ話（d1f7413・c710a82・2fb016b・000bff0・520d062・089f4d2） -->
+    <div class="devtalk rise">
+      <div class="talk">
+        <span class="who" aria-hidden="true">tomozo</span>
+        <p class="bubble">
+          <b class="k"><span class="ja">群れとボスの手直し</span><span class="en">Tuning the swarm &amp; bosses</span></b>
+          <span class="tx">
+            <span class="ja">ボスには姿を変える激昂と、攻撃前の予備動作を追加。キャノンやミサイルの爆発で群れが押し返されるようにし、ときどき大地が赤く脈打つと敵が最大2倍の速さに。1地区の敵は最低20体にしました。激昂の詳しい説明は、あえて画面に出していません。</span>
+            <span class="en">Bosses gained a rage form and wind-up motions before attacks. Cannon and missile blasts now shove the swarm back, and when the ground pulses red, enemies move up to twice as fast. Every district has at least 20 enemies. And the details of the rage? Deliberately left off the screen.</span>
+          </span>
+        </p>
       </div>
     </div>
   </div>
@@ -540,6 +612,19 @@
         </div>
       </article>
     </div>
+    <!-- 開発こぼれ話（d1f7413・c34983f・9f7a261・520d062・aded11a）。3つ目の戦場の名前は伏せたまま -->
+    <div class="devtalk rise">
+      <div class="talk">
+        <span class="who" aria-hidden="true">tomozo</span>
+        <p class="bubble">
+          <b class="k"><span class="ja">戦場の手直し</span><span class="en">Reworking the fields</span></b>
+          <span class="tx">
+            <span class="ja">最初は荒野だけでした。3日目に円形の洞窟を足し、4地区から3地区に減らしてから、荒野も洞窟も8層まで掘り下げました。3つ目の戦場は、最後の最後に追加したものです。</span>
+            <span class="en">At first there was only the wasteland. The circular cave came on day 3, cut from four districts to three, and then both fields were dug down to eight floors. The third field was among the very last things added.</span>
+          </span>
+        </p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -559,6 +644,19 @@
         <li><span class="ja">「強化・ブースター無効」ルールで、純粋に回路の腕比べも</span><span class="en">An "upgrades and boosters off" rule for a pure test of circuits</span></li>
         <li><span class="ja">相手は20機まで登録でき、戦績も記録される</span><span class="en">Register up to 20 rivals and track your record</span></li>
       </ul>
+      <!-- 開発こぼれ話（941050a・385d9b8・c629330） -->
+      <div class="devtalk sec rise">
+        <div class="talk">
+          <span class="who" aria-hidden="true">tomozo</span>
+          <p class="bubble">
+            <b class="k"><span class="ja">対戦の手直し</span><span class="en">Reworking versus</span></b>
+            <span class="tx">
+              <span class="ja">回路をファイルに書き出せるようにした同じ日に、対戦モードを追加。純粋に回路どうしの勝負にしたいので、戦闘中の回路の切り替えは対戦では使えないようにしました。</span>
+              <span class="en">Versus mode arrived the same day circuits became exportable to files. To keep it a pure contest of circuits, mid-battle circuit switching is disabled in versus.</span>
+            </span>
+          </p>
+        </div>
+      </div>
     </div>
     <button class="shot rise" type="button"><img src="img/versus.webp" width="1280" height="672" loading="lazy" alt="" data-alt-ja="円形の闘技場で向かい合う2機の機兵" data-alt-en="Two mechs facing off in the circular arena"></button>
   </div>
@@ -594,6 +692,19 @@
           <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd><span class="ja">出力配分</span><span class="en">Power distribution</span></dd>
           <dt><kbd>M</kbd></dt><dd><span class="ja">回路の切り替え（回路1→2→3→1。対戦では使えない）</span><span class="en">Switch circuits (1→2→3→1; not in versus matches)</span></dd>
         </dl>
+      </div>
+    </div>
+    <!-- 開発こぼれ話（29b92d1・a502864・3ed58f4・fb15245・1dc6851・9dbcf02・7dcb6c0） -->
+    <div class="devtalk sec rise">
+      <div class="talk">
+        <span class="who" aria-hidden="true">tomozo</span>
+        <p class="bubble">
+          <b class="k"><span class="ja">遊びやすさの手直し</span><span class="en">Making it easier to play</span></b>
+          <span class="tx">
+            <span class="ja">スマホ向けに画面を組み直して戦闘のカメラを引き、重い場面の描画も軽くしました。3D 表示（試作）・日本語／英語の切り替え・暗号化したセーブの書き出しも、遊びながら足していったもの。Web 版は更新がすぐ届くよう、キャッシュ対策も入れています。実はカメラズームも操作できます（マウスホイール／スマホは2本指でつまむ）。</span>
+            <span class="en">The layout was rebuilt for phones, the battle camera pulled back, and heavy scenes made lighter to draw. The 3D view (beta), Japanese/English switching and encrypted save export were all added while playing. The web version also busts its cache so updates arrive right away. And here’s a secret: you can zoom the camera too (mouse wheel, or pinch with two fingers on a phone).</span>
+          </span>
+        </p>
       </div>
     </div>
   </div>
@@ -638,6 +749,32 @@
     },
   };
 
+  // 開発こぼれ話の吹き出し：本文を1行にたたみ、「続きを読む」で全文を出す
+  var bubbles = [].slice.call(document.querySelectorAll('.bubble'));
+  bubbles.forEach(function (bb) {
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'more'; btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = '<span class="m"><span class="ja">続きを読む</span><span class="en">Read more</span></span>' +
+                    '<span class="c"><span class="ja">閉じる</span><span class="en">Show less</span></span>';
+    btn.addEventListener('click', function () {
+      var open = bb.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    bb.appendChild(btn);
+    bb.classList.add('fold');
+  });
+  // 1行に収まる吹き出し（広い画面・言語の切り替えで変わる）には「続きを読む」を出さない
+  function fitBubbles() {
+    bubbles.forEach(function (bb) {
+      if (bb.classList.contains('open')) return;
+      var tx = bb.querySelector('.tx');
+      bb.querySelector('.more').hidden = tx.scrollHeight <= tx.clientHeight + 1;
+    });
+  }
+  var fitTimer = 0;
+  window.addEventListener('resize', function () { clearTimeout(fitTimer); fitTimer = setTimeout(fitBubbles, 150); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitBubbles);
+
   // 言語を画面に反映（文章は CSS で出し分け。ここでは題名・説明・画像の alt・ボタンの状態）
   function apply(l) {
     root.lang = l; root.dataset.lang = l;
@@ -645,6 +782,7 @@
     document.querySelector('meta[name="description"]').content = META[l].desc;
     document.querySelectorAll('img[data-alt-ja]').forEach(function (im) { im.alt = im.dataset['alt' + (l === 'en' ? 'En' : 'Ja')]; });
     document.querySelectorAll('[data-set-lang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.setLang === l)); });
+    fitBubbles();
   }
   apply(root.dataset.lang);
 
